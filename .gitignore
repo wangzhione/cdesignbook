@@ -1,0 +1,35 @@
+# Ignore the uploaded folders
+/*/*/.vs
+/*/*/logs
+/*/*/Debug
+/*/*/Output
+/*/*/Release
+/*/*/*/x64
+/*/*/*/logs
+/*/*/*/Debug
+/*/*/*/Release
+
+# Ignore the uploaded files
+-p
+~*
+*~
+*.db
+*.suo
+*.swp
+*.swo
+*.exe
+*.out
+*.pdb
+*.pch
+*.ilk
+*.log
+*.err
+*.out
+*.obj
+*.idb
+*.TMP
+.*.swo
+*.iobj
+*.ipdb
+*.tlog
+*.opendb
