@@ -247,11 +247,12 @@ typedef void (* signal_f)(int sig);
 // 控制台输出完整的消息提示信息, 其中fmt必须是 "" 包裹的字符串
 // CERR       -> 简单的消息打印
 // CERR_EXIT  -> 输出错误信息, 并推出当前进程
-// CERR_IF    -> if语句检查, 如果符合标准错误直接退出
+// CERR_IF		-> if语句检查, 如果符合标准错误直接退出
 // 
 #ifndef _H_CERR
 #define _H_CERR
 
+#undef	CERR
 #define CERR(fmt, ...) \
 	fprintf(stderr, "[%s:%s:%d][errno %d:%s]" fmt "\n",\
 		__FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
@@ -304,30 +305,31 @@ typedef void (* signal_f)(int sig);
 //
 typedef enum {
 
-	Error_Tout    = -5,	//超时错误
+	Error_Close		= -7,	//文件描述符读取关闭, 读取完毕也会返回这个
+	Error_Empty		= -6,	//返回数据为空
+	Error_Tout		= -5,	//超时错误
 	Error_Fd      = -4,	//文件打开失败
-	Error_Alloc   = -3,	//内存分配错误
-	Error_Param   = -2,	//调用的参数错误
-	Error_Base    = -1,	//错误基类型, 所有错误都可用它, 在不清楚的情况下
+	Error_Alloc		= -3,	//内存分配错误
+	Error_Param		= -2,	//调用的参数错误
+	Error_Base		= -1,	//错误基类型, 所有错误都可用它, 在不清楚的情况下
 
-	Success_Base  = +0,	//结果正确的返回宏
-	Success_Close = +1,	//文件描述符读取关闭, 读取完毕也会返回这个
-	Success_Exist = +2,	//希望存在,设置之前已经存在了.
+	Success_Base	= +0,	//结果正确的返回宏
+	Success_Exist	= +1,	//希望存在,设置之前已经存在了.
 
 } flag_e;
 
 //
 // 定义一些通用的函数指针帮助, 主要用于基库的封装.
 // 有构造函数, 析构函数, 比较函数, 轮询函数 ... 
-// cmp_f    - int cmp(const void * ln, const void * rn); 标准结构
-// each_f   - flag_e <-> int, each循环操作, arg 外部参数, node 内部节点
-// start_f  - pthread 线程启动的辅助函数宏, 方便优化
+// cmp_f	- int cmp(const void * ln, const void * rn); 标准结构
+// each_f	- flag_e <-> int, each循环操作, arg 外部参数, node 内部节点
+// start_f	- pthread 线程启动的辅助函数宏, 方便优化
 //
-typedef int     (* cmp_f  )();
+typedef int		  (* cmp_f  )();
 typedef void *  (* new_f  )();
-typedef void    (* die_f  )(void * node);
-typedef flag_e  (* each_f )(void * node, void * arg);
-typedef void *  (* start_f)(void * arg);
+typedef void	  (* die_f  )(void * node);
+typedef flag_e	(* each_f )(void * node, void * arg);
+typedef void *	(* start_f)(void * arg);
 
 #define _ENUM_FLAG
 #endif // !_ENUM_FLAG
@@ -421,8 +423,7 @@ typedef void *  (* start_f)(void * arg);
 typedef enum {
   ...
 	Success_Base	= +0,	//结果正确的返回宏
-	Success_Close	= +1,	//文件描述符读取关闭, 读取完毕也会返回这个
-	Success_Exist	= +2,	//希望存在,设置之前已经存在了.
+	Success_Exist	= +1,	//希望存在,设置之前已经存在了.
   ...
 } flag_e;
 
