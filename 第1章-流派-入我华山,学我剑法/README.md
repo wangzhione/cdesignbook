@@ -1,14 +1,17 @@
 ### 第1章-流派-入我华山,学我剑法
+
       流派等同于代码范式(套路). 开发中流传已久的范式有 winds武当流派, linux昆仑流派.  
     流派范式层出不穷自成方圆. 本书在昆仑流派的基础上精进. 并且会分析出招的所以然. 
-    眼神决定目标, 套路决定手法. 这里是 C领域, 主要围绕 C范式. 这年头一招鲜吃遍天太无聊了. 
+    眼神决定目标, 套路决定手法. 这里是 C领域, 主要围绕 C范式. 这年头一招鲜吃遍天无聊了. 
     有趣的思路是到了不熟的领域, 第一件事忘记以前知道的, 立即训练需要现在知道的. 特定的
     步伐能让你游刃有余, 百步穿杨. 但不管怎么扯, 一定要求简求美~  
-    本书重点讲解思路和设计, 解读那些被遗忘C的故事. 代码搞不完, 会展示很少的部分充数一哈.
+    本书重点讲解思路和设计, 解读那些被遗忘 C的故事. 代码搞不完, 会展示少的部分充数一哈.
 
 #### 1.1 缘起 main
+
       很久很久以前认识一个被后人称之为 main的函数. 如果要扯它估计能说个几天. 这里只引述
     C11标准中两种规定的写法.
+
 ```C
 The function called at program startup is named main. The implementation declares 
 no prototype for this function. It shall be deﬁned with a return type of int and 
@@ -19,9 +22,11 @@ be used, as they are local to the function in which they are declared):
   int main(int argc, char *argv[]) { /* ... */ }
 or equivalent; or in some other implementation-deﬁned manner.
 ```
+
     以上标准要牢记, 是一切美好的开始. C 的学习历程, 推荐从 Brian W. Kernighan / 
     Dennis M. Ritchie 的 The C Programming Language 起步, 再到C标准文献, 随后看看
     操作系统. 扯皮就搬上面的标准文献, 站在起源山峰中. 此刻希望下面是个好的开头 -_-
+
 ```C
 #include <stdio.h>
 
@@ -32,12 +37,14 @@ int main(int argc, char * argv[]) {
 ```
 
 #### 1.2 括号的布局
+
       C 是个强调细节的语言. 因而在用 C开发的时候都有点小心翼翼. 难接收铺场浪费, 且容易
     在细节处栽跟头. 叶孤城通过一片被剑削过的叶子看出西门吹雪的实力. 同样一个 { } 布局就
     能见证你的起手式. 本门华山剑法 { } 遵循的如下规则和演示
       a ). 左 { 右对齐
       b ). 右 } 上对齐
       c ). 右 } 如果是完整的一段话则另起一行
+
 ```C
 #include <stdbool.h>
 
@@ -53,9 +60,11 @@ if(true) {
   ...
 }
 ```
+
     这里多说一句 for(;;) 和 while(true)最终生成的汇编代码是一样的, 但是推荐前者.
     因为它表达了语法层面美好的愿望, 执行死循环的时候省略一步条件判断.
     对于 if else 为什么这么写, 先看下面对比.
+
 ```C
 if(true)          if(true) {          if(true) {
 {                   ...                 ...
@@ -70,10 +79,12 @@ else              }
 
 }
 ```
+
     第一种写法是 winds推崇的标准. 第三种是 linux上面常见写法. 第二种是两者的一种过渡.
     对于上面三种范式, 都写过好久. 最后基于 C而言, 第二种也可以, 但是这里推荐第三种. 更
     加紧凑飘逸正统! C本身就是个精简的语言, 强调最小意外原则. 第一种直接 pass, 门一旦打
     开了, 就难关上了. 第二种还是有点不极致. 同样对于 switch语句推荐下面写法
+
 ```C
 switch(type) {
 case SufBase:
@@ -87,9 +98,11 @@ default:
     C 中的标签都放在最左边.
 
 #### 1.3 C 中三大战神 - 函数 - 帝释天
+
       面向过程编程两个主旋律就是内存结构和函数封装. C中函数的一个小小的 extern声明都能搞晕
     一批人. C函数分为声明和定义两部分. 华山剑法将其细化为3部分. 声明:确定函数地址; 定义:确
     定函数地址和实现; 声明加定义:确定函数地址加实现还有就是限制作用域.
+
 ```C
 // 1' 函数声明
 extern void hoge(void);
@@ -105,10 +118,12 @@ extern void hoge(void) {
   ...
 }
 ```
+
     上面函数返回值另起一行强调突出函数定义. 在同一行表示声明加定义. 还有一个细节是 hoge(void),
     因为在C中函数声明 void hoge(); 表示的意思是函数 hoge参数是不确定的(__cdecl入栈方式决定的).
     加上 void表示语法层面约束函数参数为空! 
       当我们写库的时候, 下面两个函数声明, 表达的意思就不一样. 华山剑法添加的一种语义.
+
 ```C
 // 显示声明加上 extern
 extern void mem_hello(void);
@@ -116,33 +131,38 @@ extern void mem_hello(void);
 // 缺省声明, 没加 extern, 意图告诉别人, 可以用不推荐用, low level api
 void mem_heoo(void);
 ```
-    二者没啥区别, 但程序猿表达的意图不一样, 前者是外部可以调用. 后者是外部不推荐调用
-    调用的时候需要(小心)了解细节. 当然了如果希望存在inline行为, 由于编译器之间的差异, 声明的时候
-    必须加上extern. 或者声明和定义一块写(常见cl编译器). 当然了 inline 和 register差不了多少, 
-    只是一种意愿表达, 具体看编译器老大'心情'了! 请同学们多实战演练. 函数的套路至关重要.
-      对于 extern还有个相对的关键字 static 特别神奇. 它描述的变量和函数表示文件或函数内私有的. 
+
+    二者没啥区别, 但传达的意图不一样, 前者是外部可以调用. 后者是外部不推荐调用调用的时候需要
+    (小心)了解细节. 当然了如果希望存在inline行为, 由于编译器之间的差异, 声明的时候必须加上
+    extern. 或者声明和定义一块写(常见cl编译器). 当然了 inline 和 register差不了多少, 只是
+    一种意愿表达, 具体看编译器老大'心情'了! 请同学们多实战演练. 函数的套路至关重要.
+      同 extern相对的还有个关键字 static 特别神奇. 它描述的变量和函数表示文件或函数内私有的. 
     请看下面演示代码->
+
 ```C
 static void _heoo(int arr[static 64]) {
   static int _cnt;
   ...
 }
 ```
-    上面精简代码中包含的套路和潜规则剖析如下:
-    a. 第一个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数以下所有范围.
-    b. 看 _heoo 第一个字符 _, 它是一种约束. 来表达这个名字是私有的. C很自由, 所以有点斑驳, 标准可以
-      避免一些混乱. 当然你也可以有更好的策略, 那是后话哈哈. 同样对于上层语言的命名空间, 函数重载,
-      无外乎是在编译层面做的命名映射. 因而在C中通过命名规则可以构建你要要的语法糖的糖衣. 好的命名能够
-      表达很多信息, 例如 _xxx -> 表示私有直接给咱们程序用. __xxx -> 底层库常见写法, 归系统底层用.
-      $xxx -> 也表示私有, 同 _xxx 可应用于宏的局部变量中. 再或者全局变量声明 extern int g_cnt;
-      通过 g_ 开头更加容易区分. 有一条准则, 哪怕用 goto也别用全局变量, 因为谁也不喜欢赤裸裸的开挂.
-    c. [static 64]是 C99新加的语法, 告诉编译器这个"数组"至少有64个单元, 你可以放心优化.
-    d. static int _cnt; 表示声明一个私有的全局变量 _cnt, 属于 _heoo函数域的. 生存周期是全局的.
-    e. 另一个细节是, 生命周期是全局的变量, 默认内存初始化都是以0填充的. = 0 可以不写.
 
-> 这里科普一点 C中 0, 00, 0x0, .0, '\0', '0', "0", NULL, false, EXIT_SUCCESS 是什么鬼!  
+    上面精简代码中包含的套路和潜规则剖析如下:
+    a. 第一个 static表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数以下范围.
+    b. 看 _heoo第一个字符 _, 它是一种约束. 来表达这个名字是私有的. C很自由, 所以有点斑驳, 约束
+       可以避免一些混乱. 当然你也可以有更好的策略, 那是后话哈哈. 同样对于上层语言的命名空间, 函
+       数重载, 无外乎是在编译层面做的命名映射. 因而在C中通过命名规则可以构建你要要的语法糖的糖衣.
+       好的命名能够表达很多信息, 例如 _xxx -> 表示私有直接给咱们程序用. __xxx -> 底层库常见写法,
+      归系统底层用. $xxx -> 也表示私有, 同 _xxx 可应用于宏的局部变量中. 再或者全局变量声明 
+      extern int g_cnt; 通过 g_ 开头更加容易区分. 有一条准则, 哪怕用 goto也别用全局变量, 因为
+      谁也不喜欢赤裸裸的开挂.
+    c. [static 64]是 C99新加的语法, 告诉编译器这个"数组"至少有64个单元, 你可以放心优化.
+    d. static int _cnt; 表示声明一个私有静态变量 _cnt, 属于 _heoo函数域. 生存周期是全局的.
+    e. 另一个细节是, 生命周期是全局的变量, 默认内存初始化都是以0填充的. = 0 是缺省的.
+
+> 科普小细节 C中 0, 00, 0x0, .0, '\0', '0', "0", NULL, false, EXIT_SUCCESS 是什么鬼!  
 
     我们首先看有源码的部分
+
 ```C
 #ifndef NULL
     #ifdef __cplusplus
@@ -162,27 +182,83 @@ static void _heoo(int arr[static 64]) {
 
 #define EXIT_SUCCESS 0
 ```
-    对于C++部分, 争取不讲, 主要围绕C生态部分. 从上可以看出 NULL, false, EXIT_SUCCESS 都是宏.
-    NULL 是个特殊的空指针 (void *)0, 后两个完全一样. 有时候函数退出使用 exit(EXIT_SUCCESS) 或者
-    返回 return EXIT_SUCCESS 是个标准装波写法. 也是本书推荐的 (年少不装一波, 以后还能再雄起吗)
-    前面几种 0, 00, 0x0, .0, '\0' 都是零, 区别在于 00是八进制, 0x是十六进制, '\0' 是字符常量的零.
+
+    关于C++部分, 争取不讲, 主要围绕 C生态部分. 从上可以看出 NULL, false, EXIT_SUCCESS都是宏.
+    NULL是个特殊的空指针 (void *)0, 后两个完全一样. 有时候函数退出使用 exit(EXIT_SUCCESS)或者
+    返回 return EXIT_SUCCESS 是个标准装波写法. 也是本书推荐的 (年少不装, 以后还能再雄起吗).
+    前面几种 0, 00, 0x0, .0, '\0' 都是零, 区别在于 00是八进制, 0x是十六进制, '\0'是字符常量.
     0值都是一样的, 写者想表达出来的语义不同. .0是 double双精度的0, 对于 "0" 是个字符串常量,  
     等同于 char [2] { '0', '\0' } 这里也可以看出来 '0' 和 '\0' 不同字符常量 '0' = (int)48;
     希望大家以后再遇到这些, 能了然于胸, 乘云破雾. 关于函数声明部分总的基调如下:
       a ). 给其它模块用的函数, 推荐 extern声明, 然后定义其实体
-      b ). 只有自己模块用的, 推荐 static声明加定义
-      c ). static 命令推荐 _xxx 开头, 方便一目了然
-    
-> 分享Over, 再赠送个打桩的小技巧. 在协同开发中. 先快速写好接口, 给对接方. 随后来个空实现.
+      b ). 只有自己模块用的, 推荐 static静态(私有)声明加定义
+      c ). 私有变量东东推荐 _xxx 开头, 意图一目了然
 
-#### 1.4 C中三大战神 - 指针 - 达姿·奥利哈刚
-      C中一个很有争议的命题就是一切皆内存. 而指针就是内存的魔法杖. C is free and unsafe. 强调
+> 顺带说说, exit(EXIT_SUCCESS) 没有警告
+
+```C
+// 常在 man手册中看见下面这种代码
+#include <stdlib.h>
+int main(void) {
+  ...
+  exit(EXIT_SUCCESS);
+}
+```
+
+> 你是否好奇[**1' 为啥不 return EXIT_SUCCESS;**] 和 [**2' 而且编译器没有警告**]
+
+    1' 不知道有没有小伙伴踩过坑. exit(EXIT_SUCCESS) 和 return EXIT_SUCCESS操作系统多数情况
+    是相同的. 在 main函数最后 return返回到系统的启动函数中, 会再次执行exit. 这就存在一个执行
+    依赖的问题了, 如果我们的主函数 return了没有触发 exit, 那么二者就不一样. 举例如下
+
+```C
+#include <stdio.h>
+#include <stdlib.h>
+int test(void) {
+  puts("no main heoo");
+  return EXIT_SUCCESS ;
+}
+
+// build : gcc -g -Wall -O2 -nostartfiles --entry=test -o test.exe test.c
+// run   : ./test.exe
+``` 
+
+    经过上面过程程序会崩溃, 因为基础库准备的善后操作执行异常. 这时候 return 替换为 exit就可
+    以解决! 因为直接退出不再走原先定的启动后流程. 这就是为了安全. 有时候直接 exit简单高效.
+
+    2' 为啥没有警告, 通过代码解释如下
+
+```C
+#if defined(__GNUC__) || defined(__clang__)
+    #define NORETURN(fn) fn __attribute__((noreturn))
+#elif defined(_MSC_VER)
+    #define NORETURN(fn) __declspec(noreturn) fn
+#endif
+
+// or 在 C11中, 使用新的关键字 _Noreturn 操作
+
+_Noreturn void suicide() {
+    abort(); // Actually, abort is _Noreturn as well
+}
+
+```
+
+    因为exit 是 '_Noreturn'声明, 永不返回, 因此编译器优化后就不再抛出无返回值警告. 
+    
+
+> 分享Over, 赠送个打桩小技巧. 在协同开发中. 先快速设计好接口给对接方. 随后来个空实现
+
+#### 1.4 C 中三大战神 - 指针 - 达姿·奥利哈刚
+
+      C 中一个有争议的命题是一切皆内存. 而指针就是内存的魔法杖. C is free and unsafe. 强调
+
 **程序员是万能的**
 
-    隐含的一层意思是你的程序你负责. 而这一切都因指针而起, 它无所不能在当前的系统架构的世界里.
-    本小节里我们只表述华山剑法中C指针的写法. 首先看下面小段演示Demo.  
+    隐含的一层意思是你的程序你负责. 而这一切都因指针而起, 它无所不能在当前的系统的世界里.
+    本小节里我们只表述华山剑法中C指针的写法范式. 首先看下面小段演示Demo.  
+
 ```C
-// 第一种传统写法, * 靠右
+// 第一种: 传统写法, * 靠右
 void *piyo, *hoge;
 
 // 函数定义
@@ -191,7 +267,7 @@ free(void *block) {
   ...
 }
 
-// 第二种, * 靠左, 模仿上层语言的类型
+// 第二种: * 靠左, 模仿上层语言的类型
 void* piyo, *hoge;
 
 void*
@@ -199,12 +275,14 @@ free(void* block) {
   ...
 }
 ```
-    发现上面两种写法很不自然, 由于C本身缺陷就不少, 上面两种写法都不完美. 第一种, 函数定义的时候 * 号
-    就不知道改放在那里了. 这种用法比较广, 但也不是最好的选择. 第二种写法, 多数是有过面向对象的编程经验,
-    重温一下C. 这种写法在定义多个变量指针的时候基本就废了.而且本身是变量指针声明, 却被强加指针类型. 
-    这里采用下面写法, 追求自然和美脚本不要停歇!
+
+    可以发现上面两种写法不太统一自然, 由于C本身缺陷就不少, 上面两种写法都不完美. 第一种, 函数定义的
+    时候 * 号就不知道该放在那里了. 这种用法比较广, 但也不是最好的选择. 第二种写法, 多数是有过面向对
+    象的编程经验, 重温一下 C. 这种写法在定义多个变量指针的时候基本就废了. 而且本身是变量指针声明, 却
+    被强幻想成指针类型. 这里采用下面写法, 追求自然和美脚本不要停歇!
+
 ```C
-// 变量声明, * 全部放中间
+// 第三种: 变量声明, * 全部放中间
 void * piyo, * hoge;
 
 void *
@@ -216,13 +294,16 @@ free(void * block) {
 int ** arrs = NULL;
 typedef void (* signal_f)(int sig);
 ```
-    关于指针的范式基调就是如上. 简单扯一点关于C中变量声明. C一共才44个关键字, 推荐命名要短小精干.
-    强烈不推荐, 驼峰规则, 因为在远古时期C是不区分大小写的. 而且C代码不好读懂, 推荐遵从内核源码古法. 
-    命名语义区分用 _ 分隔. C也许不能让你工资高于同行, 但是可以让你在面对大佬的时候看见希望~
 
-#### 1.5 C中三大战神 - 宏 - 封神记·天
-      宏有点疯狂和好用. 但切记能用 inline内联, 就不要用宏! 如果说指针是自由, 那宏就是噩梦. 我们从
-    struct.h 来认识一下这个偏执狂 ->
+    关于指针范式基调主要如上. 简单扯一点关于 C中变量声明. C 一共才44个关键字, 推荐命名要短小精干.
+    强烈不推荐, 驼峰规则, 因为在远古时期 C是不区分大小写的. 而且 C代码不好读懂, 推荐遵从内核源码
+    古法. 命名语义区分用 _ 分隔. C 也许不能让你工资飞高, 但是可以让你在面对大佬的时候看见希望~
+
+#### 1.5 C 中三大战神 - 宏 - 封神记·天
+
+      宏有点疯狂有点好用. 但切记能用 inline内联, 就不要用宏! (目前而言 inline不太好用哈) 如果说
+    指针是自由, 那宏就是噩梦. 我们从 struct.h 来认识一下这个偏执狂 ->
+
 ```C
 #ifndef _H_SIMPLEC_STRUCT
 #define _H_SIMPLEC_STRUCT
@@ -252,17 +333,16 @@ typedef void (* signal_f)(int sig);
 // 控制台输出完整的消息提示信息, 其中fmt必须是 "" 包裹的字符串
 // CERR       -> 简单的消息打印
 // CERR_EXIT  -> 输出错误信息, 并推出当前进程
-// CERR_IF		-> if语句检查, 如果符合标准错误直接退出
+// CERR_IF    -> if语句检查, 如果符合标准错误直接退出
 // 
 #ifndef _H_CERR
 #define _H_CERR
 
 #undef	CERR
 #define CERR(fmt, ...) \
-	fprintf(stderr, "[%s:%s:%d][errno %d:%s]" fmt "\n",\
-		__FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
+	fprintf(stderr, "[%s:%s:%d][%d:%s]" fmt "\n", __FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
 
-#define CERR_EXIT(fmt,...) \
+#define CERR_EXIT(fmt, ...) \
 	CERR(fmt, ##__VA_ARGS__), exit(EXIT_FAILURE)
 
 #define CERR_IF(code) \
@@ -278,9 +358,9 @@ typedef void (* signal_f)(int sig);
 // 
 #define NIL
 #define RETURN(val, fmt, ...) \
-	do {\
-		CERR(fmt, ##__VA_ARGS__);\
-		return val;\
+	do { \
+		CERR(fmt, ##__VA_ARGS__); \
+		return val; \
 	} while(0)
 
 
@@ -305,44 +385,45 @@ typedef void (* signal_f)(int sig);
 
 #ifndef _ENUM_FLAG
 //
-// flag_e - 函数返回值全局状态码
+// int - 函数返回值全局状态码
 // >= 0 标识 Success状态, < 0 标识 Error状态
 //
-typedef enum {
+enum flag {
+	ErrParse    = -8,  //协议解析错误
+	ErrClose    = -7,  //句柄打开失败, 读取完毕也返回这个
+	ErrEmpty    = -6,  //返回数据为空
+	ErrTout     = -5,  //操作超时错误
+	ErrFd       = -4,  //文件打开失败
+	ErrAlloc    = -3,  //内存分配错误
+	ErrParam    = -2,  //输入参数错误
+	ErrBase	    = -1,  //错误基础类型, 所有位置错误都可用它
 
-	Error_Close		= -7,	//文件描述符读取关闭, 读取完毕也会返回这个
-	Error_Empty		= -6,	//返回数据为空
-	Error_Tout		= -5,	//超时错误
-	Error_Fd      = -4,	//文件打开失败
-	Error_Alloc		= -3,	//内存分配错误
-	Error_Param		= -2,	//调用的参数错误
-	Error_Base		= -1,	//错误基类型, 所有错误都可用它, 在不清楚的情况下
-
-	Success_Base	= +0,	//结果正确的返回宏
-	Success_Exist	= +1,	//希望存在,设置之前已经存在了.
-
-} flag_e;
+	SufBase     = +0,  //基础正确类型
+};
 
 //
 // 定义一些通用的函数指针帮助, 主要用于基库的封装.
 // 有构造函数, 析构函数, 比较函数, 轮询函数 ... 
-// cmp_f	- int cmp(const void * ln, const void * rn); 标准结构
-// each_f	- flag_e <-> int, each循环操作, arg 外部参数, node 内部节点
+// icmp_f	- int icmp(const void * ln, const void * rn); 标准结构
+// each_f	- int <-> int, each循环操作, arg 外部参数, node 内部节点
 // start_f	- pthread 线程启动的辅助函数宏, 方便优化
 //
-typedef int		  (* cmp_f  )();
-typedef void *  (* new_f  )();
-typedef void	  (* die_f  )(void * node);
-typedef flag_e	(* each_f )(void * node, void * arg);
-typedef void *	(* start_f)(void * arg);
+typedef int    (* icmp_f )( );
+typedef void * (* vnew_f )( );
+typedef void   (* node_f )(void * node);
+typedef int    (* each_f )(void * node, void * arg);
+typedef void * (* start_f)(void * arg);
 
 #define _ENUM_FLAG
 #endif // !_ENUM_FLAG
 
 #endif // !_H_SIMPLEC_STRUCT
 ```
+
       这里我们主要讲解一下宏的命名准则. 以下对于宏态度的演示, 多感受其中范式
+
 * 克制使用, 要用就要表述最清晰
+
 ```C
 #define _H_SIMPLEC_SCHEAD
 #define _STR_LOGDIR       "logs"
@@ -350,22 +431,28 @@ typedef void *	(* start_f)(void * arg);
 #define _INT_MQ           (1 << 6)
 #define _FLOAT_ZERO       (0.000001f)	
 ```
-    上面是常量的宏命名流式, 统一大写. _ 开头表达'私有', 慎重使用. STR, H, UINT ...一眼看过去就知道
-    其宏常量的类型. 第一个是头文件宏, 采用 _H_[项目名称]_[文件名称] 的命名规范, 防止重复. 还有
-    字符串常量方便宏拼接, 不用加(). 数值常量防止意外拼接一定要加括号. 当你不清楚什么意外的时候, 
-    加括号解决方案是最保险的. 
+
+    上面是常量的宏命名流式, 统一大写. _ 开头表达'私有', 慎重使用. STR, H, UINT ...一眼看过去就
+    知道其宏常量的类型. 第一个是头文件宏, 采用 _H_[项目名称]_[文件名称] 的命名规范, 防止重复. 还
+    有字符串常量方便宏拼接, 不用加(). 数值常量防止意外拼接加括号. 当你不清楚什么意外的时候, 加括
+    号解决方案是最保险的. 
+
 * 函数宏另起一行写, 局部使用宏直接在一行写
+
 ```C
 // 置空操作, v必须是个变量
 #define BZERO(v) \
 	memset(&(v), 0, sizeof(v))
 
- // 添加双引号的宏 
-#define CSTR(a)	_STR(a)
+// 添加双引号的宏
 #define _STR(a) #a
+#define CSTR(a)	_STR(a)
 ```
+
     例如上面, BZERO(v) 可以独立存在, 另起一行加上 \. 对于 _CSTR(a)可以作为一个子语句, 直接一行写.
-* 有些宏, 想被人认为是函数, 那就用写法
+
+* 有些宏, 想被人认为是函数, 那就小写
+
 ```C
 // 下面是依赖GCC编译器实现
 #ifdef __GNUC__
@@ -381,7 +468,7 @@ typedef void *	(* start_f)(void * arg);
 
 #elif _MSC_VER
 
-#include <Windows.h>
+#include <windows.h>
 #define sh_msleep(m) \
     Sleep(m)	
 
@@ -389,9 +476,11 @@ typedef void *	(* start_f)(void * arg);
 	#error "error : Currently only supports the Visual Studio and GCC!"
 #endif    
 ```
-    写的人意图希望 sh_sleep是个'函数', 使用了小写. 对于两个内置宏,  __GNUC__ 是 GCC 编译器自带的,
-    表示当前是使用 GCC 来编译项目. _MSC_VER 表示使用 M$ 的 CL来编译项目. 做为开发人员, 推荐用最新
-    的编译器. 因为活力和新鲜感很有趣, 一次新的尝试说不定就是一次机遇.
+
+    写的人意图希望 sh_sleep是个'函数', 使用了小写. 对于两个内置宏,  __GNUC__ 是 GCC编译器自带的,
+    表示当前是使用 GCC来编译项目. _MSC_VER 表示使用 M$的 CL来编译项目. 做为开发人员, 推荐用最新
+    的编译器. 因为保持活力和新鲜感很有趣, 一次新的尝试说不定就是一次机遇(多数还是坑多...).
+
 > 命名规范简单总结  
 
     a ). 变量命名, 函数命名
@@ -399,40 +488,41 @@ typedef void *	(* start_f)(void * arg);
       -> 全局的使用 g_ 开头(强烈不建议使用全局量, 太污了);
       -> static 声明的, 开头加 _; 
       -> 宏中局部变量使用 $ 开头, 防止变量污染.
+
 ```C
-// 简单的 time时间记录宏
-#ifndef TIME_PRINT
-#define _STR_TIME_PRINT "The current code block running time:%lf seconds\n"
+// 简单的time时间记录宏
 #define TIME_PRINT(code) \
-  do {\
-    clock_t $st, $et;\
-    $st = clock();\
-    code\
-    $et = clock();\
-    printf(_STR_TIME_PRINT, (0.0 + $et - $st) / CLOCKS_PER_SEC);\
-  } while(0)
-#endif // !TIME_PRINT
+	do { \
+		clock_t $st, $et; \
+		$st = clock(); \
+		code \
+		$et = clock(); \
+		printf("The current code block run time:%lf seconds.\n", \
+		 (0.0 + $et - $st) / CLOCKS_PER_SEC); \
+	} while (0)
 ```
+
     b ). 宏命名
       -> 大写, 语义分隔使用 _ ; 
-      -> 宏常量采用 _[类型简写]_[名称]
+      -> 宏私有常量采用 _[类型简写]_[名称]
+      -> 宏对外常量或类型 [类型简写]_[名称]
       -> 文件头宏采用 _H_[项目名称]_[文件名称]
-      -> 常用函数宏大写, 不希望常用函数宏加上前缀 _
-      -> 跨平台相关工作, 且希望被常用, 可以用小写命名
+      -> 跨平台相关工作, 且希望被当成函数使用, 可以用小写命名
 
     c ). 枚举声明, 类型声明
-      C枚举同INT宏常量很同质化, 默认类型 int. 有时候很显得多余, 请用理会下面模式去仿照
+      C 枚举同INT宏常量很同质化, 默认类型 int. 有时候很显得多余, 请用参照下面模式仿照
+
 ```C
 #ifndef _ENUM_FLAG
 
-typedef enum {
+enum flag {
   ...
-	Success_Base	= +0,	//结果正确的返回宏
-	Success_Exist	= +1,	//希望存在,设置之前已经存在了.
+	SufBase   = +0,	//结果正确的返回宏
+	SufExist  = +1,	//希望存在,设置之前已经存在了.
   ...
-} flag_e;
+};
 
-typedef flag_e	(* each_f )(void * node, void * arg);
+typedef int	(* each_f )(void * node, void * arg);
 
 // 定义的字符串类型
 typedef struct tstr * tstr_t;
@@ -441,16 +531,18 @@ typedef struct tstr * tstr_t;
 #endif // !_ENUM_FLAG
 ```
     -> 类型声明 xxxx_[类型缩写], 很直观用于区分. 
-    -> 为了区分枚举和INT宏常量, 枚举采用首字母大写, _ 分隔方式.
+    -> 为了区分枚举和INT宏常量, 枚举采用首字母大写, 驼峰规则, 没有使用 _ 分割.
 
-> 到这里基本把C的华山流派总纲讲的多多少少  
-按照流派(定式)去写, 你会有更多的时间去学心法, 然后再出来构建你自己的独孤九剑.  
-同是不年轻的穷屌丝, 要学会适应, 不流血那就流水. 孙子古法还是博大精深.  
+> 
+到这里基本把 C的华山流派总纲讲的有小些了  
+按照流派范式去写, 你会有更多的时间去学心法, 然后再出来构建你自己的独孤飞箭.  
+同是不年轻的穷屌丝, 要学会适应, 不流血那就流水. 孙子古法一直是博大精深.
+程序猿多看看墨子很贴切  
 
 #### 1.6 修炼剑法自然需要神兵
 
-      万般皆自然, 一通百顺, 但不好真的通了ヾ(๑╹◡╹)ﾉ". 这里的神兵指的是你的编程环境. 
-    硬件方面要是可以的话买最快, 最美, 最便宜的 computer套装. 软件方面, 分下面流派描述
+      万般皆自然, 一通俩顺, 难在真通了ヾ(๑╹◡╹)ﾉ" 需要一定时间. 这里的神兵指的是你的
+    编程环境. 硬件方面要是可以的话买最快, 最美, 最便宜的套装. 软件方面, 分下面流派描述
 
 **winds 武当流派**  
 
@@ -458,11 +550,11 @@ typedef struct tstr * tstr_t;
     b ). Install Best New Visual Studio Enterprise
     c ). Install Best New Visual Studio Code
 
-    学习的时候推荐用最新的环境, 这样躺坑会多, 提升解决新问题的能力, 同样多数新的代表着'改进'. 
-    这里我们多说一点, 没有一款IDE比VS猛. 那怕C++被M$打压了十多年, VC++仍然宇宙中最屌的编辑器
-    (笔者此刻用的是 VS2017). winds的缺陷在于封闭和api的混乱. 导致后期提升艰难.  阻挡了开发
-    人员的持续投入的兴趣. 同样其无敌的IDE, 为其引来无数上层商业应用. 总而言之 winds 比 linux
-    难, 同级别工资比 linux工资低. 服务器开发领域就是是个鸡肋(虽强但不通用, 所以不用)! 
+    学习的时候推荐用最新的环境, 这样躺坑会多, 锻炼的机会也多. 这里多说一点, 没有一款 IDE比
+    VS猛. 那怕 C++被 M$打压了十多年, VC++仍然宇宙中最屌的编辑器(笔者此刻用的是 VS2017). 
+    winds的缺陷在于封闭和 api毫无章法. 导致后期提升艰难.  阻挡了开发人员的持续投入的兴趣. 
+    同样其无敌的IDE, 为其引来无数上层商业应用. 总而言之 winds 比 linux难, 同级别工资比
+    linux工资低. 服务器开发领域就是是个鸡肋(虽强但不通用, 所以不深用)! 
 
 **linux 昆仑流派**  
 
@@ -472,14 +564,15 @@ typedef struct tstr * tstr_t;
     c). Install Best New Xshell
     d). Install Best New GCC, GDB, VIM
 
-    linux 真不错, 简单高效优美. vi gcc make 能够搞定一切. 无数的一手资料, 强大的 man手册.
+    linux 业界标杆, 简单高效优美. vi gcc make 能够搞定一切. 无数的一手资料, 强大的 man手册.
     题外话 APPLE 的系统作为程序开发更加带感. 毕竟是 unix内核, 外观好看. 会 linux平移很轻松.
-    就是作为盗版游戏机难点, 还有其作为服务器性能还是很低的. 有条件同学可以首选.
+    就是做为盗版游戏机难点. 做为服务器开发环境, 有条件同学可以首选.
 
 **你的剑就在前方**  
 
     市面上多数服务器书籍是 GCC弄的, 没啥意思, 同质化严重. 本文主打 Visual Studio CL 搞起. 
-    先将 GCC的一些命令翻译到 VS 上面, 其它的用到时自行 Serach.  
+    先将 GCC的一些命令翻译到 VS 上面, 其它的用到时自行查手册 Serach.  
+
 ```bash
 # gcc -E -> 生成预编译, 调试宏的时候用到. VS上面默认关闭
 (项目)属性 -> 配置属性 -> C/C++ -> 预处理器 -> 生成预处理文件 -> [自行修改]
@@ -500,6 +593,7 @@ typedef struct tstr * tstr_t;
 # ... 多写代码, 多看书, 经验条自然上涨了, 档升级了 ~~~
 
 ```
+
     对于CL编译器, 这里说一下项目经常用的预处理宏和系统库的作用
     -> 预处理器定义
       _DEBUG                          -> Debug 模式标识宏
@@ -510,20 +604,39 @@ typedef struct tstr * tstr_t;
 
     -> 附加依赖库
       ws2_32.lib                      -> Winsock2.h 库使用必须引入的库文件
+    飘逸一点有时候也不在 VS CL中附加依赖库, 直接写成下面这样
 
-    个人感悟, 跨平台是在浪费生命. 有些人单纯的用linux, 顺带配上 apple. 感觉很好, 毕竟越纯粹
-    越强. linux是个回报率很高的平台. 其实想说, 岁月不尽然呀, 学了C/C++ 真是天高地厚不知路长~ 
+```C
+#ifdef _MSC_VER
+
+#include <ws2tcpip.h>
+
+# pragma comment(lib, "ws2_32.lib")
+  WSADATA wsad;
+  WSAStartup(WINSOCK_VERSION, &wsad);
+
+#endif
+```
+
+    个人感悟, 跨平台是在浪费生命. 有些人单纯的用 linux, 顺带配上 apple. 感觉很好, 毕竟越纯
+    粹越强. linux是个回报率很高的平台. 但是学了C/C++ 真是天高地厚不知路长~ 岁月不尽然呀...  
 
 #### 1.7 夜太黑正是练剑的好时光
+
       上面聊的有些多, 很多细节需要自己亲身建构. 回想起13年看<<自制编程语言>>那本书, 惊为天人.
-    感觉作者实力好强. 因为看不明白, 强行撸, 狂看最好懂了点, 收益良多. 在编程的世界里, 不需要啥,
-    只要wo are正在舞剑! 
-      如果咱们一样只是为了, 更好的活下去. 那么学起来就更随意了, 君子当善假于物! 熟悉工具, 帮人
-    实现梦想, 就成了~ 然后回家开个水果店挺好的.
-    如果你没有对象, 那就使劲打代码
-    如果你实在无聊, 那就跑步加看书
-    如果你还不甘心, 那就呵呵闷闷哒
-    最后推荐一首喜欢的诗人的歌
+    感觉作者实力好强. 因为看不明白, 强行撸, 狂看最后懂了点, 收益良多(也都忘了). 在编程的世界里, 
+    不需要啥, 只要 wo are 正在舞剑! 
+      如果咱们一样只是为了, 更好的生存和活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具, 
+    帮人实现梦想, 就成了~ 然后回家开个水果店挺好的.
+
+如果你没有对象, 那就使劲打代码
+
+如果你实在无聊, 那就跑步加看书
+
+如果你还不甘心, 那就呵呵闷闷哒
+
+> 最后推荐一首喜欢的小诗
+
 ***
     <<也许>> 
     - 汪国真
@@ -540,6 +653,9 @@ typedef struct tstr * tstr_t;
     饱经沧桑的心
     和满脸风霜
 ***
+
 *练剑的你, 终于有一天将满身是坑* --<-<-<@
+
 ***
+
 ![笑傲江湖](img/笑傲江湖.jpg)
