@@ -1,14 +1,13 @@
 # Ignore the uploaded folders
-/*/*/.vs
-/*/*/logs
-/*/*/Debug
-/*/*/Output
-/*/*/Release
-/*/*/*/x64
-/*/*/*/logs
-/*/*/*/Debug
-/*/*/*/Release
-/.vscode
+logs/
+Output/
+
+# Ignore the project uploaded folders
+.vs/
+x64/
+Debug/
+.vscode/
+Release/
 
 # Ignore the uploaded files
 -p
