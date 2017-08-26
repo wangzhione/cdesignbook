@@ -1554,8 +1554,8 @@ sco_yield(scomng_t sco) {
 #define _INT_MONOFFSET		(1)
 
 // 秒到毫秒|毫秒到微秒, 毫秒到纳秒|秒到微秒 
-#define _INT_STOMS			(1000)
-#define _INT_MSTONS			(1000000)
+#define _INT_STOMS      	(1000)
+#define _INT_MSTONS     	(1000000)
 
 #ifdef __GNUC__
 
