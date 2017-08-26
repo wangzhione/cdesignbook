@@ -38,9 +38,9 @@ static int _a = 0;
  */
 ```
 
-    上面就会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象 _a最终没有预期的大.
-    如何避免上面问题呢. 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 
-	用 CPU原子指令的封装. 说白了用编译器提供这方面基础功能, 让我们实现原子相加. 
+    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象 _a最终没有预期的
+	大. 如何避免上面问题呢. 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作
+	. 用 CPU原子指令的封装. 说白了用编译器提供这方面基础功能, 让我们实现原子相加. 
 	例如 GCC就提供不少像下面这种指令.  
 
 ```C
@@ -64,14 +64,14 @@ bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 // v &= a; return v;
 #define ATOM_AND(v, a)		__sync_and_and_fetch(&(v), (a))
 // return ++v;
-#define ATOM_INC(v)			__sync_add_and_fetch(&(v), 1)
+#define ATOM_INC(v) 		__sync_add_and_fetch(&(v), 1)
 // return --v;
-#define ATOM_DEC(v)			__sync_sub_and_fetch(&(v), 1)
+#define ATOM_DEC(v) 		__sync_sub_and_fetch(&(v), 1)
 // bool b = v == c; b ? v=a : ; return b;
 #define ATOM_CAS(v, c, a)	__sync_bool_compare_and_swap(&(v), (c), (a))
 
  // 保证代码不乱序
-#define ATOM_SYNC()			__sync_synchronize()
+#define ATOM_SYNC() 		__sync_synchronize()
 
 // 对ATOM_LOCK 解锁, 当然 直接调用相当于 v = 0;
 #define ATOM_UNLOCK(v)		__sync_lock_release(&(v))
@@ -108,8 +108,8 @@ scatom.h
 #define ATOM_ADD(v, a)		InterlockedAdd((LONG volatile *)&(v), (LONG)(a))
 #define ATOM_SET(v, a)		InterlockedExchange((LONG volatile *)&(v), (LONG)(a))
 #define ATOM_AND(v, a)		InterlockedAnd((LONG volatile *)&(v), (LONG)(a))
-#define ATOM_INC(v)			InterlockedIncrement((LONG volatile *)&(v))
-#define ATOM_DEC(v)			InterlockedDecrement((LONG volatile *)&(v))
+#define ATOM_INC(v) 		InterlockedIncrement((LONG volatile *)&(v))
+#define ATOM_DEC(v) 		InterlockedDecrement((LONG volatile *)&(v))
 //
 // 对于 InterlockedCompareExchange(v, c, a) 等价于下面
 // long tmp = v ; v == a ? v = c : ; return tmp;
@@ -122,7 +122,7 @@ scatom.h
 #pragma warning(pop)
 
 // 保证代码不乱序优化后执行
-#define ATOM_SYNC()			MemoryBarrier()
+#define ATOM_SYNC() 		MemoryBarrier()
 
 #define ATOM_UNLOCK(v)		ATOM_SET(v, 0)
 
@@ -136,14 +136,14 @@ scatom.h
 // v &= a; return v;
 #define ATOM_AND(v, a)		__sync_and_and_fetch(&(v), (a))
 // return ++v;
-#define ATOM_INC(v)			__sync_add_and_fetch(&(v), 1)
+#define ATOM_INC(v) 		__sync_add_and_fetch(&(v), 1)
 // return --v;
-#define ATOM_DEC(v)			__sync_sub_and_fetch(&(v), 1)
+#define ATOM_DEC(v) 		__sync_sub_and_fetch(&(v), 1)
 // bool b = v == c; b ? v=a : ; return b;
 #define ATOM_CAS(v, c, a)	__sync_bool_compare_and_swap(&(v), (c), (a))
 
  // 保证代码不乱序
-#define ATOM_SYNC()			__sync_synchronize()
+#define ATOM_SYNC() 		__sync_synchronize()
 
 // 对ATOM_LOCK 解锁, 当然 直接调用相当于 v = 0;
 #define ATOM_UNLOCK(v)		__sync_lock_release(&(v))
@@ -478,12 +478,14 @@ treads(struct rwarg * arg) {
 
 	读写锁有3个特征:
 
-　　	1.当读写锁是写加锁状态时，
-			在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
-　　	2.当读写锁在读加锁状态时，
-			再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
-　　	3.当读写锁在读加锁状态时，
-			如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
+	1'. 当读写锁是写加锁状态时，
+	    在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
+
+	2'. 当读写锁在读加锁状态时，
+	    再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
+
+	3'. 当读写锁在读加锁状态时，
+	    如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
 
     从上面表述可以看出, pthread的线程库对于第三个特征没有完成. 默认还是平等竞争. 
 	3' 默认写锁优先级高于读锁, 对其有遏制效果. 
@@ -647,7 +649,7 @@ rwlock_unwlock(struct rwlock * lock) {
 
 ![进化](./img/进化.jpg)
 
-    '类比协程进化史' if .. else / switch -> goto -> setjmp / logjump -> coroutine -> .......
+    '类比协程进化史' if .. else / switch -> goto -> setjmp / logjump -> coroutine -<
     协程开发是串行程序开发中构建异步效果的开发模型.
 
 #### 3.4.2 协程库储备, winds 部分
@@ -785,8 +787,8 @@ int main(int argc, char * argv[]) {
 
 #### 3.4.3 协程储备, linux 部分
 
-    winds 纤程出现的本源来自于 unix. 而一脉而下的 linux也一定有这类机制. 它有个更贴切的
-    称呼叫做上下文. ucp 上下文记录跳转机制, 翻译其中用的 api 手册如下:
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux也有这类机制. 自己称之为上下
+	文 ucp 对象, 上下文记录跳转机制. 翻译了些高频率用的 api 手册如下:
 
 ```C
 #include <ucontext.h>
@@ -810,7 +812,7 @@ int setcontext(const ucontext_t * ucp);
  * ucp      : 待设置的上下文对象
  * func     : 新上下文执行函数体, 其实gcc认为声明是void * func(void)
  * argc     : func 函数参数个数
- * ...      : 传入func中的参数, 默认都是 int类型
+ * ...      : 传入func中的可变参数, 默认都是 int类型
  */
 void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
 
@@ -820,10 +822,10 @@ void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
  * ucp        : 执行的上下文对象
  *            : 失败返回-1, 成功不返回
  */
-int swapcontext (ucontext_t * oucp, ucontext_t * ucp);
+int swapcontext (ucontext_t * ucp, ucontext_t * ucp);
 ```
 
-    相比window fiber确实很清爽. 扩充一下, 关于ucontext_t 一种结构实现
+    相比 winds fiber确实很清爽. 扩充一下 ucontext_t 一种实现结构
 
 ```C
 /* Userlevel context.  */
@@ -845,7 +847,7 @@ typedef struct sigaltstack {
 ```
 
     上面加了中文注释的部分, 就是我们开发中需要用到的几个字段. 设置执行顺序, 指定当前上下文
-    堆栈信息. 有了这些知识, 我们在linux上练练手, 演示一下结果
+    堆栈信息. 有了这些知识, 我们在 linux上练练手, 演示一下结果:
 
 ```C
 #include <stdio.h>
@@ -918,15 +920,15 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    linux 接口很自然, 执行流程很清晰. (上面也可以深入封装) 结果如下
+    linux 接口很自然, 执行流程很清晰. (上面也可以深入封装, 去掉重复过程) 最终结果如下
 
 ![ucontext](./img/ucontext.png)
 
-    很多时候我们写代码, 或者说在模仿代码的时候. 花点心思 -> 就是突破.
+    很多时候我们写代码, 或者说在模仿代码的时候. 花点心思 也许 就是突破.
 
 #### 3.4.4 一切就绪, 那就开始协程设计吧
 
-    关于协程的设计相对简单点. 主要围绕打开关闭创建切换阻塞等.
+    关于协程的设计主要围绕打开关闭创建切换阻塞几个操作
 
 ```C
 #ifndef _H_SIMPLEC_SCOROUTINE
@@ -949,7 +951,7 @@ typedef void (* sco_f)(scomng_t sco, void * arg);
 
 //
 // sco_open - 开启协程系统函数, 并返回创建的协程管理器
-//			: 返回创建的协程对象
+// return	: 返回创建的协程对象
 //
 extern scomng_t sco_open(void);
 
@@ -985,14 +987,14 @@ extern void sco_yield(scomng_t sco);
 // sco_status - 得到当前协程状态
 // sco		: 协程系统管理器
 // id		: 协程id
-//			: 返回 _SCO_* 相关的协程状态信息
+// return	: 返回 _SCO_* 相关的协程状态信息
 //
 extern int sco_status(scomng_t sco, int id);
 
 //
 // sco_running - 当前协程系统中运行的协程id
 // sco		: 协程系统管理器
-//			: 返回 < 0 表示没有协程在运行
+// return	: 返回 < 0 表示没有协程在运行
 //
 extern int sco_running(scomng_t sco);
 
@@ -1041,7 +1043,6 @@ static void _test(void * sco) {
 // 测试主函数, 主要测试协程使用
 //
 int main(void) {
-
 	scomng_t sco = sco_open();
 
 	puts("--------------------突然想起了什么,--------------------\n");
@@ -1058,16 +1059,19 @@ int main(void) {
 }
 ```
 
-    不妨提前剧透结果, 也能通过 执行流程分析出来主要就是 resume 和 yield来回切.
+    不妨提前剧透结果, 也能通过执行流程分析出来主要就是 resume 和 yield 来回切:
 
 ![协程测试结果](./img/协程测试结果.png)
 
-    扯一点我们这里用了个 (sco_f)_foo 编译时替换运行时 struct args * as = arg 更快些.
+    扯一点, 这里用了个 (sco_f)_foo 编译时替换运行时 struct args * as = arg 更快些.
+	当然也可以通过宏伪造函数
 
 #### 3.4.5 协程库的初步实现
 
-    讲的有点琐碎, 主要通过代码布局感受作者意图. 因为协程库实现总思路其实就是 winds实现一份,
-    liunx 实现一份. 如何蹂在一起呢, 看下面布局 scoroutine.c
+    讲的有点琐碎, 主要还是需要通过代码布局感受作者意图. 这里协程库实现总思路是 winds
+	实现一份, liunx 实现一份. 如何蹂在一起, 请看下面布局
+
+scoroutine.c
 
 ```C
 // Compiler Foreplay
@@ -1090,7 +1094,7 @@ int main(void) {
 // sco_status - 得到当前协程状态
 // sco		: 协程系统管理器
 // id		: 协程id
-//			: 返回 _SCO_* 相关的协程状态信息
+// return	: 返回 SCO_* 相关的协程状态信息
 //
 inline int
 sco_status(scomng_t sco, int id) {
@@ -1101,7 +1105,7 @@ sco_status(scomng_t sco, int id) {
 //
 // sco_running - 当前协程系统中运行的协程id
 // sco		: 协程系统管理器
-//			: 返回 < 0 表示没有协程在运行
+// return	: 返回 < 0 表示没有协程在运行
 //
 inline int
 sco_running(scomng_t sco) {
@@ -1109,15 +1113,15 @@ sco_running(scomng_t sco) {
 }
 ```
 
-    多说无益. 统一了每个协程栈大小, 协程数量等基础共性. 不同平台不同文件对映. 使用了 $
-    符号表示当前头文件是私有头文件, 局部的. 以前流传喜欢用 - 符号. 缺陷是 - 符号不可以
-    在 .h 和 .c 文件中识别出来. 为了和谐统一用 $ 替代了 - .
-    随后我们逐个分析协程库的不同平台的实现部分~
+    多说无益. 上面数值宏统一了每个协程栈大小, 协程数量等基础共性. 不同平台不同局部实现文件
+	对映. 使用了 $ 符号表示当前头文件是私有头文件, 局部的. 以前流传用 - 符号. 缺陷是 - 符
+	号不可以在 .h 和 .c 文件中识别出来. 为了和谐统一巧妙(or Sha bi)用 $ 替代了 - .
+    开始了, 下面逐个分析协程库的不同平台的实现部分~
 
 #### 3.4.5 scoroutine$winds.h
 
-    有点这种框架基础库方面设计, 懂了好懂, 不懂有点难受, 难受机会就哎呦喂. 都在吹, 其实
-    很简单. 先从结构设计入手
+    对于这种框架基础库方面设计, 懂了好懂, 不懂有点难受. 难受就是进步的契机. 功法修炼还是循序
+	渐进, 先从设计结构入手
 
 ```C
 #if !defined(_H_SIMPLEC_SCOROUTINE$WINDS) && defined(_MSC_VER)
@@ -1163,13 +1167,13 @@ static inline void _sco_delete(struct sco * co) {
 #endif // !_H_SIMPLEC_SCOROUTINE$WINDS
 ```
 
-    SCO_READY 表示准备状态, 协程管理器内部也维护了一个简易状态机. 方便记录当前协程是
-    啥状况. 大体可以总结为这样
-　　  co_create   -> CS_Ready
-　　  co_resume   -> CS_Running
-　　  co_yield    -> CS_Suspend
-    协程运行完毕就是 CS_Dead. 主协程默认一直运行不参与状态变化中. 协调控制所有子协程.
-    随后就是线程中开启协程和关闭协程
+    SCO_READY 表示准备状态, 协程管理器内部维护了一个简易状态机. 方便记录当前协程是啥状况.
+	大体可以总结为这样
+		co_create   -> CS_Ready
+		co_resume   -> CS_Running
+		co_yield    -> CS_Suspend
+    协程运行完毕后就是 CS_Dead. 主协程默认一直运行不参与状态切换中. 协调控制所有子协程.
+    最后就是线程中开启协程和关闭协程操作:
 
 ```C
 inline scomng_t
@@ -1256,9 +1260,9 @@ sco_yield(scomng_t sco) {
 }
 ```
 
-    上面是创建一个协程和挂起协程将操作顺序交给主协程. 随后构建最重要的一环激活协程
-    comng::cos 中保存所有的协程对象, 不够就realloc, 够直接返回. 其中查询不是用的
-    协程对象思路就是, 循环查找. 协程之间的跳转采用 先记录当前环境, 后跳转思路.
+    以上是创建一个协程和挂起协程将操作顺序交给主协程. 随后构建最重要的一环激活协程.
+    comng::cos 中保存所有的协程对象, 不够就 realloc, 够直接返回. 其中查询用的协程
+	对象循环查找. 协程之间的跳转采用先记录当前环境, 后跳转思路.
 
 ```C
 static inline VOID WINAPI _sco_main(struct scomng * comng) {
@@ -1312,11 +1316,12 @@ sco_resume(scomng_t sco, int id) {
 }
 ```
 
-    到这里关于 winds部分实现协程的功能基本都已经完稿了. 就是数据结构和系统接口的一套杂糅.
+    关于 winds部分实现协程的功能基本都稿完了. 就是数据结构和系统接口的一套杂糅.
+	重点看围绕状态切换那些部分~
 
 #### 3.4.6 scoroutine$linux.h
 
-    关于 linux部分封装, 相比 winds只是多了写操作细节. 特别是关于栈的那一块
+    关于 linux部分封装, 相比 winds只是多了写操作细节. 主要理解状态切换的那块
 
 ```C
 #if !defined(_H_SIMPLEC_SCOROUTINE$LINUX) && defined(__GNUC__)
@@ -1520,22 +1525,22 @@ sco_yield(scomng_t sco) {
 #endif // !_H_SIMPLEC_SCOROUTINE$LINUX
 ```
 
-    这里需要注意的几点就是 makecontext 默认可变参数全是 int 类型, 所以兼容 x64指针拆分下.
-    当我们更 sco_yield 的时候需要保存当前阻塞的栈状态 _sco_savestack. 方便恢复.
-    这里疯狂贴代码, 但愿下次不会了, 逼近跨平台代码很多是否都是粗暴解决. 宏分支.
-    随后赠送个操作时间模块的代码, 做为这个金丹功法的额外赠送. 扯一点程序员世界看数据结构和
-    操作系统, 同样自然世界看得是
+    需要注意的几点就是 makecontext 默认可变参数全是 int 类型, 所以注意 x64指针拆分.
+    当我们要 sco_yield 的时候需要保存当前阻塞的栈状态 _sco_savestack, 方便恢复.
+    目前疯狂贴代码, 但愿下次不会了, 毕竟跨平台代码很多时候都是粗暴通过宏分支解决.
+    后面赠送个 time 时间模块的代码, 做为这个金丹功法的额外赠送. 重复一下下: 
+	程序员世界看数据结构和操作系统, 同样自然世界看得是
 
-```Math
-All knowledge is, in final analysis, history.
-All sciences are, in the abstract, mathematics.
-All judgements are, in their rationale, statistics.
-```
+*All knowledge is, in final analysis, history.*
+
+*All sciences are, in the abstract, mathematics.*
+
+*All judgements are, in their rationale, statistics.*
 
 ### 3.5 高效的时间业务库
 
-    一个底层库那么一定有它. 时间帮助库, 很简单同样很基础. 例如业务常见字符串和时间戳来回转.
-    是否同一天, 同一周什么鬼. 那么阅读理解开始了
+    底层库一定会有它, 时间业务帮助库. 简单基础必须. 例如业务常见字符串和时间戳来回转.
+    是否同一天, 同一周, 时间开始点什么鬼. 那么阅读理解开始
 
 ```C
 #ifndef _H_SIMPLEC_SCTIMEUTIL
@@ -1579,7 +1584,7 @@ All judgements are, in their rationale, statistics.
  * 返回当前得到的时间结构体, 高仿linux上调用
  * pt	: const time_t * , 输入的时间戳指针
  * ptm	: struct tm * , 输出的时间结构体
- *		: 返回 ptm 值
+ *  	: 返回 ptm 值
  */
 #define localtime_r(pt, ptm) localtime_s(ptm, pt), ptm
 
@@ -1594,7 +1599,7 @@ typedef char stime_t[_INT_STULEN];
  * tstr	: 时间串分隔符只能是单字节的.
  * pt	: 返回得到的时间戳
  * otm	: 返回得到的时间结构体
- *		: 返回这个字符串转成的时间戳, false表示构造失败
+ *   	: 返回这个字符串转成的时间戳, false表示构造失败
  */
 extern bool stu_gettime(stime_t tstr, time_t * pt, struct tm * otm);
 
@@ -1625,8 +1630,8 @@ extern size_t stu_getmstr(stime_t tstr);
 #endif // !_H_SIMPLEC_SCTIMEUTIL
 ```
 
-    那么我下面开始剖析它了, 推荐可以全部拔到你的中小型项目中. 久经考验的忠诚战斗士.
-    首先看一个飘逸的字符串解析为时间类型的函数
+    下面开始剖析它了, 推荐随后的代码可以全部拔到你的项目中. 也算是久经考验的忠诚
+	战斗士. 首先看一个飘逸的字符串解析为系统时间结构的函数
 
 ```C
 // 从时间串中提取出来年月日时分秒
@@ -1687,8 +1692,8 @@ stu_gettime(stime_t tstr, time_t * pt, struct tm * otm) {
 }
 ```
 
-    又好又快, 主要思路是解析时间字符串, 分隔为一系列的数值. 再巧妙利用指针移位赋值.
-    看下面判断两个时间戳是否是同一天的代码
+    又好又快, 思路是围绕解析时间字符串, 分隔为一系列的数值. 再巧妙利用指针移位赋值.
+    继续看两个时间戳是否是同一天的小学数学分析
 
 ```C
 // 定义每天是开始为 0时0分0秒
@@ -1708,12 +1713,13 @@ stu_tisday(time_t lt, time_t rt) {
 }
 ```
 
-    对于 _INT_DAYSTART 宏解释一下, GMT(Greenwich Mean Time)代表格林尼治标准时间, 也是咱们代码中
-    time(NULL) 返回的时间戳. 而咱们国家北京标准时间采用的 CST(China Standard Time UT+8:00). 
-    因而需要在原先的时间戳基础上加上8h, 就得到咱们中国帝都的时间戳. 
-    _INT_DAYNEWSTART 宏也解释一下. 默认是0, 一天开始的时间是0时0分0秒. 但也有像一些网游中一天开始
-    时间是5时0分0秒. 因而加了上面的全局宏, 毕竟做过游戏一种美好的希望吧. 虽然只是开宝箱! 人民币.
-    后面代码不想再解释了, 大家多用多写就会了. 还有推荐用 timespec_get 替代 gettimeofday
+    宏 _INT_DAYSTART 科普一下, GMT(Greenwich Mean Time)代表格林尼治标准时间, 也是咱们代码中
+    time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而
+	需要在原先的标准时间戳基础上加上8h, 就得到咱们中国帝都的时间戳. 
+    宏 _INT_DAYNEWSTART 也是有缘由的. 默认是0, 规定一天开始的时间是0时0分0秒. 但也有一些网游
+	中一天开始时间是5时0分0秒. 因而加了上面的全局宏. 毕竟做过游戏, 一种美好的希望吧. 虽然只是开
+	宝箱! 人民币. 后面代码不想再解释了, 大家多写多用就吸星大法. 
+	还有推荐用 timespec_get 替代 gettimeofday!!!
 
 ```C
 bool
@@ -1759,13 +1765,13 @@ stu_getmstr(stime_t tstr) {
 ```
 
     对于比较的问题, 用草纸花花图图就明白了. 
-    这世界时间都搞定了, 还有什么搞不定~
+    这里时间业务都搞定了, 还有什么搞不定 ~
 
 ### 3.6 展望
 
-    这章主要目的打通跨平台一些共性操作. 给大家抛砖引玉, 了解一下开发中那里都需要的基础操作. 
-    学到一种方法, 应对不同平台的封装的策略. 也是以后步入金丹期漫天空气炮的一个好的开始~
-    最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响你所求的道. 
+    这章目的, 打通跨平台一些共性操作. 给大家抛砖引玉, 试了解开发中都需要的基础操作. 
+    学会一种方法, 应对不同平台的封装的策略. 也是以后步入金丹期, 漫天空气炮的一个好的开始~
+    最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响你求的道 <*-*>
 
 ![白龙](./img/黑龙.jpg)
     
@@ -1773,7 +1779,9 @@ stu_getmstr(stime_t tstr) {
     海子 节选
 
     面对大河我无限惭愧
+
     我年华虚度 空有一身疲倦
+
     和所有以梦为马的诗人一样
+
     岁月易逝 一滴不剩
-    
