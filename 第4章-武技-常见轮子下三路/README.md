@@ -85,9 +85,9 @@ stu_getmstrn(char buf[], size_t len, const char * const fmt) {
 	t = tv.tv_sec;
 	localtime_r(&t, &st);
 	return snprintf(buf, len, fmt,
-					st.tm_year + _INT_YEAROFFSET, st.tm_mon + _INT_MONOFFSET, st.tm_mday,
-					st.tm_hour, st.tm_min, st.tm_sec,
-					tv.tv_nsec / _INT_MSTONS);
+                    st.tm_year + _INT_YEAROFFSET, st.tm_mon + _INT_MONOFFSET, st.tm_mday,
+                    st.tm_hour, st.tm_min, st.tm_sec,
+                    tv.tv_nsec / _INT_MSTONS);
 }
 ```
 
@@ -253,21 +253,23 @@ logrotate -vf /etc/logrotate.d/simplec
 
 * 多用户日志库   
 
-        这类日志库在上层语言构建的业务框架中有所出现. 最大特点是每条日志有个唯一标识码. 通过
-        唯一标识码能够分析出一条请求所经过的所有流程, 时间消耗等. 实现的核心思路: 消息来到网
-        关服务器, 生成唯一的日志索引id, 保存在线程的私有变量中, 调到那个服务器发到那个服务器.
-        一套优秀的多用户日志库, 可以做到, 日志就能分析玩家所进行的一切操作. 当然后备还有一系
-        列自动化运维的脚本工具支持. 总结就是业务能力最强, 性能最弱 ~
+        这类日志库在上层语言构建的业务框架中有所出现. 最大特点是每条日志有个唯一标识码.
+        通过唯一标识码能够分析出一条请求所经过的所有流程, 时间消耗等. 实现的核心思路: 
+        消息来到网关服务器, 生成唯一的日志索引id, 保存在线程的私有变量中, 调到那个服务
+        器发到那个服务器. 一套优秀的多用户日志库, 可以做到, 日志就能分析玩家所进行的一
+        切操作. 当然后备还有一系列自动化运维的脚本工具支持. 总结就是业务能力最强, 
+        性能最弱 ~
 
 * 消息轮询日志库  
 
-        这类日志库在游戏服务器中极其常见, 开个线程跑个日志消息队列. 它的一个应用场景, 例如端
-        游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死. 所以消息队列就出来缓存日志.
-        此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建所有
-        的业务都需要有. 个人看法它很俗外加太重. 哪有摘叶伤人来的快速呀. 其缓冲层消息队列, 还
-        不一定比不进行 fflush 的系统层面输出接口来的直接. 而且启动了个单独线程处理日志, 那么
-        就一定重度依赖对象池. 一环套一环, 收益很普通~ 业务设计的时候一条准则是 能不用线程就别
-        用. 因为我们没钱~ 线程不便宜 且 小脾气可大了. 
+        这类日志库在游戏服务器中极其常见, 开个线程跑个日志消息队列. 它的一个应用场景,
+        例如端游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死. 所以消息队列就
+        出来缓存日志. 此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争,
+        对象池, 日志构建所有的业务都需要有. 个人看法它很俗外加太重. 哪有摘叶伤人来的快
+        速呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层面输出接口来的直接. 而
+        且启动了个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一环, 收益很普通~ 
+        业务设计的时候一条准则是 能不用线程就别用. 因为我们没钱~ 
+        线程不便宜 且 小脾气可大了. 
 
         到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
             1. 无锁编程, 利用 fprintf IO锁
@@ -321,22 +323,22 @@ scrand.c
 #include <scrand.h>
 #include <assert.h>
 
-#define N				(16)
-#define MASK			((1 << N) - 1)
-#define LOW(x)			((x) & MASK)
-#define HIGH(x)			LOW((x) >> N)
-#define CARRY(x, y)		((x + y) > MASK) // 二者相加是否进位, 基于16位
+#define N               (16)
+#define MASK            ((1 << N) - 1)
+#define LOW(x)          ((x) & MASK)
+#define HIGH(x)         LOW((x) >> N)
+#define CARRY(x, y)     ((x + y) > MASK) // 二者相加是否进位, 基于16位
 #define ADDEQU(x, y, z)	z = CARRY(x, y); x = LOW(x + y)
 
 #define MUL(x, y, z)	l = (x) * (y); (z)[0] = LOW(l); (z)[1] = HIGH(l)
 
-#define X0				(0x330E)
-#define X1				(0xABCD)
-#define X2				(0x1234)
-#define A0				(0xE66D)
-#define A1				(0xDEEC)
-#define A2				(0x0005)
-#define C				(0x000B)
+#define X0              (0x330E)
+#define X1              (0xABCD)
+#define X2              (0x1234)
+#define A0              (0xE66D)
+#define A1              (0xDEEC)
+#define A2              (0x0005)
+#define C               (0x000B)
 
 static uint32_t _x[] = { X0, X1, X2 }, _a[] = { A0, A1, A2 }, _c = C;
 
