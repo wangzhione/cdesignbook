@@ -707,13 +707,650 @@ typedef struct cjson * cjson_t;
 ![scjson递归下降分析](./img/scjson递归下降分析.png)
 
     主要思路就是递归下降分析. 到这里基本关于scjson详细设计图介绍完毕了.
-    后面会看见这只麻雀嗲吗极少 ヽ(✿ﾟ▽ﾟ)ノ
+    后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
 
 #### 4.4.1 scjson 详细设计
 
     当初写这类东西, 最好的方式就是对着协议文档开撸~
-    这类代码是协议文档和作者思路的杂糅体, 推荐读者最好手敲一遍, 自行加注释, 琢磨就吸收了.
-    
+    这类代码是协议文档和作者思路的杂糅体, 推荐最好手敲一遍, 自行加注释, 琢磨就吸收了.
+    首先看销毁函数
 
+```C
+//
+// cjson_delete - 删除json串内容  
+// c		: 待释放json_t串内容
+// return	: void
+//
+void 
+cjson_delete(cjson_t c) {
+	while (c) {
+		cjson_t next = c->next;
+		// 放弃引用和常量的优化选项
+		free(c->key);
+		if (c->type & CJSON_STRING)
+			free(c->vs);
+		// 递归删除子节点
+		if (c->child)
+			cjson_delete(c->child);
+		free(c);
+		c = next;
+	}
+}
+```
 
+    到现在我们可以看出来一直直接使用 malloc 和 free. 没有提供自定义接口. 其实这个很好扩展
+    , 后期自己内嵌个 jemalloc 传说中最屌的 内存分配器. 全局宏替换, 或者直接包装层再全局搞
+    . 这是后话, 上面操作无外乎就是递归找到最下面的儿子结点, 期间删除自己挂载的结点. 然后依
+    次按照 next 链表顺序循环执行. 
+    后面我们通过代码逐个分析思维过程, 例如我们得到一个 json串, 这个串中可能存在多余的空格,
+    多余的注释等. 显然需要做洗词的操作, 只留下最有用的 json字符串:
 
+```C
+//  将 jstr中 不需要解析的字符串都去掉, 返回压缩后串的长度. 并且纪念mini 比男的还平
+static size_t _cjson_mini(char * jstr) {
+	char c, * in = jstr, * to = jstr;
+
+	while ((c = *to)) {
+		// step 1 : 处理字符串
+		if (c == '"') {
+			*in++ = c;
+			while ((c = *++to) && (c != '"' || to[-1] == '\\'))
+				*in++ = c;
+			if (c) {
+				*in++ = c;
+				++to;
+			}
+			continue;
+		}
+		// step 2 : 处理不可见特殊字符
+		if (c < '!') {
+			++to;
+			continue;
+		}
+		if (c == '/') {
+			// step 3 : 处理 // 解析到行末尾
+			if (to[1] == '/') {
+				while ((c = *++to) && c != '\n')
+					;
+				continue;
+			}
+
+			// step 4 : 处理 /*
+			if (to[1] == '*') {
+				while ((c = *++to) && (c != '*' || to[1] != '/'))
+					;
+				if (c)
+					to += 2;
+				continue;
+			}
+		}
+		// step 5 : 合法数据直接保存
+		*in++ = *to++;
+	}
+
+	*in = '\0';
+	return in - jstr;
+}
+```
+
+    上面主要操作目的是让解析器能够处理 json串中 // 和 /**/, 并删除写不可见字符.
+    那上真正的解析器入口了:
+
+```C
+// 递归下降分析 需要声明这些函数
+static const char * _parse_value(cjson_t item, const char * str);
+static const char * _parse_array(cjson_t item, const char * str);
+static const char * _parse_object(cjson_t item, const char * str);
+
+//构造一个空 cjson 对象
+static inline cjson_t _cjson_new(void) {
+	cjson_t node = malloc(sizeof(struct cjson));
+	if (NULL == node)
+		CERR_EXIT("malloc struct cjson is null!");
+	return memset(node, 0, sizeof(struct cjson));
+}
+
+// jstr 必须是 _cjson_mini 解析好的串
+static cjson_t _cjson_parse(const char * jstr) {
+	const char * end;
+	cjson_t json = _cjson_new();
+
+	if (!(end = _parse_value(json, jstr))) {
+		cjson_delete(json);
+		RETURN(NULL, "_parse_value params end = %s!", end);
+	}
+
+	return json;
+}
+
+//
+// cjson_newxxx - 通过特定源, 得到内存中json对象
+// str		: 普通格式的串
+// tstr		: tstr_t 字符串, 成功后会压缩 tstr_t
+// path		: json 文件路径
+// return	: 解析好的 json_t对象, 失败为NULL
+//
+inline cjson_t 
+cjson_newstr(const char * str) {
+	cjson_t json;
+	TSTR_CREATE(tstr);
+	tstr_appends(tstr, str);
+
+	_cjson_mini(tstr->str);
+	json = _cjson_parse(tstr->str);
+
+	TSTR_DELETE(tstr);
+	return json;
+}
+```
+
+    从 cjson_newstr看起, 声明了栈上字符串 tstr填充 str, 随后进行 _cjson_mini洗词, 然后
+    通过 _cjson_parse 解析最终结果返回. 下面可以看下 _cjson_parse 实现, 非常好理解, 本
+    质就是走分支. 不同分支走不同的解析函数:
+
+```C
+// 将 value 转换塞入 item json 值中一部分
+static const char * _parse_value(cjson_t item, const char * str) {
+	char c = '\0'; 
+	if ((str) && (c = *str)) {
+		switch (c) {
+		// n = null, f = false, t = true ... 
+		case 'n' : return item->type = CJSON_NULL, str + 4;
+		case 'f' : return item->type = CJSON_FALSE, str + 5;
+		case 't' : return item->type = CJSON_TRUE, item->vd = 1.0, str + 4;
+		case '\"': return _parse_string(item, str);
+		case '0' : case '1' : case '2' : case '3' : case '4' : case '5' :
+		case '6' : case '7' : case '8' : case '9' :
+		case '+' : case '-' : case '.' : return _parse_number(item, str);
+		case '[' : return _parse_array(item, str);
+		case '{' : return _parse_object(item, str);
+		}
+	}
+	// 循环到这里是意外 数据
+	RETURN(NULL, "params value = %c, %s!", c, str);
+}
+```
+
+    肉眼层面的协议处理了, 像 MSGPACK 就是对上面 n f ... { 扩展成1字节内数值. 核心原理还
+    是一样. 看下 _parse_string 处理, 内嵌了 utf8 字符处理套路一点点
+
+```C
+// parse 4 digit hexadecimal number
+static unsigned _parse_hex4(const char str[]) {
+	unsigned c, h = 0, i = 0;
+	// 开始转换16进制
+	for(;;) {
+		c = *str;
+		if (c >= '0' && c <= '9')
+			h += c - '0';
+		else if (c >= 'A' && c <= 'F')
+			h += 10 + c - 'A';
+		else if (c >= 'a' && c <= 'z')
+			h += 10 + c - 'a';
+		else
+			return 0;
+		// shift left to make place for the next nibble
+		if (4 == ++i)
+			break;
+		h <<= 4;
+		++str;
+	}
+
+	return h;
+}
+
+// 分析字符串的子函数,
+static const char * _parse_string(cjson_t item, const char * str) {
+	static unsigned char _marks[] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+	const char * ptr;
+	char c, * nptr, * out;
+	unsigned len = 1, uc, nuc;
+
+	// 检查是否是字符串内容, 并记录字符串大小
+	if (*str != '\"')
+		RETURN(NULL, "need \\\" str => %s error!", str);
+	for (ptr = str + 1; (c = *ptr++) != '\"' && c; ++len)
+		if (c == '\\') {
+			//跳过转义字符
+			if (*ptr == '\0')
+				RETURN(NULL, "ptr is end len = %d.", len);
+			++ptr;
+		}
+	if (c != '\"')
+		RETURN(NULL, "need string \\\" end there c = %d, %c!", c, c);
+
+	// 这里开始复制拷贝内容
+	if (!(nptr = out = malloc(len)))
+		CERR_EXIT("calloc size = %d is error!", len);
+	for (ptr = str + 1; (c = *ptr) != '\"' && c; ++ptr) {
+		if (c != '\\') {
+			*nptr++ = c;
+			continue;
+		}
+		// 处理转义字符
+		switch ((c = *++ptr)) {
+		case 'b': *nptr++ = '\b'; break;
+		case 'f': *nptr++ = '\f'; break;
+		case 'n': *nptr++ = '\n'; break;
+		case 'r': *nptr++ = '\r'; break;
+		case 't': *nptr++ = '\t'; break;
+		case 'u': // 将utf16 => utf8, 专门的utf处理代码
+			uc = _parse_hex4(ptr + 1);
+			ptr += 4; //跳过后面四个字符, unicode
+			if (0 == uc || (uc >= 0xDC00 && uc <= 0xDFFF))
+				break;	/* check for invalid. */
+
+			if (uc >= 0xD800 && uc <= 0xDBFF) { /* UTF16 surrogate pairs. */
+				if (ptr[1] != '\\' || ptr[2] != 'u')	
+					break;	/* missing second-half of surrogate. */
+				nuc = _parse_hex4(ptr + 3);
+				ptr += 6;
+				if (nuc < 0xDC00 || nuc>0xDFFF)		
+					break;	/* invalid second-half of surrogate.	*/
+				uc = 0x10000 + (((uc & 0x3FF) << 10) | (nuc & 0x3FF));
+			}
+
+			if (uc < 0x80)
+				len = 1;
+			else if (uc < 0x800)
+				len = 2;
+			else if (uc < 0x10000)
+				len = 3;
+			else
+				len = 4;
+			nptr += len;
+
+			switch (len) {
+			case 4: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
+			case 3: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
+			case 2: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
+			case 1: *--nptr = (uc | _marks[len]);
+			}
+			nptr += len;
+			break;
+		default: *nptr++ = c;
+		}
+	}
+	*nptr = '\0';
+	item->vs = out;
+	item->type = CJSON_STRING;
+	return ++ptr;
+}
+```
+
+    编码转换非内幕人员多数只能看看, 很久以前采用的是 libiconv 方案, 将其移植到 winds上.
+    后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际标准的来回切. 那就直接把这个
+    编码转换的算法拔下来, 岂不最好~
+    最后一个前戏呼之欲出了, 字符串转 number
+
+```C
+// 分析数值的子函数,写的可以
+static const char * _parse_number(cjson_t item, const char * str) {
+	double n = .0, ns = 1.0, nd = .0; // ns表示开始正负, 负为-1, nd表示小数后面位数
+	int e = 0, es = 1; // e表示后面指数, es表示 指数的正负, 负为-1
+	char c;
+
+	if ((c = *str) == '-' || c == '+') {
+		ns = c == '-' ? -1.0 : 1.0; // 正负号检测, 1表示负数
+		++str;
+	}
+	// 处理整数部分
+	for (c = *str; c >= '0' && c <= '9'; c = *++str)
+		n = n * 10 + c - '0';
+	if (c == '.')
+		for (; (c = *++str) >= '0' && c <= '9'; --nd)
+			n = n * 10 + c - '0';
+
+	// 处理科学计数法
+	if (c == 'e' || c == 'E') {
+		if ((c = *++str) == '+') //处理指数部分
+			++str;
+		else if (c == '-')
+			es = -1, ++str;
+		for (; (c = *str) >= '0' && c <= '9'; ++str)
+			e = e * 10 + c - '0';
+	}
+
+	//返回最终结果 number = +/- number.fraction * 10^+/- exponent
+	item->vd = ns * n * pow(10.0, nd + es * e);
+	item->type = CJSON_NUMBER;
+	return str;
+}
+```
+
+    后面就到了重头戏了, 递归下降分析的两位主角了 _parse_array 和 _parse_object 
+
+```C
+// 分析数组的子函数, 采用递归下降分析
+static const char * _parse_array(cjson_t item, const char * str) {
+	cjson_t child;
+
+	if (*str != '[') {
+		RETURN(NULL, "array str error start: %s.", str);
+	}
+
+	item->type = CJSON_ARRAY;
+	if (*++str == ']') // 低估提前结束, 跳过']'
+		return str + 1;
+
+	item->child = child = _cjson_new();
+	str = _parse_value(child, str);
+	if (NULL == str) {
+		RETURN(NULL, "array str error e n d one: %s.", str);
+	}
+
+	while (*str == ',') {
+		// 支持行尾处理多余 ','
+		if (str[1] == ']')
+			return str + 1;
+
+		// 写代码是一件很爽的事
+		child->next = _cjson_new();
+		child = child->next;
+		str = _parse_value(child, str + 1);
+		if (NULL == str) {
+			RETURN(NULL, "array str error e n d two: %s.", str);
+		}
+	}
+
+	if (*str != ']') {
+		RETURN(NULL, "array str error e n d: %s.", str);
+	}
+	return str + 1;
+}
+```
+
+    处理的格式 '[ ... , ... , ... ]'. 
+    同样处理 object 格式如下 ' { "str":..., "str":..., ... } '
+
+```C
+// 分析对象的子函数
+static const char * _parse_object(cjson_t item, const char * str) {
+	cjson_t child;
+
+	if (*str != '{') {
+		RETURN(NULL, "object str error start: %s.", str);
+	}
+
+	item->type = CJSON_OBJECT;
+	if (*++str == '}')
+		return str + 1;
+
+	//处理结点, 开始读取一个 key
+	item->child = child = _cjson_new();
+	str = _parse_string(child, str);
+	if (!str || *str != ':') {
+		RETURN(NULL, "_parse_string is error : %s!", str);
+	}
+	child->key = child->vs;
+
+	child->vs = NULL;
+	str = _parse_value(child, str + 1);
+	if (!str) {
+		RETURN(NULL, "_parse_value is error 2!");
+	}
+
+	// 递归解析
+	while (*str == ',') {
+		// 支持行尾处理多余 ','
+		if (str[1] == '}')
+			return str + 1;
+
+		child->next = _cjson_new();
+		child = child->next;
+		str = _parse_string(child, str + 1);
+		if (!str || *str != ':'){
+			RETURN(NULL, "_parse_string need name or no equal ':' %s.", str);
+		}
+		child->key = child->vs;
+
+		child->vs = NULL;
+		str = _parse_value(child, str+1);
+		if (!str) {
+			RETURN(NULL, "_parse_value need item two ':' %s.", str);
+		}
+	}
+
+	if (*str != '}') {
+		RETURN(NULL, "object str error e n d: %s.", str);
+	}
+	return str + 1;
+}
+```
+
+    通过上面分析关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 一个间接递归
+    的思路. 通过上面的思路, 花些心思也可以构建出 json对象转 json串的思路. 或者写个小型计算
+    器等等. 有了 json 的处理库, 有没有感觉基础的业务都能轻松胜任了哈哈.
+
+#### 4.5 阅读理解环节, csv解析库
+
+    很久以前项目配置文件走 csv文件配置, 采用 ',' 分隔. 很像 excel表格形式. 解析速度还行.
+    展示个自己写的解决方案, 灰常节约内存. 首先展示 interface:
+
+scscv.h
+
+```C
+#ifndef _H_SIMPLEC_SCCSV
+#define _H_SIMPLEC_SCCSV
+
+//
+// 这里是一个解析 csv 文件的 简单解析器.
+// 它能够帮助我们切分文件内容, 保存在字符串数组中.
+//
+typedef struct sccsv {		//内存只能在堆上
+	int rlen;				//数据行数,索引[0, rlen)
+	int clen;				//数据列数,索引[0, clen)
+	const char * data[];	//保存数据一维数组,希望他是二维的 rlen*clen
+} * sccsv_t;
+
+//
+// 从文件中构建csv对象, 最后需要调用 sccsv_delete 释放
+// path		: csv文件内容
+// return	: 返回构建好的 sccsv_t 对象
+//
+extern sccsv_t sccsv_create(const char * path);
+
+//
+// 释放由sccsv_create构建的对象
+// csv		: sccsv_create 返回对象
+//
+extern void sccsv_delete(sccsv_t csv);
+
+//
+// 获取某个位置的对象内容
+// csv		: sccsv_t 对象, new返回的
+// ri		: 查找的行索引 [0, csv->rlen)
+// ci		: 查找的列索引 [0, csv->clen)
+// return	: 返回这一项中内容,后面可以用 atoi, atof, tstr_dup 等处理了...
+//
+extern const char * sccsv_get(sccsv_t csv, int ri, int ci);
+
+#endif // !_H_SIMPLEC_SCCSV
+```
+
+    这里我们只提供了读接口, 比较有特色的思路是. sccsv_t 我们采用一整块内存构建. 非常
+    爽. 
+
+```C
+#include <sccsv.h>
+#include <tstr.h>
+
+//从文件中读取 csv文件内容, 构建一个合法串
+static bool _csv_parse(tstr_t tstr, int * prl, int * pcl) {
+	int c = -1, n = -1;
+	int cl = 0, rl = 0;
+	char * sur = tstr->str, * tar = tstr->str;
+
+	while (!!(c = *tar++)) {
+		// 小型状态机切换, 相对于csv文件内容解析
+		switch (c) {
+		case '"': // 双引号包裹的特殊字符处理
+			while (!!(c = *tar++)) {
+				if ('"' == c) {
+					if ((n = *tar) == '\0') // 判断下一个字符
+						goto _faild;
+					if (n != '"') // 有效字符再次压入栈, 顺带去掉多余 " 字符
+						break;
+					++tar;
+				}
+
+				// 添加得到的字符
+				*sur++ = c;
+			}
+			// 继续判断,只有是c == '"' 才会下来,否则都是错的
+			if ('"' != c)
+				goto _faild;
+			break;
+		case ',':
+			*sur++ = '\0';
+			++cl;
+			break;
+		case '\r':
+			break;
+		case '\n':
+			*sur++ = '\0';
+			++cl;
+			++rl;
+			break;
+		default: // 其它所有情况只添加数据就可以了
+			*sur++ = c;
+		}
+	}
+	
+	if (cl % rl) { // 检测 , 号是个数是否正常
+	_faild:
+		RETURN(false, "now csv error c = %d, n = %d, cl = %d, rl = %d.", c, n, cl, rl);
+	}
+	
+	// 返回最终内容
+	*prl = rl;
+	*pcl = cl;
+	// 构建最终处理的串内容
+	tstr->len = sur - tstr->str + 1;
+	tstr->str[tstr->len - 1] = '\0';
+	return true;
+}
+
+// 将 _csv_get 得到的数据重新构建返回, 执行这个函数认为语法检测都正确了
+static sccsv_t _csv_create(tstr_t tstr) {
+	sccsv_t csv;
+	size_t pdff;
+	char * cstr;
+	int rl, cl, i;
+	if (!_csv_parse(tstr, &rl, &cl))
+		return NULL;
+
+	// 分配最终内存
+	pdff = sizeof(struct sccsv) + sizeof(char *) * cl;
+	csv = malloc(pdff + tstr->len);
+	if (NULL == csv) {
+		RETURN(NULL, "malloc error cstr->len = %zu, rl = %d, cl = %d.", tstr->len, rl, cl);
+	}
+
+	// 这里开始拷贝内存, 构建内容了
+	cstr = (char *)csv + pdff;
+	memcpy(cstr, tstr->str, tstr->len);
+	csv->rlen = rl;
+	csv->clen = cl / rl;
+	i = 0;
+	do {
+		csv->data[i] = cstr;
+		while(*cstr++) // 找到下一个位置处
+			;
+	} while(++i < cl);
+	
+	return csv;
+}
+
+//
+// 从文件中构建csv对象, 最后需要调用 sccsv_delete 释放
+// path		: csv文件内容
+// return	: 返回构建好的 sccsv_t 对象
+//
+sccsv_t
+sccsv_create(const char * path) {
+	sccsv_t csv;
+	tstr_t tstr = tstr_freadend(path);
+	if (NULL == tstr) {
+		RETURN(NULL, "tstr_freadend path = %s is error!", path);
+	}
+
+	// 如果解析 csv 文件内容失败直接返回
+	csv = _csv_create(tstr);
+
+	tstr_delete(tstr);
+	// 返回最终结果
+	return csv;
+}
+
+//
+// 释放由sccsv_create构建的对象
+// csv		: sccsv_new 返回对象
+//
+inline void 
+sccsv_delete(sccsv_t csv) {
+	free(csv);
+}
+
+//
+// 获取某个位置的对象内容
+// csv		: sccsv_t 对象, new返回的
+// ri		: 查找的行索引 [0, csv->rlen)
+// ci		: 查找的列索引 [0, csv->clen)
+// return	: 返回这一项中内容,后面可以用 atoi, atof, tstr_dup 等处理了...
+//
+inline const char * 
+sccsv_get(sccsv_t csv, int ri, int ci) {
+	DEBUG_CODE({
+		if (!csv || ri < 0 || ri >= csv->rlen || ci < 0 || ci >= csv->clen) {
+			RETURN(NULL, "params is csv:%p, ri:%d, ci:%d.", csv, ri, ci);
+		}
+	});
+
+	// 返回最终结果
+	return csv->data[ri * csv->clen + ci];
+}
+```
+
+    重点核心就在 _csv_parse 和 _csv_create 上面. 前者负责预建内存布局, 后者负责构建
+    内存. 代码很短, 但却很有效不是吗~
+    希望上面的阅读理解你能喜欢~
+
+### 4.6 筑基展望
+
+    妖魔战场逐渐急促到来, 我们筑基期顶天功法也就介绍到此. 数据结构算法可能要勤学苦练,
+    这些轮子基本都是3遍过, 终身会用. 战无不利. 本章重点在于抠细节, 熟悉常用基础轮子
+    的开发套路. 从 clog -> scrand -> schead -> scjson -> sccsv 遇到的妖魔鬼怪也不
+    过如此. 真实开发中这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传
+    世组件. 但总的而言, 如果你想把他们的精华用的更自然, 显然你懂内部原理. 所以总要瞎
+    搞搞才能有所突破 -:o
+
+    西门吹雪忽然道：“你学剑?”
+
+    叶孤城道：“我就是剑。”
+
+    西门吹雪道：“你知不知道剑的精义何在?”
+
+    叶孤城道：“你说。”
+
+    西门吹雪道：“在于诚。
+
+    叶孤城道：“诚?”
+
+    西门吹雪道：“唯有诚心正义，才能到达剑术的颠峰，不诚的人，根本不足论剑。”
+
+    叶孤城的瞳孔突又收缩。
+
+    西门吹雪盯着他，道：“你不诚。”
+
+    叶孤城沉默了很久，忽然也问道：“你学剑?”
+
+    西门吹雪道：“学无止境，剑更无止境。”
+
+    叶孤城道：“你既学剑，就该知道学剑的人只在诚于剑，并不必诚于人。”  
+
+***
+
+    思绪有些乱, 突然想起飞升真仙 ~ 我们仨 ~ 或许是她(他)们撑起种族底蕴 ~
+
+![我们仨](./img/我们仨.png)
