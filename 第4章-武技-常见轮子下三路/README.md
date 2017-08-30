@@ -862,7 +862,8 @@ cjson_newstr(const char * str) {
 
 ```C
 // 将 value 转换塞入 item json 值中一部分
-static const char * _parse_value(cjson_t item, const char * str) {
+static const char * 
+_parse_value(cjson_t item, const char * str) {
 	char c = '\0'; 
 	if ((str) && (c = *str)) {
 		switch (c) {
@@ -993,6 +994,20 @@ static const char * _parse_string(cjson_t item, const char * str) {
     编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 
     方案, 将其移植到 winds上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际
     标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好~
+
+> 引述一丁点维基百科 UTF-8 编码字节含义:  
+>  
+> 对于UTF-8编码中的任意字节B，如果B的第一位为0，则B独立的表示一个字符(ASCII码)；  
+> 如果B的第一位为1，第二位为0，则B为一个多字节字符中的一个字节(非ASCII字符)；  
+> 如果B的前两位为1，第三位为0，则B为两个字节表示的字符中的第一个字节；  
+> 如果B的前三位为1，第四位为0，则B为三个字节表示的字符中的第一个字节；  
+> 如果B的前四位为1，第五位为0，则B为四个字节表示的字符中的第一个字节；  
+>  
+> 因此，对UTF-8编码中的任意字节，根据第一位，可判断是否为ASCII字符；根据前二位，  
+> 可判断该字节是否为一个字符编码的第一个字节；根据前四位（如果前两位均为1），  
+> 可确定该字节为字符编码的第一个字节，并且可判断对应的字符由几个字节表示；  
+> 根据前五位（如果前四位为1），可判断编码是否有错误或数据传输过程中是否有错误。 
+
     最后一个前戏呼之欲出了, 字符串转 number
 
 ```C
@@ -1034,7 +1049,8 @@ static const char * _parse_number(cjson_t item, const char * str) {
 
 ```C
 // 分析数组的子函数, 采用递归下降分析
-static const char * _parse_array(cjson_t item, const char * str) {
+static const char * 
+_parse_array(cjson_t item, const char * str) {
 	cjson_t child;
 
 	if (*str != '[') {
@@ -1077,7 +1093,8 @@ static const char * _parse_array(cjson_t item, const char * str) {
 
 ```C
 // 分析对象的子函数
-static const char * _parse_object(cjson_t item, const char * str) {
+static const char * 
+_parse_object(cjson_t item, const char * str) {
 	cjson_t child;
 
 	if (*str != '{') {
