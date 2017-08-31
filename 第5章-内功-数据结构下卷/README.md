@@ -119,7 +119,7 @@ char hoge[BUFSIZ];
  * c	: 当前颜色
  */
 #define rb_parent(r)		((struct $rbnode *)((r)->parent_color & ~3))
-#define rb_color(r)			((r)->parent_color & 1)
+#define rb_color(r)  		((r)->parent_color & 1)
 #define rb_is_red(r)		(!rb_color(r))
 #define rb_is_black(r)		rb_color(r)
 #define rb_set_red(r)		(r)->parent_color &= ~1

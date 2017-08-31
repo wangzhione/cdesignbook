@@ -54,7 +54,8 @@ typedef void * list_t;
 // die		: 销毁执行的函数
 // return	: void
 //
-extern void list_destroy(list_t * ph, node_f die);
+extern void list_destroy_(list_t * ph, node_f die);
+#define list_destroy(ph, die) list_destroy_((list_t *)ph, (node_f)die)
 
 //
 // list_add - 在 cmp(left, x) <= 0 x处前面插入node结点
@@ -63,7 +64,8 @@ extern void list_destroy(list_t * ph, node_f die);
 // left		: cmp(left, x) 比较返回 <=0 or >0
 // return	: 返回 SufBase 表示成功!
 //
-extern int list_add(list_t * ph, icmp_f cmp, void * left);
+extern int list_add_(list_t * ph, icmp_f cmp, void * left);
+#define list_add(ph, cmp, left) list_add_((list_t *)ph, (icmp_f)cmp, left)
 
 //
 // list_findpop - 查找到要的结点,并弹出,需要你自己回收
@@ -72,7 +74,8 @@ extern int list_add(list_t * ph, icmp_f cmp, void * left);
 // left		: cmp(left, x) 比较返回 0 >0 <0
 // return	: 找到了退出/返回结点, 否则返回NULL
 //
-extern void * list_findpop(list_t * ph, icmp_f cmp, const void * left);
+extern void * list_findpop_(list_t * ph, icmp_f cmp, const void * left);
+#define list_findpop(ph, cmp, left) list_findpop_((list_t *)ph, (icmp_f)cmp, (const void *)(intptr_t)left)
 
 #endif // !_H_SIMPLEC_LIST
 ```
@@ -143,17 +146,17 @@ list_destroy(&pls, NULL);
 ```C
 typedef void * list_t;
 typedef void (* node_f )(void * node);
-extern void list_destroy(list_t * ph, node_f die);
+extern void list_destroy_(list_t * ph, node_f die);
 ```
 
-    list_destroy 传达的意图是, 通过 list_t 的指针来改变 list_t 链表. 并且链表中每个结点采用
-    die 函数行为销毁. 因而可以理解为有两部分组成 销毁行为 + 自定义的销毁动作. 用的思路是抽象
-    出行为, 自定义动作, 这类技巧在上层语言有个好听的叫法 - 委托. 扯些在 C中还有一种套路也能
+    list_destroy_ 传达的意图是, 通过 list_t 的指针来改变 list_t 链表. 并且链表中每个结点采
+	用 die 函数行为销毁. 因而可以理解为有两部分组成 销毁行为 + 自定义的销毁动作. 用的思路是抽
+	象出行为, 自定义动作, 这类技巧在上层语言有个好听的叫法 - 委托. 扯些在 C中还有一种套路也能
     达到同样效果, 叫宏模板. 统一行为, 内嵌动作, 性能更好. 但心智成本高点. ok 继续展示代码
 
 ```C
 void
-list_destroy(list_t * ph, node_f die) {
+list_destroy_(list_t * ph, node_f die) {
 	struct $lnode * head;
 	if ((!ph) || !(head = *ph))
 		return;
@@ -170,9 +173,9 @@ list_destroy(list_t * ph, node_f die) {
 }
 ```
 
-    list_add(list_t *, icmp_f, void *) 传达的意图这是向链表中添加结点的接口. icmp_f 是插入
-    选择的自定义行为, void * 是选择的基准. 这就是基于注册的链表插入设计思路, 一般这么搞都是为
-	了得到一定顺序的链表. 否则直接插在头结点最轻松. 
+    list_add_(list_t *, icmp_f, void *) 传达的意图这是向链表中添加结点的接口. icmp_f 是插
+	入选择的自定义行为, void * 是选择的基准. 这就是基于注册的链表插入设计思路, 一般这么搞都是
+	为了得到一定顺序的链表. 否则直接插在头结点最轻松. 
 
 ```C
 //
@@ -198,7 +201,7 @@ list_addhead(list_t * ph, void * node) {
 
 ```C
 int 
-list_add(list_t * ph, icmp_f cmp, void * left) {
+list_add_(list_t * ph, icmp_f cmp, void * left) {
 	struct $lnode * head;
 	DEBUG_CODE({
 		if (!ph || !cmp || !left) {
@@ -226,14 +229,14 @@ list_add(list_t * ph, icmp_f cmp, void * left) {
 }
 ```
 
-    DEBUG_CODE 是在 DEBUG模式下才会执行的代码, 可以等同于扩展的 assert. 通过 cmp() <= 0 可以看
-    此链表是个升序排列. 链表这类代码最好能深入到本能, 闭着眼睛写, 等同于系统开发 DB的增删改查. 当
-    初刚学这东西的时候, 应该从头到尾写了不下半百遍, 后面就手熟了. 
-    再来看下 list_findpop 字面意思是找到我们要的结点, 并弹出. 后续结点自己负责销毁与否.
+    DEBUG_CODE 是在 DEBUG 模式下才会执行的代码, 可以等同于扩展的 assert. 通过 cmp() <= 0 可以
+	看此链表是个升序排列. 链表这类代码最好能深入到本能, 闭着眼睛写, 等同于系统开发 DB的增删改查.
+	当初刚学这东西的时候, 应该从头到尾写了不下半百遍, 后面就手熟了. 
+    再来看下 list_findpop_ 字面意思是找到我们要的结点, 并弹出. 后续结点自己负责销毁与否.
 
 ```C
 void * 
-list_findpop(list_t * ph, icmp_f cmp, const void * left) {
+list_findpop_(list_t * ph, icmp_f cmp, const void * left) {
 	struct $lnode * head, * tmp;
 	if((!ph) || (!cmp) || (!left) || !(head = *ph)){
 		RETURN(NULL, "check find {(!ph) || (!cmp) || (!left) || !(head = *ph)}!");
