@@ -1374,7 +1374,7 @@ rsmq_push(rsmq_t q, const void * data, uint32_t sz) {
 
 	ATOM_UNLOCK(q->lock);
 }
-``
+```
 
     这类代码不是很好理解, 强烈推荐抄一遍, 再抄一遍, 以后全部都懂了. 一次书写终生受用.
     (难在业务的杂糅和代码的优化) pop 思路是: 先 pop size, 后根据 size, pop data.
