@@ -42,11 +42,11 @@ typedef struct {
  * 每个想使用红黑树的结构, 需要在头部插入下面宏. 
  * 例如 :
 	struct person {
-		_HEAD_RBTREE;
+		$RBTREE_HEAD;
 		... // 自定义信息
 	};
  */
-#define _HEAD_RBTREE	struct $rbnode $node
+#define $RBTREE_HEAD struct $rbnode $node
 
 /*
  * 创建一颗红黑树头结点 

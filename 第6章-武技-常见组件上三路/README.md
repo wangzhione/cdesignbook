@@ -66,7 +66,7 @@ extern void threads_delete(threads_t pool);
 // return	: void
 //
 extern void threads_insert_(threads_t pool, node_f run, void * arg);
-#define threads_insert(pool, run, arg) threads_insert_(pool, (node_f)run, arg)
+#define threads_insert(pool, run, arg) threads_insert_(pool, (node_f)run, (void *)(intptr_t)arg)
 
 #endif // !_H_SIMPLEC_SCTHREADS
 ```
@@ -703,4 +703,273 @@ http_spost(const char * url, const char * params, tstr_t str) {
 
 #### 4.4 阅读理解时间, 不妨来个定时器
 
-    
+	对于定式器实现而言无外乎三大套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 
+	另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 还有一种时间
+	片结构, 时间按照一定颗度转呀转, 转到那就去执行那条颗度上的链表. 总的而言定时器的套路不少
+	, 具体看应用的场景. 我们这里带来的阅读理解是基于有序链表, 刚好温故下 list 用. 
+	可以说起于 list, 终于 list. 
+
+sctimer.h
+
+```C
+#ifndef _H_SIMPLEC_SCTIMER
+#define _H_SIMPLEC_SCTIMER
+
+#include "schead.h"
+
+//
+// st_add - 添加定时器事件,虽然设置的属性有点多但是都是必要的
+// intval	: 执行的时间间隔, <=0 表示立即执行, 单位是毫秒
+// timer	: 定时器执行函数
+// arg		: 定时器参数指针
+// return	: 返回这个定时器的唯一id
+//
+extern int st_add_(int intval, node_f timer, void * arg);
+#define st_add(intval, timer, arg) st_add_(intval, (node_f)timer, (void *)(intptr_t)arg)
+
+//
+// st_del - 删除指定事件
+// id		: st_add 返回的定时器id
+// return	: void
+//
+extern void st_del(int id);
+
+#endif // !_H_SIMPLEC_SCTIMER
+```
+
+	结构清晰易懂, 添加和删除. 顺便一个去除警告的函数宏技巧 st_add . 实现部分如下, 重点感受
+	数据结构内功的 list 结构的用法. 
+
+```C
+#include "list.h"
+#include "scatom.h"
+#include "sctimer.h"
+
+// 使用到的定时器结点
+struct stnode {
+	$LIST_HEAD;
+
+	int id;					// 当前定时器的id
+	struct timespec tv;		// 运行的具体时间
+	node_f timer;			// 执行的函数事件
+	void * arg;				// 执行函数参数
+};					   
+							   
+// 当前链表对象管理器			  
+struct stlist {				   
+	int lock;				// 加锁用的
+	int nowid;				// 当前使用的最大timer id
+	bool status;			// false表示停止态, true表示主线程loop运行态
+	struct stnode * head;	// 定时器链表的头结点
+};
+
+// 定时器对象的单例, 最简就是最复杂
+static struct stlist _st;
+
+// 先创建链表对象处理函数
+static struct stnode * _stnode_new(int s, node_f timer, void * arg) {
+	struct stnode * node = malloc(sizeof(struct stnode));
+	if (NULL == node)
+		RETURN(NULL, "malloc struct stnode is error!");
+
+	// 初始化, 首先初始化当前id
+	node->id = ATOM_INC(_st.nowid);
+	timespec_get(&node->tv, TIME_UTC);
+	node->tv.tv_sec += s / _INT_STOMS;
+	node->tv.tv_nsec += (s % _INT_STOMS) * _INT_MSTONS;
+	node->timer = timer;
+	node->arg = arg;
+
+	return node;
+}
+
+// 得到等待的微秒时间, <=0的时候头时间就可以执行了
+static inline int _stlist_sus(struct stlist * st) {
+	struct timespec t[1], * v = &st->head->tv;
+	timespec_get(t, TIME_UTC);
+	return (int)((v->tv_sec - t->tv_sec) * _INT_MSTONS
+		+ (v->tv_nsec - t->tv_nsec) / _INT_STOMS);
+}
+
+// 重新调整, 只能在 _stlist_loop 后面调用, 线程安全,只加了一把锁
+static void _stlist_run(struct stlist * st) {
+	struct stnode * sn;
+
+	ATOM_LOCK(st->lock); // 加锁防止调整关系覆盖,可用还是比较重要的
+	sn = st->head;
+	st->head = (struct stnode *)list_next(sn);
+	ATOM_UNLOCK(st->lock);
+
+	sn->timer(sn->arg);
+	free(sn);
+}
+
+// 运行的主loop,基于timer管理器
+static void * _stlist_loop(struct stlist * st) {
+	// 正常轮询,检测时间
+	while (st->head) {
+		int nowt = _stlist_sus(st);
+		if (nowt > 0) {
+			usleep(nowt);
+			continue;
+		}
+		_stlist_run(st);
+	}
+
+	// 已经运行结束
+	st->status = false;
+	return NULL;
+}
+
+// st < sr 返回 < 0, == 返回 0, > 返回 > 0
+static inline int _stnode_cmptime(const struct stnode * sl, const struct stnode * sr) {
+	if (sl->tv.tv_sec != sr->tv.tv_sec)
+		return (int)(sl->tv.tv_sec - sr->tv.tv_sec);
+	return (int)(sl->tv.tv_nsec - sr->tv.tv_nsec);
+}
+
+int 
+st_add_(int intval, node_f timer, void * arg) {
+	struct stnode * now;
+	// 各种前戏操作
+	if (intval <= 0) {
+		timer(arg);
+		return SufBase;
+	}
+
+	now = _stnode_new(intval, timer, arg);
+	if (NULL == now) {
+		RETURN(ErrAlloc, "_new_stnode is error intval = %d.", intval);
+	}
+
+	ATOM_LOCK(_st.lock); //核心添加模块 要等, 添加到链表, 看线程能否取消等
+
+	list_add(&_st.head, _stnode_cmptime, now);
+
+	// 这个时候重新开启线程
+	if(!_st.status) {
+		if (async_run(_stlist_loop, &_st)) {
+			list_destroy(&_st.head, free);
+			RETURN(ErrFd, "pthread_create is error!");
+		}
+		_st.status = true;
+	}
+
+	ATOM_UNLOCK(_st.lock);
+	
+	return now->id;
+}
+
+// 通过id开始查找
+static inline int _stnode_cmpid(int id, const struct stnode * sr) {
+	return id - sr->id;
+}
+
+void 
+st_del(int id) {
+	struct stnode * node;
+	if (!_st.head) return;
+
+	ATOM_LOCK(_st.lock);
+	node = list_findpop(&_st.head, _stnode_cmpid, id);
+	ATOM_UNLOCK(_st.lock);
+
+	free(node);
+}
+```
+
+	其中用到的 usleep 移植到 winds 上面实现为 
+
+```C
+// 为 Visual Studio 导入一些 GCC 上优质思路
+#ifdef _MSC_VER
+
+//
+// usleep - 微秒级别等待函数
+// usec		: 等待的微秒
+// return	: The usleep() function returns 0 on success.  On error, -1 is returned.
+//
+int
+usleep(unsigned usec) {
+	int rt = -1;
+	// Convert to 100 nanosecond interval, negative value indicates relative time
+	LARGE_INTEGER ft = { .QuadPart = -10ll * usec };
+
+	HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
+	if (timer) {
+		// 负数以100ns为单位等待, 正数以标准FILETIME格式时间
+		SetWaitableTimer(timer, &ft, 0, NULL, NULL, FALSE);
+		WaitForSingleObject(timer, INFINITE);
+		if (GetLastError() == ERROR_SUCCESS)
+			rt = 0;
+		CloseHandle(timer);
+	}
+
+	return rt;
+}
+
+#endif
+```
+    以上 sctime 模块中操作, 无外乎利用 list 构建了一个升序链表, 通过额外异步分离
+	线程 loop 监测下去并执行. 定时器一个通病, 不要放入阻塞函数, 容易失真. 
+	sctimer 使用方面也很简单, 例如一个技能, 吟唱 1s, 持续上海 2s. 构造如下:
+
+```C
+struct skills {
+	int id;
+	bool exist; // 实战走状态机, true 表示施法状态中 
+};
+
+// 007 号技能 火球术, 没有释放
+struct skills fireball = { 007, false };
+
+static void _end(struct skills * kill) {
+	...
+	if (kill.id == 007) {
+		puts("火球术持续输出结束...");
+		kill.exist = false;
+	}
+	...
+}
+
+static void _continued(struct skills * kill) {
+	...
+	if (kill.id == 007) {
+		puts("火球术吟唱成功, 开始持续输出...");
+		kill.exist = true;
+		st_add(2000, _end, kill);
+	}
+	...
+}
+
+static void _start(struct skills * kill) {
+	...
+	if (kill.id == 007) {
+		puts("火球术开始吟唱...");
+		kill.exist = false;
+		st_add(1000, _continued, kill);
+	}
+	...
+}
+```
+
+	调用 _start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期
+	根据标识统一绘制显示. 上面是简单到吐的思路说不定也很有效. 有点像优化过的 select
+	特定的时候出其不意 ~
+
+***
+
+	过的真快, 修炼之路已经走过小一半了. 从华山剑法练起, 到现在的一步两步三步. 以后
+	可以自己上路了, 单纯的客户端业务的小妖魔, 分分钟可以干掉了. 本章在实战中用的最多
+	也就是日月轮 sclooprun 模块. 对于定时器, 多数内嵌到主线程轮询模块(update) 中.  
+	此刻你应该多出去历练求索, 在血与歌中感受生的洗礼. 聆听心中的道. 
+
+	元日
+	王安石 - 宋代
+
+	爆竹声中一岁除，春风送暖入屠苏。
+	千门万户曈曈日，总把新桃换旧符。
+
+***
+
+![]()
