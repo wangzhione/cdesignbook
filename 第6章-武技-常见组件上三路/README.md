@@ -1,9 +1,9 @@
 ## 第6章-武技-常见组件上三路
 
-    时间过得真快, 此章武技修炼完毕, 修真之旅就过去一半了. 
-    武技本是金丹期选手在妖魔大战中招招带血的操作. 原始而奏效. 飞沙走石, 热浪滚滚.
-    也许很短, 但未名传说等待你去填写 ~
-    我们只带你来回穿梭, 感受一瞬间的震耳欲动, 山河破碎, 天地不仁 ~
+    时间过得真快, 武技修炼完毕, 修真之旅就过去一半了. 
+    武技本是金丹期选手在妖魔大战中招招实战的经验. 原始而奏效, 飞沙走石, 热浪滚滚.
+    说的也许很短, 但未名传说等你随意去乱写 ~
+    此刻只带你穿梭那种场景, 感受一瞬间的震耳欲动, 山河破碎, 天地不仁 ~
 
     带好你的剑, 
     那年学的华山剑法 ~
@@ -11,21 +11,22 @@
 
 ### 6.1 传说中的线程池
 
-    线程池很普通的老话题, 讨论的很多. 深入的不多, 也就那些基础库中才能见到这种精妙
-    完备的技巧. 这里也会随大流想深入简述一种高效控制性强的一种线程池实现.
-    先引入一个概念, 惊群. 简单举个例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一
-    个玉米粒. 扔出去, 立马无数麻雀过来争抢. 而最终只有一只麻雀得到了. 而那些没有抢
-    到的麻雀很累.......
-    编程中惊群, 是个很古老的编程话题了. 在服务器开发有机会遇到. 有兴趣的可以自行搜
-    索, 多数介绍的质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的POSIX跨平台
-    的线程库 pthread. 
+    线程池是很古老的旧话题. 讨论的很多, 深入的不多. 也就在那些基础库中才能见到这种
+	有点精妙的技巧. 这里也会随大流深入简述一种高效且控制性强的一种线程池实现. 先引入
+	一个概念, 惊群. 简单举个例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米粒. 
+	扔出去, 立马无数麻雀过来争抢. 而最终只有一只麻雀得到了. 而那些没有抢到的麻雀很累
+	....... 编程中惊群, 也是个很古老的编程话题了. 服务器框架开发中很有机会遇到. 有兴
+	趣的可以自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象.
+	采用的POSIX跨平台的线程库 pthread. 
 
 ```C
 extern int __cdecl pthread_cond_signal (pthread_cond_t * cond);
 ```
 
-    上面函数就是线程池中出现惊群来源. 它会激活 pthread_cond_wait 等待态一个或多个
-    线程. 而这里避免的思路同样很实在, 定向激活, 每个线程都有自己的条件变量.
+    上面 pthread 接口就是线程池中出现惊群来源. 它会激活 pthread_cond_wait 等待态
+	一个或多个线程. 同样这里解决惊群的方式很普通也很实在, 定向激活, 每个实际运行线程
+	对象都有自己的条件变量. 那么每次只要激活需要激活的线程变量就可以了. 惊群的现象自
+	然就避免了.
 
 ***
 
@@ -73,20 +74,22 @@ extern void threads_insert_(threads_t pool, node_f run, void * arg);
 
     定义了不完全类型 threads_t, 创建销毁添加等行为. 其中使用了个函数宏的技巧. 用于
     去掉警告. 也许 n 年后, 这类 void (*)(long *) convert void (*)(void *) 不再弹
-    出 warning. 那 threads_insert 就可以寿终正寝了. 
-    到这里接口设计部分已经完工了. 没有好的设计, 什么都不是 ......
+    出 warning. 那 threads_insert 就可以寿终正寝了. 其中对于 (intptr_t)arg 的意图
+	让其可以塞入 int 变量, 因为在 x64 上 int 是4字节强转8字节的指针变量会被弹出警告.
+    到这线程池接口设计部分已经完工. 代码比文字好理解, 文字可以瞎写, 但是代码的真相缺
+	早已经注定. 设计的不好, 那将什么都不是 ......
 
 #### 6.1.2 线程池部分实现
 
-    先说容易的实现部分. 线程池解决的问题是避免创建过多线程, 增加操作系统的负担. 从而
-    换了一种方式, 将多个线程业务转成, 多个任务被固定的线程来回处理. 是不是很巧妙, 先
-    看这里的任务结构设计:
+    线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将
+	多个线程业务转成多个任务被固定的线程来回处理. 这个思路是不是很巧妙. 先说说线程池
+	容易的实现部分, 来看任务结构的设计:
 
 ```C
 // 任务链表 结构 和 构造
 struct job {
-	struct job * next;			// 指向下一个任务结点
-	node_f run;					// 任务结点执行的函数体
+	struct job * next;  // 指向下一个任务结点
+	node_f run;         // 任务结点执行的函数体
 	void * arg;	
 };
 
@@ -101,38 +104,39 @@ static inline struct job * _job_new(node_f run, void * arg) {
 }
 ```
 
-    内存处理方式很直接, 申请失败直接退出. 更加粗暴的方式直接调用 abort(). 强制退出.
-    线程处理对象和线程池对象结构如下:
+    内存处理方式很直接, 申请失败直接退出. 更加粗暴的方式是调用 abort(). 强制退出.
+    但实际开发中还真没遇到过内存不足(抛开测试). 假如一个系统真的内存不足了, 可能一
+	切都是未知. 继续分析线程池结构, 线程处理对象和线程池对象结构如下:
 
 ```C
 // 线程结构体, 每个线程一个信号量, 定点触发
 struct thread {
-	struct thread * next;		// 下一个线程对象
-	bool wait;					// true 表示当前线程被挂起
-	pthread_t tid;				// 当前线程id
-	pthread_cond_t cond;		// 线程条件变量
+	struct thread * next;   // 下一个线程对象
+	bool wait;              // true 表示当前线程被挂起
+	pthread_t tid;          // 当前线程id
+	pthread_cond_t cond;    // 线程条件变量
 };
 
 // 定义线程池(线程集)定义
 struct threads {
-	size_t size;				// 线程池大小, 最大线程结构体数量
-	size_t curr;				// 当前线程池中总的线程数
-	size_t idle;				// 当前线程池中空闲的线程数
-	volatile bool cancel;		// true表示当前线程池正在 delete
-	pthread_mutex_t mutx;		// 线程互斥量
-	struct thread * thrs;		// 线程结构体对象集
-	struct job * head;			// 线程任务链表的链头, 队列结构
-	struct job * tail;			// 线程任务队列的表尾, 后插入后执行
+	size_t size;            // 线程池大小, 最大线程结构体数量
+	size_t curr;            // 当前线程池中总的线程数
+	size_t idle;            // 当前线程池中空闲的线程数
+	volatile bool cancel;   // true表示当前线程池正在 delete
+	pthread_mutex_t mutx;   // 线程互斥量
+	struct thread * thrs;   // 线程结构体对象集
+	struct job * head;      // 线程任务链表的链头, 队列结构
+	struct job * tail;      // 线程任务队列的表尾, 后插入后执行
 };
 ```
 
-    可以看出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量.
-    这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段.
-    避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop ...
-    这类有风险的设计. 为上面结构顺带写的几个行为如下 :
+    上面可以找出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量
+	. 这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段
+	. 来避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop ,
+    这类有风险的设计. 上面两个结构衍生了几个辅助行为操作如下 :
 
 ```C
-// 根据cond 内存地址熟悉, 删除pool->thrs 中指定数据
+// 根据 cond 内存地址熟悉, 删除 pool->thrs 中指定数据
 static void _threads_del(struct threads * pool, pthread_cond_t * cond) {
 	struct thread * head = pool->thrs, * front = NULL;
 	
@@ -156,7 +160,7 @@ static void _threads_del(struct threads * pool, pthread_cond_t * cond) {
 	}
 }
 
-// 找到线程tid 对应的条件变量地址
+// 找到线程 tid 对应的条件变量地址
 static struct thread * _threads_get(struct threads * pool, pthread_t tid) {
 	struct thread * head = pool->thrs;
 	while (head) {
@@ -179,11 +183,12 @@ static pthread_cond_t * _threads_getcont(struct threads * pool) {
 }
 ```
 
-    对于struct threads 结构中 struct job * head, *t ail; 是个线程任务队列.
-    struct thread * thrs; 是个线程链表. 当前文件中共用 struct threads 中 mutex 一个
-    互斥量. 是否想起前面扯的, 链表是C结构中基础的基础, 所有代码都是围绕它这个结构. 一定
-    要磨练中熟悉提高, 对于刚学习的人. 上面代码都是业务代码, 申请销毁添加查找等. 前戏讲
-    完了, 现在讲解其它简单接口实现代码 :
+    对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列.
+    struct thread * thrs; 链接所有线程对象的链表. 线程池对象中共用 struct threads 
+	中 mutex 一个互斥量. 希望还记得前面数据结构部分扯的, 链表是 C结构中基础的内丹, 
+	所有代码都是或多或少围绕它这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代
+	码其实和业务代码没啥区别, 创建销毁添加查找等. 前戏营造的估计够了, 现在开搞其它接
+	口简单实现代码 :
 
 ```C
 // 开启的线程数
@@ -203,8 +208,9 @@ threads_create(void) {
 }
 ```
 
-    上面就是创建接口的实现代码, calloc 相比 malloc 多调用了 bzero 的相关清空置零操作. 
-    还有一个释放资源函数. 设计意图允许创建多个线程池(但是没有必要). 请看优雅的销毁操作
+    上面创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 
+    还有一个释放资源函数. 设计意图允许创建多个线程池(但是没有必要). 请看下面优雅的销
+	毁操作:
 
 ```C
 void 
@@ -247,17 +253,17 @@ threads_delete(threads_t pool) {
 ```
 
     用到很多 pthread api. 不熟悉的多搜索, 多做笔记. 不懂多了, 说明提升功力的机会来了.
-    对于上面释放函数先监测销毁标识, 后竞争唯一互斥量, 竞争到了那么就开始释放了. 先清除
-    任务队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最终清除锁销毁
-    自己. 优雅结束了线程池的生成周期. 
+    对于上面释放函数先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任
+	务队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最终清除锁销毁自
+	己. 优雅结束了线程池的生成周期. 
 
-    如果是不是真爱, 那就追求优雅 ~
+    如果不知道是不是真爱, 那就追求优雅 ~
     如果是真爱, 那么什么都不想要 ~
 
 #### 6.1.3 线程池核心部分
 
-    核心部分就两个函数, 一个是线程轮询处理任务的函数. 一个是构建线程池函数. 线程轮序函
-    数如下:
+    核心部分就两个函数, 一个是线程轮询处理任务的函数. 另一个是构建线程池函数. 线程轮询
+	函数如下:
 
 ```C
 // 线程运行的时候执行函数, 消费者线程
@@ -319,13 +325,15 @@ static void _consumer(struct threads * pool) {
 	pthread_mutex_unlock(mutx);
 }
 ```
+	对于消费者线程 _consumer 函数运行起来, 内部出现异常进入自销毁操作 pthread_detach
+	. 外部让其退出, 走 pthread_join 关联接收. 
 
     突然想起以前扯的一句话, 关于提升技术好办法
     1. 多看书
     2. 多写代码, 多搜搜, 多问问
     3. 多看别人的好代码, 多临摹源码
     4. 多创造, 多改进, 多实战
-    等该明白的都明白了, 一切都是那样容易, 那样的美的时候. 就可以回家种田了. 哈哈
+    等该明白的都明白了, 一切都是那样容易, 那样的美的时候. 就可以回家种田了. 哈哈 ~
 
     到这里线程池是结束了, 不妨为其写个测试代码吧 ~
 
@@ -366,14 +374,14 @@ int main(void) {
 }
 ```
 
-    咱们废了老大劲写了个线程池, 9.9 业务基本都不会用. 密集型业务目前修真界都流行
-    轮询消息队列的方式处理, 下一个出场的主角登场了 ~
+    咱们费了老大劲写了个线程池, 9.9 业务基本都不会用到. 密集型业务目前修真界都流
+	行少量线程加轮询消息队列的方式处理, 下一个出场的主角登场了 ~
 
 ### 4.2 消息轮序器
 
-    在系统开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务
-    统一封装 push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的
-    无上大阵. 
+    系统开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务统
+	一封装 push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的
+    无上大阵. 下面就带大家写个超酷炫的封魔大镇, 收获门派一世繁华 ~
 
     接口设计部分 scrunloop.h
 
@@ -412,9 +420,9 @@ extern void srl_push(srl_t s, void * msg);
 #endif // !_H_SIMPLEC_SCRUNLOOP
 ```
 
-    通过宏函数 srl_create 启动一个消息轮序器, 需要注册两个函数 run 和 die, 前者用于处理
-    每个 push 进来的消息, die 用户 push 进来消息的善后工作(销毁清除). 这个类实现的非常
-    精简. 直接贴代码, 比较有价值. 多感受其中的妙用, 真是短小精悍 
+    通过宏函数 srl_create 启动一个消息轮序器, 需要注册两个函数 run 和 die, 前者用于处
+	理每个 push 进来的消息, die 用户 push 进来消息的善后工作(销毁清除). 这个类实现的非
+	常精简. 直贴代码, 比较有价值. 多感受其中的妙用, 真是, 小也能满足你 
 
 scrunloop.c
 
@@ -495,10 +503,10 @@ srl_push(srl_t s, void * msg) {
 }
 ```
 
-    这里假如是多线程环境 srl_push 触发了并发操作, 那么 sem_post 会执行多次 P操作. 但是
-    _srl_loop 处理是单线程的, 只会触发对映次的 sem_wait V操作. 所以 push 不加锁不影响
-    业务正确性. 而且 sem_wait 基本是通用层面阻塞性能最好的选择. 这些都是高效的保证. 武技
-    修炼中, srl 库是继 clog 库之后, 最小意外的突破.
+    这里分析会, 假如是多线程环境 srl_push 触发了并发操作, 相应的 sem_post 会执行多次
+	P 操作. 但 _srl_loop 是单线程轮询处理的, 只会触发对映次的 sem_wait V 操作. 所以
+	push 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是
+	高效的保证. 武技修炼中, srl 库是继 clog 库之后, 最小意外的实现 ~
 
     修炼到现在, 逐渐进出妖魔战场, 另一个异常恐怖 - 域外天魔正在逼近. 它会拷问你的内心,
     你为什么修炼编程 ? 进入弥天幻境, 多数人在幻境的路上 ~ 不曾解脱 ~  
@@ -507,8 +515,8 @@ srl_push(srl_t s, void * msg) {
 
 ### 4.3 http util by libcurl
 
-    开发中对于 http 请求的处理, 也是一个环节, 不可缺失. 同样都有固定套路. 这里用的是
-    libcurl c http 处理库. 
+    开发中对于 http 请求处理, 也是一个重要环节, 链接运营管理业务, 不可缺失. 同样都有固
+	定套路. 这里用的是 libcurl c http 处理库. 
 
 ```Bash
 // linux 安装总结
@@ -523,8 +531,8 @@ sudo apt-get install libcurl4-openssl-dev
 ```
 
     按照上面思路, 搭建好环境开搞. 服务器中对于 http 请求, 主要围绕在 get 和 post. 
-    接收别人的 http请求和接收 tcp请求一样, 通过协议得到完整报文, 抛给业务层. 所以
-    封装的 http 工具库, 接口功能很单一
+    接收别人的 http 请求和接收 tcp请求一样, 通过协议得到完整报文, 抛给业务层. 所
+	以封装的 http 工具库, 接口功能很单一. 就是对外发送 get post 请求:
 
 httputil.h
 
@@ -563,11 +571,11 @@ extern bool http_spost(const char * url, const char * params, tstr_t str);
 #endif // !_H_SIMPLEC_HTTPUTIL
 ```
 
-    其中对于 http_start 启动, 稍微说点. 不知道有没有人好奇, winds 上面使用 socket
-    的时候需要先加载 WSAStartup 操作. 其实是我们用惯了 linux 上面不用先加载操作了.
+    对于 http_start 启动, 稍微说点. 不知道有没有人好奇, winds 上面使用 socket 的
+	时候需要先加载 WSAStartup 操作. 其实是我们用惯了 linux 上面的, 没有先加载操作.
     linux c 程序编译的时候, 默认加了 socket 库的初始化加载工作. 所以咱们就不需要继
-    续加载了(语法糖). 这就清晰了 xxx_start 相当于启动操作, 先启动车子, 才能操作车子
-    不是吗. 那我们继续看吧
+    续加载了(编译器主动做了). 这就清晰了 xxx_start 相当于启动操作, 先启动车子, 才
+	能操作车子不是吗. 那我们继续看吧
 
 ```C
 #include "httputil.h"
@@ -585,11 +593,11 @@ http_start(void) {
 	//
 	// CURLcode curl_global_init(long flags);
 	// @ 初始化libcurl, 全局只需调一次
-	// @ flags : CURL_GLOBAL_DEFAULT		// 等同于 CURL_GLOBAL_ALL
-	//			 CURL_GLOBAL_ALL			// 初始化所有的可能的调用
-	//			 CURL_GLOBAL_SSL			// 初始化支持安全套接字层
-	//			 CURL_GLOBAL_WIN32			// 初始化WIN32套接字库
-	//			 CURL_GLOBAL_NOTHING		// 没有额外的初始化
+	// @ flags : CURL_GLOBAL_DEFAULT        // 等同于 CURL_GLOBAL_ALL
+	//			 CURL_GLOBAL_ALL            // 初始化所有的可能的调用
+	//			 CURL_GLOBAL_SSL            // 初始化支持安全套接字层
+	//			 CURL_GLOBAL_WIN32          // 初始化WIN32套接字库
+	//			 CURL_GLOBAL_NOTHING        // 没有额外的初始化
 	//
 	CURLcode code = curl_global_init(CURL_GLOBAL_DEFAULT);
 	if (code != CURLE_OK) {
@@ -602,8 +610,8 @@ http_start(void) {
 
     这类 start 操作基本都是单例, 在 main 函数启动的时候组织顺序执行一次就可以. 其中
     atexit 可有可无, 因为 http_start 操作 curl_global_init 需要跟随程序整个生命周期.
-    对于这种痛程序同生共死的操作, 流程操作系统回收吧. 
-    http_get 也只是熟悉 libcurl 库的简单用法:
+    对于这种同程序同生共死的操作, 流程操作系统回收吧. 下面 http_get 函数也只是熟悉 
+	libcurl 库的简单用法:
 
 ```C
 // 请求共有头部
@@ -614,13 +622,13 @@ static CURL * _http_head(const char * url, tstr_t str) {
 	}
 
 	// 设置下载属性和常用参数
-	curl_easy_setopt(crl, CURLOPT_URL, url);					// 访问的URL
-	curl_easy_setopt(crl, CURLOPT_TIMEOUT, _INT_TIMEOUT);		// 设置超时时间 单位s
-	curl_easy_setopt(crl, CURLOPT_HEADER, true);				// 下载数据包括HTTP头部
-	curl_easy_setopt(crl, CURLOPT_NOSIGNAL, true);				// 屏蔽其它信号
+	curl_easy_setopt(crl, CURLOPT_URL, url);                    // 访问的URL
+	curl_easy_setopt(crl, CURLOPT_TIMEOUT, _INT_TIMEOUT);       // 设置超时时间 单位s
+	curl_easy_setopt(crl, CURLOPT_HEADER, true);                // 下载数据包括HTTP头部
+	curl_easy_setopt(crl, CURLOPT_NOSIGNAL, true);              // 屏蔽其它信号
 
 	curl_easy_setopt(crl, CURLOPT_WRITEFUNCTION, (curl_write_callback)_http_write);	// 输入函数类型
-	curl_easy_setopt(crl, CURLOPT_WRITEDATA, str);				// 输入参数
+	curl_easy_setopt(crl, CURLOPT_WRITEDATA, str);              // 输入参数
 
 	return crl;
 }
@@ -644,7 +652,7 @@ http_get(const char * url, tstr_t str) {
 }
 ```
 
-    对于 http_sget 走 https 协议的 get 请求也只是多了个属性设置
+    对于 http_sget 走 https 协议, 相比 http_get 请求也只是多了个属性设置
 
 ```C
 // 添加 https 请求设置
@@ -664,7 +672,7 @@ http_sget(const char * url, tstr_t str) {
 }
 ```
 
-    get 请求完了, 自然 post 也会很快就完了. 不是它太简单, 而是怎么看的多了, 
+    get 方面请求完了, 自然 post 也会很快就完了. 不是它太简单, 而是这种看的多了, 
     查查手册, 看看源码, 用的会贼溜 ~
 
 ```C
@@ -696,7 +704,7 @@ http_spost(const char * url, const char * params, tstr_t str) {
 }
 ```
 
-    前面内功练到好, 这里武技只是三花聚顶, 越打越带劲. 出掌震飞尸, 拔剑灭妖魔.
+    前面几章内功练到好, 这里武技只是三花聚顶, 越打越带劲. 出掌震飞尸, 拔剑灭妖魔.
     当然了 http 解决方案不少, 很多知名网络库都会附赠个 http 处理小单元. libcurl 是
     我见过比较良心的了. 成熟可靠, 资料很全. 武技讲的这么多, 希望修炼的你能懂. 一切
     都是套路, 只有赤城之人才能走到道的远方 ~
@@ -972,4 +980,4 @@ static void _start(struct skills * kill) {
 
 ***
 
-![]()
+![道](./img/女苑姜明.jpg)
