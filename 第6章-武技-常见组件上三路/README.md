@@ -434,14 +434,14 @@ scrunloop.c
 
 // 具体轮询器
 struct srl {
-	pthread_t id;			// 具体奔跑的线程
-	sem_t blocks;			// 线程阻塞
+	pthread_t id;           // 具体奔跑的线程
+	sem_t blocks;           // 线程阻塞
 
-	mq_t mq;				// 消息队列
-	node_f run;				// 每个消息都会调用 run(pop())
-	node_f die;				// 每个消息体的善后工作
-	volatile bool loop;		// true表示还在继续 
-	volatile bool wait;		// true表示当前轮序器正在等待
+	mq_t mq;                // 消息队列
+	node_f run;             // 每个消息都会调用 run(pop())
+	node_f die;             // 每个消息体的善后工作
+	volatile bool loop;     // true表示还在继续 
+	volatile bool wait;     // true表示当前轮序器正在等待
 };
 
 static void * _srl_loop(struct srl * s) {
@@ -502,16 +502,20 @@ srl_push(srl_t s, void * msg) {
 	}
 }
 ```
+	对于 struct srl::die 可以优化, 支持为 NULL 操作, 或者添加函数行为. 但是总的而言,
+	语法糖层面支持的越好, 用起来是爽了, 多次爽之后那种退烧的感觉会更有意思. C 很难把所
+	有业务统一起来支持, 那样的代码臃肿和不敢维护. 体会并学会那种 C 设计的思路, 大不了
+	为另一种业务写个更加贴切的支持, 如果追求性能的话.
 
-    这里分析会, 假如是多线程环境 srl_push 触发了并发操作, 相应的 sem_post 会执行多次
+    再分析会, 假如是多线程环境 srl_push 触发了并发操作, 相应的 sem_post 会执行多次
 	P 操作. 但 _srl_loop 是单线程轮询处理的, 只会触发对映次的 sem_wait V 操作. 所以
 	push 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是
 	高效的保证. 武技修炼中, srl 库是继 clog 库之后, 最小意外的实现 ~
 
-    修炼到现在, 逐渐进出妖魔战场, 另一个异常恐怖 - 域外天魔正在逼近. 它会拷问你的内心,
-    你为什么修炼编程 ? 进入弥天幻境, 多数人在幻境的路上 ~ 不曾解脱 ~  
+    修炼到现在, 逐渐进出妖魔战场, 另一个异常恐怖 - 域外天魔正在逼近. 它会拷问你的心,
+    你为什么修炼编程 ? 进入弥天幻境, 多数人在幻境的路中间 ~ 不曾解脱 ~  
 
-    走不过去那条大道, 终身无望元婴 ~ 
+    走不过去那条大道, 元婴终身无望 ~ 
 
 ### 4.3 http util by libcurl
 
@@ -594,10 +598,10 @@ http_start(void) {
 	// CURLcode curl_global_init(long flags);
 	// @ 初始化libcurl, 全局只需调一次
 	// @ flags : CURL_GLOBAL_DEFAULT        // 等同于 CURL_GLOBAL_ALL
-	//			 CURL_GLOBAL_ALL            // 初始化所有的可能的调用
-	//			 CURL_GLOBAL_SSL            // 初始化支持安全套接字层
-	//			 CURL_GLOBAL_WIN32          // 初始化WIN32套接字库
-	//			 CURL_GLOBAL_NOTHING        // 没有额外的初始化
+	//           CURL_GLOBAL_ALL            // 初始化所有的可能的调用
+	//           CURL_GLOBAL_SSL            // 初始化支持安全套接字层
+	//           CURL_GLOBAL_WIN32          // 初始化WIN32套接字库
+	//           CURL_GLOBAL_NOTHING        // 没有额外的初始化
 	//
 	CURLcode code = curl_global_init(CURL_GLOBAL_DEFAULT);
 	if (code != CURLE_OK) {
@@ -711,11 +715,11 @@ http_spost(const char * url, const char * params, tstr_t str) {
 
 #### 4.4 阅读理解时间, 不妨来个定时器
 
-	对于定式器实现而言无外乎三大套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 
-	另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 还有一种时间
-	片结构, 时间按照一定颗度转呀转, 转到那就去执行那条颗度上的链表. 总的而言定时器的套路不少
-	, 具体看应用的场景. 我们这里带来的阅读理解是基于有序链表, 刚好温故下 list 用. 
-	可以说起于 list, 终于 list. 
+	对于定式器实现而言无外乎三大套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设
+	计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 
+	还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条颗度上的链表. 总的而
+	言定时器的套路不少, 具体看应用的场景. 我们这里带来的阅读理解是基于有序链表, 刚好温
+	故下 list 用. 可以说起缘 list, 终于 list. 
 
 sctimer.h
 
@@ -745,8 +749,8 @@ extern void st_del(int id);
 #endif // !_H_SIMPLEC_SCTIMER
 ```
 
-	结构清晰易懂, 添加和删除. 顺便一个去除警告的函数宏技巧 st_add . 实现部分如下, 重点感受
-	数据结构内功的 list 结构的用法. 
+	结构清晰易懂, 业务只有添加和删除. 顺便用了一个去除警告的函数宏技巧 st_add . 实现部分如下, 
+	重点感受数据结构内功的 list 结构的用法. 
 
 ```C
 #include "list.h"
@@ -757,18 +761,18 @@ extern void st_del(int id);
 struct stnode {
 	$LIST_HEAD;
 
-	int id;					// 当前定时器的id
-	struct timespec tv;		// 运行的具体时间
-	node_f timer;			// 执行的函数事件
-	void * arg;				// 执行函数参数
+	int id;                 // 当前定时器的id
+	struct timespec tv;     // 运行的具体时间
+	node_f timer;           // 执行的函数事件
+	void * arg;             // 执行函数参数
 };					   
 							   
 // 当前链表对象管理器			  
 struct stlist {				   
-	int lock;				// 加锁用的
-	int nowid;				// 当前使用的最大timer id
-	bool status;			// false表示停止态, true表示主线程loop运行态
-	struct stnode * head;	// 定时器链表的头结点
+	int lock;               // 加锁用的
+	int nowid;              // 当前使用的最大timer id
+	bool status;            // false表示停止态, true表示主线程loop运行态
+	struct stnode * head;   // 定时器链表的头结点
 };
 
 // 定时器对象的单例, 最简就是最复杂
@@ -920,7 +924,7 @@ usleep(unsigned usec) {
 ```
     以上 sctime 模块中操作, 无外乎利用 list 构建了一个升序链表, 通过额外异步分离
 	线程 loop 监测下去并执行. 定时器一个通病, 不要放入阻塞函数, 容易失真. 
-	sctimer 使用方面也很简单, 例如一个技能, 吟唱 1s, 持续上海 2s. 构造如下:
+	sctimer 使用方面也很简单, 例如一个技能, 吟唱 1s, 持续伤害 2s. 构造如下:
 
 ```C
 struct skills {
@@ -962,15 +966,15 @@ static void _start(struct skills * kill) {
 ```
 
 	调用 _start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期
-	根据标识统一绘制显示. 上面是简单到吐的思路说不定也很有效. 有点像优化过的 select
+	根据标识统一绘制显示. 以上是简单到吐的思路说不定也很有效. 有点像优化过的 select
 	特定的时候出其不意 ~
 
 ***
 
 	过的真快, 修炼之路已经走过小一半了. 从华山剑法练起, 到现在的一步两步三步. 以后
-	可以自己上路了, 单纯的客户端业务的小妖魔, 分分钟可以干掉了. 本章在实战中用的最多
-	也就是日月轮 sclooprun 模块. 对于定时器, 多数内嵌到主线程轮询模块(update) 中.  
-	此刻你应该多出去历练求索, 在血与歌中感受生的洗礼. 聆听心中的道. 
+	自己可以上路了, 单纯的客户端业务的小妖魔, 分分钟可以干掉吧. 本章在实战中会用的最
+	多就是日月轮 sclooprun 模块. 对于定时器, 多数内嵌到主线程轮询模块(update) 中.  
+	此刻应该多出去历练求索, 在血与歌中感受生的洗礼. 聆听心中的道. Thx
 
 	元日
 	王安石 - 宋代
