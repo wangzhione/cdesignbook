@@ -31,7 +31,7 @@
     
     当前先快速码出章节素材, 全本搭建起来, 后期迭代升级. 多重 review ~ 
     
-    跳出文字, 直至代码 ~ 
+    跳出文字, 直指代码 ~ 
     
     Talk is cheap, show me the code.
 
