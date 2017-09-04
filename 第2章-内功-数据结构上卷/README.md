@@ -80,7 +80,8 @@ extern void * list_findpop_(list_t * ph, icmp_f cmp, const void * left);
 #endif // !_H_SIMPLEC_LIST
 ```
 
-    对于 struct.h 可以参看第一章的设计部分, 这里轻微提及一下 
+	上面用到一个去除警告的函数宏技巧, (const void *)(intptr_t)left 作用是能够让其支持
+	整型变量的传入. 对于 struct.h 可以参看第一章的设计部分, 这里轻微提及一下 
 
 ```C
 //
@@ -111,8 +112,8 @@ static inline int _people_add_cmp(const struct people * ln, const struct people 
     return ln->free - lr->free;
 }
 
-static inline int _people_find_cmp(double future, const struct people * lr) {
-    return future != lr->future;
+static inline int _people_find_cmp(double * future, const struct people * lr) {
+    return *future != lr->future;
 }
 
 struct people pe = { { NULL }, 100, 59, 0.0 };
@@ -124,13 +125,14 @@ list_t pls = NULL;
 list_add(&pls, _people_add_cmp, &pe);
 
 // 删除 | 返回结点自己负责善后
-struct people * ple = list_findpop(&pls, _people_find_cmp, 6.6);
+double future = 6.6;
+struct people * ple = list_findpop(&pls, _people_find_cmp, &future);
 
 // 销毁
 list_destroy(&pls, NULL);
 ```
 
-    list部分过于基础, 解释太多还没有写10几类链表来的实在. 做 C相关开发, 几乎就是围绕 'list'
+    list部分过于基础, 解释太多还没有写 10几类链表来的实在. 做 C相关开发, 几乎是围绕 'list'
 	结构增删改查, 高级些加个缓存层, 伪删除. 对于封装库多三思而后行. 想好思路, 定好基调接口. 
 	再堆实现. 设计优雅的设计, 是第一位. 在 C中思路出来了, 数据结构也定型了, 
 	那么代码实现就已经妥了! 最好也就是 Debug -> Unit testing 
@@ -263,7 +265,8 @@ list_findpop_(list_t * ph, icmp_f cmp, const void * left) {
 
     链特性顺藤摸瓜, 给根杆子就 pa. 以上封装链表库基础行为, 创建销毁添加删除. 来回扯几次,
     编程中其它链式结构也都势如破竹, 长虹贯日! 
-    链表是整个数据结构的内丹. 是编程内功突破最重要的一个阶段! 修成元婴也不是不可能
+    链表是整个数据结构的内丹. 是编程内功突破最重要的一个阶段! 内功无限淳厚, 修成元婴也
+	不是不可能.
 
 ### 2.2 string
 
