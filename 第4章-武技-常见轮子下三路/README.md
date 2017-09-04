@@ -69,7 +69,7 @@ void cl_printf(const char * fmt, ...);
 
 ```C
 //
-// stu_getmstrn - 得到毫秒的串, 每个中间分隔符都是fmt[idx]
+// stu_getmstrn - 得到特定包含时间串, fmt 依赖 _STR_MTIME
 // buf		: 保存最终结果的串
 // len		: 当前buf串长度
 // fmt		: 输出格式串例如 -> "simplec-%04d%02d%02d-%02d%02d%02d-%03ld.log"
@@ -77,17 +77,17 @@ void cl_printf(const char * fmt, ...);
 //
 size_t 
 stu_getmstrn(char buf[], size_t len, const char * const fmt) {
-	time_t t;
-	struct tm st;
-	struct timespec tv;
+    time_t t;
+    struct tm st;
+    struct timespec tv;
 
-	timespec_get(&tv, TIME_UTC);
-	t = tv.tv_sec;
-	localtime_r(&t, &st);
-	return snprintf(buf, len, fmt,
-                    st.tm_year + _INT_YEAROFFSET, st.tm_mon + _INT_MONOFFSET, st.tm_mday,
+    timespec_get(&tv, TIME_UTC);
+    t = tv.tv_sec;
+    localtime_r(&t, &st);
+    return snprintf(buf, len, fmt,
+                    st.tm_year + 1900, st.tm_mon + 1, st.tm_mday,
                     st.tm_hour, st.tm_min, st.tm_sec,
-                    tv.tv_nsec / _INT_MSTONS);
+                    tv.tv_nsec / 1000000);
 }
 ```
 
@@ -320,7 +320,7 @@ extern int64_t sh_randk(void);
 scrand.c
 
 ```C
-#include <scrand.h>
+#include "scrand.h"
 #include <assert.h>
 
 #define N               (16)
@@ -397,7 +397,7 @@ sh_randk(void) {
 ```
 
     (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~)
-    代码都懂, _sh_next计算复杂点. 之后就看自己悟了, 毕竟世界也是咱们的. sh_rands, 
+    代码都懂, _sh_next 计算复杂点. 之后就看自己悟了, 毕竟世界也是咱们的. sh_rands, 
     sh_randk 思路很浅显分别根据范围和位随机. 从上面可以看出来随机函数并不是线程安全的.
     在多线程环境中就会出现未知行为了(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机
     才有点随机吗? 
@@ -442,12 +442,13 @@ sh_randk(void) {
  */
 ``` 
 
-    到这基本前戏做的够足了, 奥特曼要出现了 ~
+    到这基本前戏做的够足了. 当然对于 scrand.h 统一随机数模块也好改成线程安全, 但
+	还是觉得没有必要, 数值的错位对未知正好. 此刻, 奥特曼要出现了 ~
 
 ### 4.3 奥特曼, 通用头文件构建
 
-    在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个头文件都继承自它.
-    同样此刻出现的就是筑基期至强奥义, 一切从头开始
+    在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个头文件都继承自
+	它. 同样此刻出现的就是筑基期至强奥义, 一切从头开始
     
 schead.h
 
@@ -578,7 +579,7 @@ extern uint32_t sh_ntoh(uint32_t x);
 //
 extern int async_run_(node_f run, void * arg);
 #define async_run(run, arg) \
-		async_run_((node_f)(run), arg)
+        async_run_((node_f)(run), (void *)(intptr_t)arg)
 
 #endif//_H_SIMPLEC_SCHEAD
 ```
@@ -674,15 +675,15 @@ sh_ntoh(uint32_t x) {
 
 ```C
 struct cjson {
-	struct cjson * next;	// 采用链表结构处理, 放弃二叉树结构, 优化内存
-	struct cjson * child;	// type == ( CJSON_ARRAY or CJSON_OBJECT ) 那么 child 就不为空
+    struct cjson * next;    // 采用链表结构处理, 放弃二叉树结构, 优化内存
+    struct cjson * child;   // type == ( CJSON_ARRAY or CJSON_OBJECT ) 那么 child 就不为空
 
-	unsigned char type;     // 数据类型 CJSON_XXXX, 一个美好的意愿
-	char * key;             // json内容那块的 key名称 	
-	union {
-		char * vs;      // type == CJSON_STRING, 是一个字符串 	
-		double vd;      // type == CJSON_NUMBER, 是一个num值, ((int)c->vd) 转成int 或 bool
-	};
+    unsigned char type;     // 数据类型 CJSON_XXXX, 一个美好的意愿
+    char * key;             // json内容那块的 key名称 	
+    union {
+        char * vs;          // type == CJSON_STRING, 是一个字符串 	
+        double vd;          // type == CJSON_NUMBER, 是一个num值, ((int)c->vd) 转成int 或 bool
+    };
 };
 
 //定义cjson_t json类型
@@ -1167,10 +1168,10 @@ scscv.h
 // 这里是一个解析 csv 文件的 简单解析器.
 // 它能够帮助我们切分文件内容, 保存在字符串数组中.
 //
-typedef struct sccsv {          //内存只能在堆上
-	int rlen;               //数据行数,索引[0, rlen)
-	int clen;               //数据列数,索引[0, clen)
-	const char * data[];    //保存数据一维数组,希望他是二维的 rlen*clen
+typedef struct sccsv {      //内存只能在堆上
+    int rlen;               //数据行数,索引[0, rlen)
+    int clen;               //数据列数,索引[0, clen)
+    const char * data[];    //保存数据一维数组,希望他是二维的 rlen*clen
 } * sccsv_t;
 
 //
