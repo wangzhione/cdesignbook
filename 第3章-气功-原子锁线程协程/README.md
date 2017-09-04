@@ -1549,13 +1549,11 @@ sco_yield(scomng_t sco) {
 #include <time.h>
 #include <stdbool.h>
 
-// struct tm 中 tm_year, tm_mon 用的偏移量
-#define _INT_YEAROFFSET		(1900)
-#define _INT_MONOFFSET		(1)
-
-// 秒到毫秒|毫秒到微秒, 毫秒到纳秒|秒到微秒 
-#define _INT_STOMS      	(1000)
-#define _INT_MSTONS     	(1000000)
+//
+// 1s = 1000ms = 1000000us = 1000000000ns
+// 1秒  1000毫秒  1000000微秒  1000000000纳秒
+// ~ 力求最小时间业务单元 ~ 
+//
 
 #ifdef __GNUC__
 
@@ -1568,7 +1566,7 @@ sco_yield(scomng_t sco) {
 // return	: void
 //
 #define sh_msleep(m) \
-		usleep(m * _INT_STOMS)
+		usleep(m * 1000)
 
 #endif
 
@@ -1580,11 +1578,18 @@ sco_yield(scomng_t sco) {
 #define sh_msleep(m) \
 		Sleep(m)
 
+//
+// usleep - 微秒级别等待函数
+// usec		: 等待的微秒
+// return	: The usleep() function returns 0 on success.  On error, -1 is returned.
+//
+extern int usleep(unsigned usec);
+
 /*
  * 返回当前得到的时间结构体, 高仿linux上调用
  * pt	: const time_t * , 输入的时间戳指针
  * ptm	: struct tm * , 输出的时间结构体
- *  	: 返回 ptm 值
+ *		: 返回 ptm 值
  */
 #define localtime_r(pt, ptm) localtime_s(ptm, pt), ptm
 
@@ -1599,7 +1604,7 @@ typedef char stime_t[_INT_STULEN];
  * tstr	: 时间串分隔符只能是单字节的.
  * pt	: 返回得到的时间戳
  * otm	: 返回得到的时间结构体
- *   	: 返回这个字符串转成的时间戳, false表示构造失败
+ *		: 返回false表示构造失败
  */
 extern bool stu_gettime(stime_t tstr, time_t * pt, struct tm * otm);
 
@@ -1620,12 +1625,52 @@ extern bool stu_tisday(time_t lt, time_t rt);
 extern bool stu_tisweek(time_t lt, time_t rt);
 
 //
+// stu_sisday - 判断当前时间串是否是同一天的.
+// ls : 判断时间一
+// rs : 判断时间二
+//    : 返回true表示是同一天, 返回false表示不是
+//
+extern bool stu_sisday(stime_t ls, stime_t rs);
+
+//
+// 判断当前时间串是否是同一周的.
+// ls : 判断时间一
+// rs : 判断时间二
+//    : 返回true表示是同一周, 返回false表示不是
+//
+extern bool stu_sisweek(stime_t ls, stime_t rs);
+
+/*
+ * 将时间戳转成时间串 [2016-07-10 22:38:34]
+ * nt	: 当前待转的时间戳
+ * tstr	: 保存的转后时间戳位置
+ *		: 返回传入tstr的首地址
+ */
+extern char * stu_gettstr(time_t nt, stime_t tstr);
+
+/*
+ * 得到当前时间戳 [2016-7-10 22:38:34]
+ * tstr	: 保存的转后时间戳位置
+ *		: 返回传入tstr的首地址
+ */
+extern char * stu_getntstr(stime_t tstr);
+
+//
 // stu_getmstr - 得到加毫秒的串 [2016-07-10 22:38:34 500]
 // tstr		: 保存最终结果的串
 // return	: 返回当前串长度
 //
 #define _STR_MTIME			"%04d-%02d-%02d %02d:%02d:%02d %03ld"
 extern size_t stu_getmstr(stime_t tstr);
+
+//
+// stu_getmstrn - 得到特定包含时间串, fmt 依赖 _STR_MTIME
+// buf		: 保存最终结果的串
+// len		: 当前buf串长度
+// fmt		: 输出格式串例如 -> "simplec-%04d%02d%02d-%02d%02d%02d-%03ld.log"
+// return	: 返回当前串长度
+//
+extern size_t stu_getmstrn(char buf[], size_t len, const char * const fmt);
 
 #endif // !_H_SIMPLEC_SCTIMEUTIL
 ```
@@ -1676,8 +1721,8 @@ stu_gettime(stime_t tstr, time_t * pt, struct tm * otm) {
 	if (!_stu_gettm(tstr, &st))
 		return false;
 
-	st.tm_year -= _INT_YEAROFFSET;
-	st.tm_mon -= _INT_MONOFFSET;
+	st.tm_year -= 1900;
+	st.tm_mon -= 1;
 	// 得到时间戳, 失败返回false
 	if ((t = mktime(&st)) == -1)
 		return false;
@@ -1696,39 +1741,47 @@ stu_gettime(stime_t tstr, time_t * pt, struct tm * otm) {
     继续看两个时间戳是否是同一天的小学数学分析
 
 ```C
-// 定义每天是开始为 0时0分0秒
-#define _INT_MINSECOND		(60)
-#define _INT_HOURSECOND		(3600)
-// 定义每天新的开始时间 | GMT [World] + 8 * 3600 = CST [China]
-#define _INT_DAYSTART		( 8UL * _INT_HOURSECOND)
-#define _INT_DAYSECOND		(24UL * _INT_HOURSECOND)
-#define _INT_DAYNEWSTART	( 0UL * _INT_HOURSECOND + 0 * _INT_MINSECOND + 0)
-
 inline bool
 stu_tisday(time_t lt, time_t rt) {
-	// 得到是各自第几天的
-	lt = (lt + _INT_DAYSTART - _INT_DAYNEWSTART) / _INT_DAYSECOND;
-	rt = (rt + _INT_DAYSTART - _INT_DAYNEWSTART) / _INT_DAYSECOND;
+	// GMT [World] + 8 * 3600 = CST [China], 得到各自当前天数
+	lt = (lt + 8UL * 3600) / (24 * 3600);
+	rt = (rt + 8UL * 3600) / (24 * 3600);
 	return lt == rt;
 }
 ```
 
-    宏 _INT_DAYSTART 科普一下, GMT(Greenwich Mean Time)代表格林尼治标准时间, 也是咱们代码中
-    time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而
-	需要在原先的标准时间戳基础上加上8h, 就得到咱们中国帝都的时间戳. 
-    宏 _INT_DAYNEWSTART 也是有缘由的. 默认是0, 规定一天开始的时间是0时0分0秒. 但也有一些网游
-	中一天开始时间是5时0分0秒. 因而加了上面的全局宏. 毕竟做过游戏, 一种美好的希望吧. 虽然只是开
-	宝箱! 人民币. 后面代码不想再解释了, 大家多写多用就吸星大法. 
-	还有推荐用 timespec_get 替代 gettimeofday!!!
+    8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中
+    time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 
+	因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国帝都的时间戳. 
+	说道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范.
+	对于 gettimeofday 还有 usleep linux 上常用函数, 我们在用到的时候回给出详细 winds 实现.
+
+	扩展一点, 假如有个策划需求, 我们规定一天的开始时间是 5时0分0秒. 现实世界默认一天开始时
+	间是 0时0分0秒. 那你会怎么做呢 ? 
+
+	其实有很多方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写
+
+```C
+#define _INT_DAYNEWSTART	( 0UL * 3600 + 0 * 60 + 0)
+inline bool
+stu_tisday(time_t lt, time_t rt) {
+	// GMT [World] + 8 * 3600 = CST [China], 得到各自当前天数
+	lt = (lt + 8UL * 3600 - _INT_DAYNEWSTART) / (24 * 3600);
+	rt = (rt + 8UL * 3600 - _INT_DAYNEWSTART) / (24 * 3600);
+	return lt == rt;
+}
+```
+
+	可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面
+	偏移量. 后面代码不再扩展解释, 大家多写多用就会吸星大法了. 本书很多素材基本都是
+	在游戏服务器中常用业务. 扯一点题外话, 游戏相比其它互联网项目而言, 开宝箱的几率
+	很高. 技术上多数吃老本, 新技术落后. 业务上面增删改查少很多. 总体而言轻巧些. 
 
 ```C
 bool
 stu_tisweek(time_t lt, time_t rt) {
 	time_t mt;
 	struct tm st;
-
-	lt -= _INT_DAYNEWSTART;
-	rt -= _INT_DAYNEWSTART;
 
 	if (lt < rt) { //得到最大时间, 保存在lt中
 		mt = lt;
@@ -1740,9 +1793,9 @@ stu_tisweek(time_t lt, time_t rt) {
 	localtime_r(&lt, &st);
 
 	// 得到当前时间到周一起点的时间差
-	st.tm_wday = 0 == st.tm_wday ? 7 : st.tm_wday;
-	mt = (st.tm_wday - 1) * _INT_DAYSECOND + st.tm_hour * _INT_HOURSECOND
-		+ st.tm_min * _INT_MINSECOND + st.tm_sec;
+	st.tm_wday = st.tm_wday ? st.tm_wday - 1 : 6;
+	mt = st.tm_wday * 24 * 3600 + st.tm_hour * 3600 
+        + st.tm_min * 60 + st.tm_sec;
 
 	// [min, lt], lt = max(lt, rt) 就表示在同一周内
 	return rt >= lt - mt;
@@ -1750,22 +1803,22 @@ stu_tisweek(time_t lt, time_t rt) {
 
 size_t 
 stu_getmstr(stime_t tstr) {
-	time_t t;
-	struct tm st;
-	struct timespec tv;
+    time_t t;
+    struct tm st;
+    struct timespec tv;
 
-	timespec_get(&tv, TIME_UTC);
-	t = tv.tv_sec;
-	localtime_r(&t, &st);
-	return snprintf(tstr, sizeof(stime_t), _STR_MTIME,
-					st.tm_year + _INT_YEAROFFSET, st.tm_mon + _INT_MONOFFSET, st.tm_mday,
-					st.tm_hour, st.tm_min, st.tm_sec,
-					tv.tv_nsec / _INT_MSTONS);
+    timespec_get(&tv, TIME_UTC);
+    t = tv.tv_sec;
+    localtime_r(&t, &st);
+    return snprintf(tstr, sizeof(stime_t), _STR_MTIME,
+                    st.tm_year + 1900, st.tm_mon + 1, st.tm_mday,
+                    st.tm_hour, st.tm_min, st.tm_sec,
+                    tv.tv_nsec / 1000000);
 }
 ```
 
     对于比较的问题, 用草纸花花图图就明白了. 
-    这里时间业务都搞定了, 还有什么搞不定 ~
+    这里关于时间核心业务都搞定了. 还有什么搞不定, 下次如果用到, 再细说 ~
 
 ### 3.6 展望
 
