@@ -753,26 +753,22 @@ extern void st_del(int id);
 	重点感受数据结构内功的 list 结构的用法. 
 
 ```C
-#include "list.h"
-#include "scatom.h"
-#include "sctimer.h"
-
 // 使用到的定时器结点
 struct stnode {
-	$LIST_HEAD;
+    $LIST_HEAD;
 
-	int id;                 // 当前定时器的id
-	struct timespec tv;     // 运行的具体时间
-	node_f timer;           // 执行的函数事件
-	void * arg;             // 执行函数参数
+    int id;                 // 当前定时器的id
+    struct timespec tv;     // 运行的具体时间
+    node_f timer;           // 执行的函数事件
+    void * arg;             // 执行函数参数
 };					   
 							   
 // 当前链表对象管理器			  
 struct stlist {				   
-	int lock;               // 加锁用的
-	int nowid;              // 当前使用的最大timer id
-	bool status;            // false表示停止态, true表示主线程loop运行态
-	struct stnode * head;   // 定时器链表的头结点
+    int lock;               // 加锁用的
+    int nowid;              // 当前使用的最大timer id
+    bool status;            // false表示停止态, true表示主线程loop运行态
+    struct stnode * head;   // 定时器链表的头结点
 };
 
 // 定时器对象的单例, 最简就是最复杂
@@ -787,8 +783,8 @@ static struct stnode * _stnode_new(int s, node_f timer, void * arg) {
 	// 初始化, 首先初始化当前id
 	node->id = ATOM_INC(_st.nowid);
 	timespec_get(&node->tv, TIME_UTC);
-	node->tv.tv_sec += s / _INT_STOMS;
-	node->tv.tv_nsec += (s % _INT_STOMS) * _INT_MSTONS;
+	node->tv.tv_sec += s / 1000;
+	node->tv.tv_nsec += (s % 1000) * 1000000;
 	node->timer = timer;
 	node->arg = arg;
 
@@ -799,8 +795,8 @@ static struct stnode * _stnode_new(int s, node_f timer, void * arg) {
 static inline int _stlist_sus(struct stlist * st) {
 	struct timespec t[1], * v = &st->head->tv;
 	timespec_get(t, TIME_UTC);
-	return (int)((v->tv_sec - t->tv_sec) * _INT_MSTONS
-		+ (v->tv_nsec - t->tv_nsec) / _INT_STOMS);
+	return (int)((v->tv_sec - t->tv_sec) * 1000000
+		+ (v->tv_nsec - t->tv_nsec) / 1000);
 }
 
 // 重新调整, 只能在 _stlist_loop 后面调用, 线程安全,只加了一把锁
