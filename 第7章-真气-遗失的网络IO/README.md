@@ -2251,13 +2251,11 @@ epoll 简单服务器文件 : epoll_srvone.c
 
 #define NIL
 #define RETURN(val, fmt, ...) \
-	do {\
-		CERR(fmt, ##__VA_ARGS__);\
-		return val;\
+	do { \
+		CERR(fmt, ##__VA_ARGS__); \
+		return val; \
 	} while(0)
 
-// 设置套接字阻塞和非阻塞
-void setnonblock(int sck);
 // clt 客户端 socket, 主要是打印头信息,和输出时间
 void clt_echo(int cltk, int epd);
 // 设置客户端链接,只有 epoll 获取到有链接过来才处理
@@ -2330,8 +2328,8 @@ int main(int argc, char * argv[]) {
 	return EXIT_SUCCESS;
 }
 
-void
-setnonblock(int sck) {
+// 设置套接字阻塞和非阻塞
+inline void setnonblock(int sck) {
 	int mode = fcntl(sck, F_GETFL);
 	CERR_IF(fcntl(sck, F_SETFL, mode | O_NONBLOCK));
 }
@@ -2414,4 +2412,666 @@ clt_run(int fd, int efd) {
 
 ## 7.3 金丹轰击 socket 寂灭
 
+    很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 至少解决客户端业务如鱼得水.
+    因为通过上面的基础稳固, 大体上回忆起 linux socket 有哪些 api 用法. 那 winds 呢.
+    这是个问题, 解决思路有很多, 多数人解决方案喜欢构建一套通用接口, 分别实现. 这里介绍
+    一个更加巧妙的实现, 就是在 winds 上面极大可能的模拟 linux api 用法. 这样以后移植大
+    佬代码提供极大方面. 那么无外乎 errno 机制, read , write 机制, 还有接口的细节上移植.
+    有了这些思路那我们开始搞起.
+
+### 7.3.1 winds socket 实现 errno
+
+    其实 winds 本身也有 errno, 但是在 socket 操作的时候, 走另一套机制 WSAGetLastError.
+    那么就对它下手. 
+
+```C
+#undef	errno
+#define	errno                   WSAGetLastError()
+```
+
+    同样 errno 得到错误码, 如何转成错误字符串. 例如 strerror. 对于 winds socket 很抱歉
+    没有这样的函数. 但是没关系, 我们自己实现. 大家不妨看看 winerror.h 文件, 豁然开朗
+
+```C
+// winerror.h 摘选部分
+
+//
+// MessageId: ERROR_SUCCESS
+//
+// MessageText:
+//
+// The operation completed successfully.
+//
+#define ERROR_SUCCESS                    0L
+
+//
+// MessageId: ERROR_INVALID_FUNCTION
+//
+// MessageText:
+//
+// Incorrect function.
+//
+#define ERROR_INVALID_FUNCTION           1L    // dderror
+
+......
+```
+
+    大家有没有一点明白了, 上面很有规律不是吗. 通过这个规律我们就能自己实现一个 strerror 相似
+    的函数. 看我的一种实现模板
+
+strerr.c.template
+
+```C
+#if defined(__GNUC__)
+
+#include <string.h>
+
+extern inline const char * strerr(int error) {
+	return strerror(error);
+}
+
+#endif
+
+#if defined(_MSC_VER)
+
+#include <stdio.h>
+#include <winerror.h>
+
+#define DWORD int
+
+extern const char * strerr(int error) {
+	switch (error) {
+    case {MessageId} : return "{MessageText}";
+    ......
+    }
+
+	fprintf(stderr, "strerr invaild error = %d.\n", error);
+	return "The aliens are coming. Go tell your favorite people";
+}
+
+#undef DWORD
+
+#endif
+```
+
+    是不是豁然开朗, 根据上面模板, 大家不妨当个阅读理解写一个切词的工具. 我用C写了个,
+    人工干预其中几个重复的. 人总是向着希望走, 还是很有意思的. 
+
+```C
+#undef	strerror
+#define strerror                (char *)strerr
+```
+
+    到这里是不是关于 linux socket errno 在 winds 就实现了一套了. 就是这样的野路子,
+    不也能达到效果吗 ~
+
+### 7.3.2 出来吧 socket 接口设计
+
+    这个设计的 linux, winds 接口文件名称是 scsocket.h, 请记住它, 它会让你好看! 首先
+    看看其中共有头文件设计.
+
+```C
+#ifndef _H_SIMPLEC_SCSOCKET
+#define _H_SIMPLEC_SCSOCKET
+
+#include <fcntl.h>
+#include <signal.h>
+#include <schead.h>
+
+//
+// IGNORE_SIGPIPE - 管道破裂,忽略SIGPIPE信号
+//
+#define IGNORE_SIGNAL(sig)	signal(sig, SIG_IGN)
+
+#ifdef __GNUC__
+
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
+#include <sys/un.h>
+#include <sys/uio.h>
+#include <sys/select.h>
+#include <sys/resource.h>
+
+//
+// This is used instead of -1, since the. by WinSock
+//
+#define INVALID_SOCKET          (~0)
+#define SOCKET_ERROR            (-1)
+
+#if !defined(EWOULDBOCK)
+#define EWOULDBOCK              EAGAIN
+#endif
+
+// connect链接还在进行中, linux显示 EINPROGRESS，winds是 WSAEWOULDBLOCK
+#define ECONNECTED              EINPROGRESS
+
+#define SET_RLIMIT_NOFILE(num) \
+	do { \
+		struct rlimit $r = { num, num }; \
+		setrlimit(RLIMIT_NOFILE, &$r); \
+	} while(0)
+
+typedef int socket_t;
+
+#elif _MSC_VER
+
+#undef	FD_SETSIZE
+#define FD_SETSIZE              (1024)
+#include <ws2tcpip.h>
+
+#define SET_RLIMIT_NOFILE(num)	
+
+#undef	errno
+#define	errno                   WSAGetLastError()
+#undef	strerror
+#define strerror                (char *)strerr
+
+#undef  EINTR
+#define EINTR                   WSAEINTR
+#undef	EAGAIN
+#define EAGAIN                  WSAEWOULDBLOCK
+#undef	EINVAL
+#define EINVAL                  WSAEINVAL
+#undef	EWOULDBOCK
+#define EWOULDBOCK              WSAEINPROGRESS
+#undef	EINPROGRESS
+#define EINPROGRESS             WSAEINPROGRESS
+#undef	EMFILE
+#define EMFILE                  WSAEMFILE
+#undef	ENFILE
+#define ENFILE                  WSAETOOMANYREFS
+
+// connect链接还在进行中, linux显示 EINPROGRESS，winds是 WSAEWOULDBLOCK
+#define ECONNECTED              WSAEWOULDBLOCK
+
+/*
+ * WinSock 2 extension -- manifest constants for shutdown()
+ */
+#define SHUT_RD                 SD_RECEIVE
+#define SHUT_WR                 SD_SEND
+#define SHUT_RDWR               SD_BOTH
+
+typedef int socklen_t;
+typedef SOCKET socket_t;
+
+//
+// gettimeofday - Linux sys/time.h 中得到微秒的一种实现
+// tv		:	返回结果包含秒数和微秒数
+// tz		:	包含的时区,在window上这个变量没有用不返回
+// return	:   默认返回0
+//
+extern int gettimeofday(struct timeval * tv, void * tz);
+
+//
+// strerr - linux 上面替代 strerror, winds 替代 FormatMessage 
+// error	: linux 是 errno, winds 可以是 WSAGetLastError() ... 
+// return	: system os 拔下来的提示字符串常量
+//
+extern const char * strerr(int error);
+
+#else
+#	error "error : Currently only supports the Best New CL and GCC!"
+#endif
+
+// EAGAIN and EWOULDBLOCK may be not the same value.
+#if (EAGAIN != EWOULDBOCK)
+#define EAGAIN_WOULDBOCK EAGAIN : case EWOULDBOCK
+#else
+#define EAGAIN_WOULDBOCK EAGAIN
+#endif
+
+// 目前通用的tcp udp v4地址
+typedef struct sockaddr_in sockaddr_t;
+
+//
+// socket_start - 单例启动socket库的初始化方法
+// 
+extern void socket_start(void);
+
+#endif // !_H_SIMPLEC_SCSOCKET
+```
+
+    INVALID_SOCKET 和 SOCKET_ERROR 是 linux 模拟 winds 严谨的错误验证. 前者用于
+    默认无效的 socket 对象, 后者用于各种 socket 接口执行错误的时候返回的值. linux
+    上 EWOULDBOCK 宏已经取消和 EAGAIN 宏功能重叠(socket 层面表示缓冲区已经读取空了)
+    , 为了接口统一操作, 额外添加上. 其中ECONNECTED 宏单独添加上的为了解决非阻塞的 
+    connect 操作状态不一样问题. 其它的随后用上的时候你会豁然开朗. 
+
+```C
+#ifdef _MSC_VER
+
+inline int
+gettimeofday(struct timeval * tv, void * tz) {
+	struct tm st;
+	SYSTEMTIME wtm;
+
+	GetLocalTime(&wtm);
+	st.tm_year = wtm.wYear - 1900;
+	st.tm_mon = wtm.wMonth - 1; // window的计数更好些
+	st.tm_mday = wtm.wDay;
+	st.tm_hour = wtm.wHour;
+	st.tm_min = wtm.wMinute;
+	st.tm_sec = wtm.wSecond;
+	st.tm_isdst = -1; // 不考虑夏令时
+
+	tv->tv_sec = (long)mktime(&st); // 32位使用数据强转
+	tv->tv_usec = wtm.wMilliseconds * 1000; // 毫秒转成微秒
+
+	return 0;
+}
+
+#endif
+```
+
+    对于 gettimeofday 接口 linux 上面应用的非常广泛. 但是前面可以知道完全可以通过
+    time_get 更加优美的得到你想要得时间. 但是为了让有些程序好移植, 所以在 winds 上面
+    了一套. 还有个下面函数非常有意思
+
+```C
+inline void 
+socket_start(void) {
+#ifdef _MSC_VER
+#   pragma comment(lib, "ws2_32.lib")
+    WSADATA wsad;
+    WSAStartup(WINSOCK_VERSION, &wsad);
+#elif __GUNC__
+    IGNORE_SIGNAL(SIGPIPE)
+#endif
+}
+```
+
+    在 winds 上面 WSAStartup 和 WSACleanup 总是成双成对出现. 但是我们这里这个 socket
+    模拟 linux, linux 默认程序内嵌了相关模块 so 启动操作. 所以走全局, 有的朋友喜欢这么
+    额外添加下面一句
+
+```C
+static inline void _socket_start(void) {
+	WSACleanup();
+}
+    // 在 socket_start 中插入这句
+	atexit(_socket_start);
+```
+
+    这样做其实就是画蛇添足. 为啥呢, 在程序 exit 时候, 如果服务器的网络相关操作线程退出
+    顺序是不确定的. 一旦 _socket_start 先触发, 对于其它调用方面就是各种 error 抛出来.
+    倒不如走程序全局声明周期, 交给系统进程处理. 对于 EAGAIN_WOULDBOCK 宏, 用起来也是
+    很飘
+
+```C
+switch (errno) {
+case EINTR:
+case EAGAIN_WOULDBOCK:
+    return -1;
+}
+```
+
+    是不是很巧妙. 面对 linux 过度封装的 errno 机制处理起来变得很清晰吧. 
+    随后看 scsocket.h 具体的业务接口, 本质就是在系统那套接口的基础上加了 socket_ 前缀.
+
+```C
+//
+// socket_dgram     - 创建UDP socket
+// socket_stream    - 创建TCP socket
+// socket_close     - 关闭上面创建后的句柄
+// socket_read      - 读取数据
+// socket_write     - 写入数据
+// socket_addr      - 通过ip, port 得到 ipv4 地址信息
+//
+extern socket_t socket_dgram(void);
+extern socket_t socket_stream(void);
+extern int socket_close(socket_t s);
+extern int socket_read(socket_t s, void * data, int sz);
+extern int socket_write(socket_t s, const void * data, int sz);
+extern int socket_addr(const char * ip, uint16_t port, sockaddr_t * addr);
+
+//
+// socket_set_block     - 设置套接字是阻塞
+// socket_set_nonblock  - 设置套接字是非阻塞
+// socket_set_reuseaddr - 开启地址复用
+// socket_set_keepalive - 开启心跳包检测, 默认2h 5次
+// socket_set_recvtimeo - 设置接收数据毫秒超时时间
+// socket_set_sendtimeo - 设置发送数据毫秒超时时间
+//
+extern int socket_set_block(socket_t s);
+extern int socket_set_nonblock(socket_t s);
+extern int socket_set_reuseaddr(socket_t s);
+extern int socket_set_keepalive(socket_t s);
+extern int socket_set_recvtimeo(socket_t s, int ms);
+extern int socket_set_sendtimeo(socket_t s, int ms);
+
+//
+// socket_get_error - 得到当前socket error值, 0 表示正确, 其它都是错误
+//
+extern int socket_get_error(socket_t s);
+
+//
+// socket_recv      - socket接受信息
+// socket_recvn     - socket接受len个字节进来
+// socket_send      - socket发送消息
+// socket_sendn     - socket发送len个字节出去
+// socket_recvfrom  - recvfrom接受函数
+// socket_sendto    - udp发送函数, 通过socket_udp 搞的完全可以 socket_send发送
+//
+extern int socket_recv(socket_t s, void * buf, int len);
+extern int socket_recvn(socket_t s, void * buf, int len);
+extern int socket_send(socket_t s, const void * buf, int len);
+extern int socket_sendn(socket_t s, const void * buf, int len);
+extern int socket_recvfrom(socket_t s, void * buf, int len, int flags, sockaddr_t * in, socklen_t * inlen);
+extern int socket_sendto(socket_t s, const void * buf, int len, int flags, const sockaddr_t * to, socklen_t tolen);
+
+//
+// socket_bind      - 端口绑定返回绑定好的 socket fd, 失败返回 INVALID_SOCKET or PF_INET PF_INET6
+// socket_listen    - 端口监听返回监听好的 socket fd.
+//
+extern socket_t socket_bind(const char * host, uint16_t port, uint8_t protocol, int * family);
+extern socket_t socket_listen(const char * host, uint16_t port, int backlog);
+
+//
+// socket_tcp           - 创建TCP详细的套接字
+// socket_udp           - 创建UDP详细套接字
+// socket_accept        - accept 链接函数
+// socket_connect       - connect操作
+// socket_connects      - 通过socket地址连接
+// socket_connecto      - connect连接超时判断
+// socket_connectos     - connect连接客户端然后返回socket_t句柄
+//
+extern socket_t socket_tcp(const char * host, uint16_t port);
+extern socket_t socket_udp(const char * host, uint16_t port);
+extern socket_t socket_accept(socket_t s, sockaddr_t * addr);
+extern int socket_connect(socket_t s, const sockaddr_t * addr);
+extern int socket_connects(socket_t s, const char * ip, uint16_t port);
+extern int socket_connecto(socket_t s, const sockaddr_t * addr, int ms);
+extern socket_t socket_connectos(const char * host, uint16_t port, int ms);
+```
+
+    随后将会详细剖析其中接口, 这些接口真的是服务器研发升级的必备技能. 也是很多人忘了,
+    但他就是金丹期的一个见证或者说试炼卡. 
+
+### 7.3.3 socket_xxxx 都将水落石出
+
+    首先看第一缕实现, 每一次突破(踩坑)都是血与泪.
+
+```C
+inline socket_t
+socket_dgram(void) {
+	return socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+}
+
+inline socket_t
+socket_stream(void) {
+	return socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+}
+
+inline int
+socket_close(socket_t s) {
+	shutdown(s, SHUT_WR);
+#ifdef _MSC_VER
+	return closesocket(s);
+#else
+	return close(s);
+#endif
+}
+
+inline int 
+socket_read(socket_t s, void * data, int sz) {
+#ifdef _MSC_VER
+	return sz > 0 ? recv(s, data, sz, 0) : 0;
+#else
+	// linux上面 read 封装了 recv
+	return read(s, data, sz);
+#endif
+}
+
+inline int 
+socket_write(socket_t s, const void * data, int sz) {
+#ifdef _MSC_VER
+	return send(s, data, sz, 0);
+#else
+	return write(s, data, sz);
+#endif
+}
+
+int 
+socket_addr(const char * ip, uint16_t port, sockaddr_t * addr) {
+    if (!ip || !*ip || !addr)
+        RETURN(ErrParam, "check empty ip = %s, port = %hu, addr = %p.", ip, port, addr);
+
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(port);
+    addr->sin_addr.s_addr = inet_addr(ip);
+    if (addr->sin_addr.s_addr == INADDR_NONE) {
+        struct hostent * host = gethostbyname(ip);
+        if (!host || !host->h_addr)
+            RETURN(ErrParam, "check ip is error = %s.", ip);
+        // 尝试一种, 默认ipv4
+        memcpy(&addr->sin_addr, host->h_addr, host->h_length);
+    }
+    memset(addr->sin_zero, 0, sizeof addr->sin_zero);
+
+    return SufBase;
+}
+```
     
+    不知道你看完 socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP); 有什么话说, 这就是
+    逼格. PF_INET 用于声明套接字类型. AF_INET 用于 socket 地址类型. 值一样, 设计
+    意图不一样. 第三个参数有点装, 最通用的写法用0代替, 走默认第一个. 其中对于
+    socket_close 底层默认采用了优雅的关闭, shutdown 等待服务器所有数据写完毕. 这
+    也是 SHUT_WR 宏 winds 实现的意义. 再看 socket_read 的时候, 不知道你是否好奇.
+    因为 winds 和 linux 对于 recv 处理非法输入的行为不一样. linux sz = 0 会立即
+    返回, 但是 winds 会阻塞住, 算是 winds 一个 bug 吧, 它可能没有检查直接抛入到发
+    送层面造成互相等待阻塞了. 我们其实讲了很多, 但你会发现学的很快. 主要原因是我们
+    从实践剑宗出发, 快速战斗, 但缺少底蕴. 用的快, 忘记的快, 真真的高手, 一定是气宗,
+    一个绝顶高手一定是剑宗出 ~ 万众五一
+
+    再来看看相关辅助操作, 用于 socket 一些控住操作.
+
+```C
+inline int
+socket_set_block(socket_t s) {
+#ifdef _MSC_VER
+	u_long mode = 0;
+	return ioctlsocket(s, FIONBIO, &mode);
+#else
+	int mode = fcntl(s, F_GETFL, 0);
+	if (mode == SOCKET_ERROR)
+		return SOCKET_ERROR;
+	if (mode & O_NONBLOCK)
+		return fcntl(s, F_SETFL, mode & ~O_NONBLOCK);
+	return SufBase;
+#endif	
+}
+
+inline int
+socket_set_nonblock(socket_t s) {
+#ifdef _MSC_VER
+	u_long mode = 1;
+	return ioctlsocket(s, FIONBIO, &mode);
+#else
+	int mode = fcntl(s, F_GETFL, 0);
+	if (mode == SOCKET_ERROR)
+		return SOCKET_ERROR;
+	if (mode & O_NONBLOCK)
+		return SufBase;
+	return fcntl(s, F_SETFL, mode | O_NONBLOCK);
+#endif	
+}
+
+static inline int _socket_set_enable(socket_t s, int optname) {
+	int ov = 1;
+	return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
+}
+
+inline int
+socket_set_reuseaddr(socket_t s) {
+	return _socket_set_enable(s, SO_REUSEADDR);
+}
+
+inline int 
+socket_set_keepalive(socket_t s) {
+	return _socket_set_enable(s, SO_KEEPALIVE);
+}
+
+static inline int _socket_set_time(socket_t s, int ms, int optname) {
+	struct timeval ov = { 0,0 };
+	if (ms > 0) {
+		ov.tv_sec = ms / 1000;
+		ov.tv_usec = (ms % 1000) * 1000;
+	}
+	return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
+}
+
+inline int
+socket_set_recvtimeo(socket_t s, int ms) {
+	return _socket_set_time(s, ms, SO_RCVTIMEO);
+}
+
+inline int
+socket_set_sendtimeo(socket_t s, int ms) {
+	return _socket_set_time(s, ms, SO_SNDTIMEO);
+}
+```
+
+    无外乎围绕 非阻塞, 阻塞 IO 设置, 地址复用, 开启 socket 底层心跳机制...
+    其中最喜欢接口如下:
+
+```C
+inline int 
+socket_get_error(socket_t s) {
+	int error;
+	socklen_t len = sizeof(error);
+	int code = getsockopt(s, SOL_SOCKET, SO_ERROR, (void *)&error, &len);
+	return code < 0 ? errno : error;
+}
+```
+
+    得到 socket 一次操作后的错误信息. 是不是很花心思. 有了它是否瞬间感觉, 一路
+    飞云逐日 ~
+
+    随后对于发送和接收模块, 很大众的思路, 只不过加了一些信号中断的判断.
+
+```C
+int
+socket_recv(socket_t s, void * buf, int len) {
+	int r;
+	do {
+		r = recv(s, buf, len, 0);
+	} while (r == SOCKET_ERROR && errno == EINTR);
+	return r;
+}
+
+int
+socket_recvn(socket_t s, void * buf, int len) {
+	int r, nlen = len;
+	while (nlen > 0) {
+		r = socket_recv(s, buf, nlen);
+		if (r == 0) break;
+		if (r == SOCKET_ERROR) {
+			RETURN(SOCKET_ERROR, "socket_recv error len = %d, nlen = %d.", len, nlen);
+		}
+		nlen -= r;
+		buf = (char *)buf + r;
+	}
+	return len - nlen;
+}
+
+int
+socket_send(socket_t s, const void * buf, int len) {
+	int r;
+	do {
+		r = send(s, buf, len, 0);
+	} while (r == SOCKET_ERROR && errno == EINTR);
+	return r;
+}
+
+int
+socket_sendn(socket_t s, const void * buf, int len) {
+	int r, nlen = len;
+	while (nlen > 0) {
+		r = socket_send(s, buf, nlen);
+		if (r == 0) break;
+		if (r == SOCKET_ERROR) {
+			RETURN(SOCKET_ERROR, "socket_send error len = %d, nlen = %d.", len, nlen);
+		}
+		nlen -= r;
+		buf = (const char *)buf + r;
+	}
+	return len - nlen;
+}
+
+inline int
+socket_recvfrom(socket_t s, void * buf, int len, int flags, sockaddr_t * in, socklen_t * inlen) {
+	return recvfrom(s, buf, len, flags, (struct sockaddr *)in, inlen);
+}
+
+inline int
+socket_sendto(socket_t s, const void * buf, int len, int flags, const sockaddr_t * to, socklen_t tolen) {
+	return sendto(s, buf, len, flags, (const struct sockaddr *)to, tolen);
+}
+```
+
+    还是那句话, 山中不知岁月. 其实我很多套路都是从一个叫云风的化神前辈遗留下剑气中, 参悟.
+    得到的. 最终交叉在华山剑法中, 供后来者回忆或演练基础.
+
+```C
+socket_t
+socket_bind(const char * host, uint16_t port, uint8_t protocol, int * family) {
+	socket_t fd;
+    char ports[sizeof "65535"];
+	struct addrinfo hints = { 0 };
+	struct addrinfo * ailist = NULL;
+	if (host == NULL || *host == 0)
+		host = "0.0.0.0"; // INADDR_ANY
+
+	sprintf(ports, "%hu", port);
+	hints.ai_family = AF_UNSPEC;
+	if (protocol == IPPROTO_TCP)
+		hints.ai_socktype = SOCK_STREAM;
+	else {
+		assert(protocol == IPPROTO_UDP);
+		hints.ai_socktype = SOCK_DGRAM;
+	}
+	hints.ai_protocol = protocol;
+
+	if (getaddrinfo(host, ports, &hints, &ailist))
+		return INVALID_SOCKET;
+
+	fd = socket(ailist->ai_family, ailist->ai_socktype, 0);
+	if (fd == INVALID_SOCKET)
+		goto _failed_fd;
+
+	if (socket_set_reuseaddr(fd))
+		goto _failed;
+
+	if (bind(fd, ailist->ai_addr, ailist->ai_addrlen))
+		goto _failed;
+	// Success return ip family
+	if (family)
+		*family = ailist->ai_family;
+
+	freeaddrinfo(ailist);
+	return fd;
+
+_failed:
+	socket_close(fd);
+_failed_fd:
+	freeaddrinfo(ailist);
+	return INVALID_SOCKET;
+}
+
+socket_t
+socket_listen(const char * host, uint16_t port, int backlog) {
+	socket_t fd = socket_bind(host, port, IPPROTO_TCP, NULL);
+	if (fd == INVALID_SOCKET)
+		return INVALID_SOCKET;
+
+	if (listen(fd, backlog)) {
+		socket_close(fd);
+		return INVALID_SOCKET;
+	}
+	return fd;
+}
+```
+
+    这里 socket_bind 能够绑定一个 host 主机地址. 不仅仅是 ip 地址, 同样包括 url 地址.
+    上面两个接口属于半成品接口, 用于各种其它接口的扩展内嵌部分. 
