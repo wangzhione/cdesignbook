@@ -3073,5 +3073,6 @@ socket_listen(const char * host, uint16_t port, int backlog) {
 }
 ```
 
-    这里 socket_bind 能够绑定一个 host 主机地址. 不仅仅是 ip 地址, 同样包括 url 地址.
-    上面两个接口属于半成品接口, 用于各种其它接口的扩展内嵌部分. 
+    这里 socket_bind 能够绑定一个 host 主机地址. 不仅仅是 ip 地址, 同样包括 url 地
+    址. 上面两个接口属于半成品接口, 用于各种其它接口的扩展内嵌部分. socket_bind 函数
+    
