@@ -3104,7 +3104,7 @@ socket_udp(const char * host, uint16_t port) {
 ```C
 inline socket_t
 socket_accept(socket_t s, sockaddr_t * addr) {
-    socklen_t len;
+    socklen_t len = sizeof sockaddr_t;
     return accept(s, (struct sockaddr *)addr, &len);
 }
 
@@ -3427,4 +3427,5 @@ ddos_run(struct targ * arg) {
     打游戏服务器中底层库构建, C 剑技上面修炼 ~
 
 ## 7.5 基于注册的网络 IO 模型
+    
     
