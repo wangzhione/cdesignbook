@@ -3428,4 +3428,1350 @@ ddos_run(struct targ * arg) {
 
 ## 7.5 基于注册的网络 IO 模型
     
+    对于网络 IO 思路讲解真的很不好扯, 极度偏实战. 此刻讲解的是一种基于注册的 IO 封装.
+    最初思路流传于 libevent, 我这里做了一个最简单的模型 libiop. 只对 IO分析, 弱化了
+    定时器的功能. 此套 IO 设计思路从应用层向下看(延伸到 socket通信层). 
+
+    首先看核心思路展现的 iop_def.h 文件局部构造
+
+```C
+#ifndef _H_SIMPLEC_IOP_DEF
+#define _H_SIMPLEC_IOP_DEF
+
+#include "tstr.h"
+#include "scsocket.h"
+
+//
+// IOP_XXX 是处理内部事件
+//
+#define IOP_FREE        (0)         // 释放操作
+#define IOP_IO          (1)         // IO操作
+
+//
+// EV_XXX 是特定消息处理动作的标识
+//
+#define EV_READ         (1 << 0)    // 读事件
+#define EV_WRITE        (1 << 1)    // 写事件
+#define EV_CREATE       (1 << 2)    // 创建事件 
+#define EV_DELETE       (1 << 3)    // 销毁事件
+#define EV_TIMEOUT      (1 << 4)    // 超时事件
+
+#endif // !_H_SIMPLEC_IOP_DEF
+```
+
+    通过 IOP_XXX 宏的定义, 就已经表明当前 iop 库只是为了解决 IO 相关操作, IOP_FREE 是
+    IOP_IO 的衍生物, 释放销毁相关. 因为有 IO的诞生, 就会有 IO清理操作. 随后 EV_XXX 是
+    对 IOP_IO 操作的喜欢. 因为通信层面主要关心就是, 如何读, 如何写. 衍生出创建, 销毁, 
+    超时 等等辅助操作. 一个简单的网络 IO 最重要的就是要解决好 读 read, 写 write, 创建
+    accept, 销毁 close 这些是其最原始的业务. 所以先从简单的来, 修炼了前面的 socket 封
+    装功法, 那些功法只能点对点 一卫一 战斗. 到了妖魔战场最高效还是群发, 四两拨千斤. 也是
+    被逼的, 真实开发一个物理机服务小万人. 没有一套合理的调度机制处理, 单纯的异步应答, 系
+    统直接炸了. 
+
+    朴实中表露些许疲惫. 继续说 iop_def.h 接口设计原理. 
+
+![简单IO做的操作](./img/简单IO做的操作.png)
+
+    上面就是一个简单到不能再简单的一套 socket -> poll -> io -> rpc 机制(名词可以自行查)
+    . 我们这里先通过 libiop 解决到 io 和 poll 的部分.  继续看关于其它局部代码设计意图
+
+```C
+//
+// _INT_XXX 系统运行中用到的参数
+//
+#define _INT_DISPATCH   (500)       // 事件调度的时间间隔 毫秒
+#define _INT_KEEPALIVE  (60)        // 心跳包检查 秒
+#define _INT_POLL       (1024)      // events limit
+#define _INT_SEND       (1 << 23)   // socket send buf 最大8M	
+#define _INT_RECV       (1 << 12)   // 4k 接收缓冲区
+
+typedef struct iop * iop_t;
+typedef struct iopbase * iopbase_t;
+```
+
+    这些 _INT_XXX 宏放入 iop_def.h 统一从上到下管理. 第一个调度的时间宏, 意思在于每
+    经历过这么长毫秒时间内必须对所有连接池中对象处理一遍. 看是否有变化. _INT_POLL 表
+    示这段时间内我们每次只处理 1024 个需要处理变化事件(事情). 后面单个链接发送和接收
+    是最大限制宏. 其中 iop_t 思路是为每一个过来的客户端建立的对象. iopbase_t 就是管
+    理这些所有的 iop_t 对象的管理器. 正如前面定义了那么多 EV_XXX 事件, 每个事件对应
+    一个注册事件. 看看注册的行为接口定义
+
+```C
+//
+// iop_parse_f - 协议解析回调函数
+// buf		: 数据内存首地址
+// len		: 处理数据长度
+// return	: 返回0表示还有更多数据需要解析, -1代表协议错误, >0 表示解析成功一个包了
+//
+typedef int (* iop_parse_f)(const char * buf, uint32_t len);
+
+//
+// iop_processor_f - 数据处理器
+// base		: iopbase 结构指针, iop基础对象集
+// id		: iop对象的id
+// buf		: 数据包起始点
+// len		: 数据包长度
+// arg		: 自带的参数
+// return	: -1代表要关闭连接, 0代表正常
+//
+typedef int (* iop_processor_f)(iopbase_t base, uint32_t id, char * buf, uint32_t len, void * arg);
+
+//
+// iop_event_f - 事件毁掉函数, 返回ErrBase代表要删除对象, 返回SufBase代表正常
+// base		: iopbase 结构指针, iop基础对象集
+// id		: iop对象的id
+// arg		: 自带的参数
+// return	: -1代表要删除事件, 0代表不删除
+//
+typedef int (* iop_event_f)(iopbase_t base, uint32_t id, uint32_t events, void * arg);
+
+// 调度处理事件
+typedef int (* iop_dispatch_f)(iopbase_t base, uint32_t id);
+
+//
+// iop_f - 基础事件的回调函数
+// base		: iopbase 结构指针, iop基础对象集
+// id		: iop对象的id
+// arg		: 自带的参数
+// return	: -1表示失败, 0表示成功, 自己定义处理
+//
+typedef void (* iop_f)(iopbase_t base, uint32_t id, void * arg);
+```
+
+    没有办法, 因为网络封装这块偏重. 小篇幅难以搞定全部. 随后讲解 poll 可以让你爽. 
+    iop_parse_f 处理的是 recv 返回的时候需要干的事情, 无外乎解析, 封包什么的. 
+    iop_processor_f 是处理 send 事件. iop_event_f 是基础通用事件. iop_dispatch_f
+    用于每次事件调度处理事件, 属于 iop 内部处理 poll 过程来的消息. iop_f 也是内部
+    使用的行为接口, 用于 connect, destroy 的时候内部触发的默认事件. 
+
+    说真的, 看的头痛, 主要意图是为了引发作者思考, 以后会自我建构. 因为每个人对封装
+    的理解都很不一样, 共同点是为了解决某个问题. 问题解决了, 自己就锻炼了. 看最终总
+    核心结构. 
+
+```C
+//
+// iop结构, 每一个iop对象都会对应一个iop结构
+//
+struct iop {
+	uint32_t id;            // 对应的id
+	socket_t s;             // 对应的socket
+	uint8_t type;           // 对象类型 IOP_XXX 0:free, 1:io, 2:timer
+	int prev;               // 上一个对象
+	int next;               // 下一个对象
+	uint32_t events;        // 关注的事件
+	uint32_t timeout;       // 超时值
+	iop_event_f fevent;     // 事件毁掉函数
+	void * arg;             // 用户指定参数, 由用户负责释放资源
+	void * sarg;            // 系统指定参数, 由系统自动释放资源
+
+	struct tstr sbuf[1];    // 发送缓冲区, 希望保存在栈上
+	struct tstr rbuf[1];    // 接收缓冲区
+	time_t lastt;           // 最后一次调度时间
+};
+
+struct iopop {
+	void (* ffree)(iopbase_t);                              // 资源释放接口
+	int  (* fdispatch)(iopbase_t, uint32_t);                // 模型调度接口
+	int  (* fadd)(iopbase_t, uint32_t, socket_t, uint32_t); // 添加事件接口
+	int  (* fdel)(iopbase_t, uint32_t, socket_t);           // 删除事件接口
+	int  (* fmod)(iopbase_t, uint32_t, socket_t, uint32_t); // 修改事件接口
+};
+
+struct iopbase {
+	iop_t iops;             // 所有的iop对象
+	uint32_t maxio;         // 最大并发io数
+	uint32_t maxbuf;        // 单个发送或接收缓存的最大值
+	uint32_t freehead;      // 可用iop列表头
+	uint32_t freetail;      // 可用iop列表尾,最后一个
+	uint32_t iohead;        // 已用io类型的iop列表
+
+	int dispatchval;        // 调度的事件间隔
+	struct iopop op;        // 事件模型的内部实现
+	void * mdata;           // 事件模型特定数据
+
+	time_t curt;            // 当前调度时间
+	time_t lastt;           // 上次调度时间
+	time_t lastkeepalivet;  // 最后一次心跳的时间
+};
+
+//
+// IOP_CB - iop处理帮助宏
+// base		: iopbase_t, iop 对象的管理器
+// iop		: 当前处理的 iop 对象
+// events	: 事件合集
+//
+#define IOP_CB(base, iop, events) \
+	do { \
+		if(iop->type != IOP_FREE) { \
+			int $type = iop->fevent(base, iop->id, events, iop->arg); \
+			if ($type >= SufBase) \
+				iop->lastt = base->curt; \
+			else { \
+                extern int iop_del(iopbase_t base, uint32_t id); \
+				iop_del(base, iop->id); \
+            } \
+		} \
+	} while(0)
+```
+
+    其中 struct tstr rbuf[1]; 用法等同于在栈上声明的字符串类型. 方便使用
+    统一接口. IOP_CB 是对每个 iop 控制玩家对象, 基于 event 事件标识进行回调. 
+    对于上面结构部分. 合理的做法在 github 找到我的源码, 练习观摩一遍. 
+
+### 7.5.1 libiop poll 模型构建
+
+    上面结构中是否注意了 iopbase_t::struct iopop op 事件模型的内部实现. 它就是整个
+    网络层面 socket 监测核心. 释放, 调度, 添加, 删除, 修改. 扯一点, 上层语言独立抽出
+    释放过程, 还是挺爽的. 下面就是一个你很容易看懂, 也是分析基础, 为 struct iopbase
+    构建 struct iopop 接口.
+
+    首先看 iop_poll.h 接口设计文件
+
+```C
+#ifndef _H_SIMPLEC_IOP_POLL
+#define _H_SIMPLEC_IOP_POLL
+
+#include "iop_def.h"
+
+//
+// iop_poll_init - 通信的底层接口
+// base		: 总的iop对象管理器
+// maxsz	: 开启的最大处理数
+// return	: SufBase 表示成功
+//
+extern int iop_poll_init(iopbase_t base, unsigned maxsz);
+
+#endif // !_H_SIMPLEC_IOP_POLL
+```
+
+    实现也异常简单, iop_poll.c
+
+```C
+#include "iop_poll$epoll.h"
+#include "iop_poll$select.h"
+```
+
+    是不是很神奇. 虽然内心仿佛看见了c呵呵c.  不妨从 iop_poll$epoll.h 开始分析.
+
+iop_poll$epoll.h
+
+    首先从 epoll 结构出发, epoll 或者其它充满神奇 api 内幕都太多. 知道多了说不定
+    会出事. 但其实它只是一个很普通文件描述符检测器的结构. 
+
+```C
+#if defined(_HAVE_EPOLL)
+
+struct epolls {
+	int efd;                    // epoll 文件描述符与
+	uint32_t ets;               // epoll 数组的个数
+	struct epoll_event evs[];   // 事件数组
+};
+
+// 发送事件转换
+static inline uint32_t _to_events(uint32_t what) {
+	uint32_t events = 0;
+	if (what & EV_READ)
+		events |= EPOLLIN;
+	if (what & EV_WRITE)
+		events |= EPOLLOUT;
+	return events;
+}
+
+// 事件宏转换
+static inline uint32_t _to_what(uint32_t events) {
+	uint32_t what = 0;
+	if (events & (EPOLLHUP | EPOLLERR))
+		what = EV_READ | EV_WRITE;
+	else {
+		if (events & EPOLLIN)
+			what |= EV_READ;
+		if (events & EPOLLOUT)
+			what |= EV_WRITE;
+	}
+	return what;
+}
+
+#endif//_HAVE_EPOLL
+```
+
+    上面 epoll 用到的结构, 顺带和咱们 iop_def.h 中定义的事件关联了起来. 再按照
+    struct iopop 相关定义的行为接口, 挨个封装 
+
+```C
+// epoll 句柄释放
+static void _epolls_free(iopbase_t base) {
+	struct epolls * mdata = base->mdata;
+    if (mdata) {
+        base->mdata = NULL;
+        if (mdata->efd >= 0)
+            close(mdata->efd);
+        mdata->efd = -1;
+        free(mdata);
+    }
+}
+```
+
+    释放就是大白话, 看看调度相关操作 
+
+```C
+// epoll 事件调度处理
+static int _epolls_dispatch(iopbase_t base, uint32_t timeout) {
+	int i, n = 0;
+	iop_t iop;
+    uint32_t what;
+	struct epolls * mdata = base->mdata;
+
+	do
+		n = epoll_wait(mdata->efd, mdata->evs, mdata->ets, timeout);
+	while (n < SufBase && errno == EINTR);
+
+	// 得到当前时间
+	time(&base->curt);
+	for (i = 0; i < n; ++i) {
+		struct epoll_event * ev = mdata->evs + i;
+		uint32_t id = ev->data.u32;
+		if (id >= 0 && id < base->maxio) {
+			iop = base->iops + id;
+			if (id < base->maxio) {
+				iop = base->iops + id;
+				what = _to_what(ev->events);
+				IOP_CB(base, iop, what);
+			}
+		}
+	}
+	return n;
+}
+```
+
+    其中和事件 IOP_CB 关联起来了, 内部调度完毕之后, 开始走咱们 iop 自定义的消息处理
+    _to_what -> IOP_CB 注册的消息事件. 这种思路是交叉耦合. 上层语言中封装用的很多. 
+    最后我们会给出一个元婴功法来解耦合. 简化动作, 抛开上层统一调用. 随后处理无外乎就是
+    对 epoll 接口使用的理解
+
+```C
+// epoll 添加处理事件
+static inline int _epolls_add(iopbase_t base, uint32_t id, socket_t s, uint32_t events) {
+	struct epolls * mdata = base->mdata;
+	struct epoll_event ev;
+	ev.data.u32 = id;
+	ev.events = _to_events(events);
+	return epoll_ctl(mdata->efd, EPOLL_CTL_ADD, s, &ev);
+}
+
+// epoll 删除监视操作
+static inline int _epolls_del(iopbase_t base, uint32_t id, socket_t s) {
+	struct epolls * mdata = base->mdata;
+	struct epoll_event ev;
+	ev.data.u32 = id;
+	return epoll_ctl(mdata->efd, EPOLL_CTL_DEL, s, &ev);
+}
+
+// epoll 修改句柄注册
+static inline int _epolls_mod(iopbase_t base, uint32_t id, socket_t s, uint32_t events) {
+	struct epolls * mdata = base->mdata;
+	struct epoll_event ev;
+	ev.data.u32 = id;
+	ev.events = _to_events(events);
+	return epoll_ctl(mdata->efd, EPOLL_CTL_MOD, s, &ev);
+}
+```
+
+    最终打包函数出来, 其实可以拆分出两部分. 第一部分构建内存, 第二部分填充. 我们可以
+    细想一下. 我们把这些单独操作都分离出来, 各个平台实现一遍, 不就解耦合了吗. 
+
+    参照这个思路, 我们再在 winds 上面也实现一套. 基于 select 思路构建一套跨平台的套
+    路. 主要看 
+
+iop_poll$select.h
+
+```C
+#if !defined(_HAVE_EPOLL)
+
+#include <time.h>
+#include <iop_poll.h>
+
+struct selects {
+#ifdef __GNUC__
+	socket_t maxfd;
+#endif
+	fd_set rset;
+	fd_set wset;
+	fd_set orset;
+	fd_set owset;
+};
+
+// 开始销毁函数
+static inline void _selects_free(iopbase_t base) {
+	struct selects * s = base->mdata;
+	if (s) {
+		base->mdata = NULL;
+		free(s);
+	}
+}
+
+static int _selects_dispatch(iopbase_t base, uint32_t timeout) {
+	iop_t iop;
+	uint32_t revents;
+	int n, num, curid, nextid;
+	struct timeval tv = { 0 };
+	struct selects * mdata = base->mdata;
+	if (timeout > 0) {
+		tv.tv_sec = timeout / 1000;
+		tv.tv_usec = (timeout % 1000) * 1000;
+	}
+
+	// 开始复制变化
+	memcpy(&mdata->orset, &mdata->rset, sizeof(fd_set));
+	memcpy(&mdata->owset, &mdata->wset, sizeof(fd_set));
+
+	// 开始等待搞起了, window select 不需要最大 maxfd
+#ifdef _MSC_VER
+	// window select only listen socket 
+	n = select(0, &mdata->orset, &mdata->owset, NULL, &tv);
+	if (n < 0 && errno == EAGAIN) {
+		// 当定时器时候等待
+		n = 0;
+		Sleep(tv.tv_sec * 1000 + tv.tv_usec / 1000);
+	}
+#else
+	do {
+		// 时间tv会改变, 时间总的而言不变化
+		n = select(mdata->maxfd + 1, &mdata->orset, &mdata->owset, NULL, &tv);
+	} while (n < SufBase && errno == SOCKET_EINTR);
+#endif
+	time(&base->curt);
+	if (n <= 0)
+		return n;
+
+	num = 0;
+	curid = base->iohead;
+	while (curid != SOCKET_ERROR && num < n) {
+		iop = base->iops + curid;
+		nextid = iop->next;
+		revents = 0;
+
+		// 构建时间类型
+		if (FD_ISSET(iop->s, &mdata->orset))
+			revents |= EV_READ;
+		if (FD_ISSET(iop->s, &mdata->owset))
+			revents |= EV_WRITE;
+
+		// 监测小时事件并处理
+		if (revents) {
+			++num;
+			IOP_CB(base, iop, revents);
+		}
+
+		curid = nextid;
+	}
+
+	return n;
+}
+
+static int _selects_add(iopbase_t base, uint32_t id, socket_t s, uint32_t events) {
+	struct selects * mdata = base->mdata;
+	if (events & EV_READ)
+		FD_SET(s, &mdata->rset);
+	if (events & EV_WRITE)
+		FD_SET(s, &mdata->wset);
+
+#ifndef _MSC_VER
+	// 老子不想加宏了, 去你MB的C
+	if (s > mdata->maxfd)
+		mdata->maxfd = s;
+#endif
+
+	return SufBase;
+}
+
+// select 删除句柄
+static int _selects_del(iopbase_t base, uint32_t id, socket_t s) {
+	struct selects * mdata = base->mdata;
+	FD_CLR(s, &mdata->rset);
+	FD_CLR(s, &mdata->wset);
+
+#ifndef _MSC_VER
+	// linux下需要提供maxfd的值
+	if (s >= mdata->maxfd) {
+		int curid = base->iohead;
+		mdata->maxfd = SOCKET_ERROR;
+
+		while (curid != SOCKET_ERROR) {
+			iop_t iop = base->iops + curid;
+			if (curid != id) {
+				if (mdata->maxfd < iop->s)
+					mdata->maxfd = iop->s;
+			}
+			curid = iop->next;
+		}
+	}
+#endif
+
+	return SufBase;
+}
+
+// 事件修改, 其实只处理了读写事件
+static int _selects_mod(iopbase_t base, uint32_t id, socket_t s, uint32_t events) {
+	struct selects * mdata = base->mdata;
+	if (events & EV_READ)
+		FD_SET(s, &mdata->rset);
+	else
+		FD_CLR(s, &mdata->rset);
+
+	if (events & EV_WRITE)
+		FD_SET(s, &mdata->wset);
+	else
+		FD_CLR(s, &mdata->wset);
+
+	return SufBase;
+}
+
+//
+// iop_poll_init - 通信的底层接口
+// base		: 总的iop对象管理器
+// maxsz	: 开启的最大处理数
+// return	: SufBase 表示成功
+//
+int
+iop_poll_init(iopbase_t base, unsigned maxsz) {
+	struct iopop * op =  &base->op;
+	struct selects * mdata = calloc(1, sizeof(struct selects));
+	if (NULL == mdata) {
+		RETURN(ErrAlloc, "malloc sizeof(struct selects) is error!");
+	}
+	base->mdata = mdata;
+
+	op->ffree = _selects_free;
+	op->fdispatch = _selects_dispatch;
+	op->fadd = _selects_add;
+	op->fdel = _selects_del;
+	op->fmod = _selects_mod;
+
+	return SufBase;
+}
+
+#endif
+```
+
+    主要看 _selects_dispatch select 调度函数. 通过上面封装我们基本打通了 io poll
+    模型. 检测每一个注册 socket 对象, 回调 iop 中处理的相应事件. 随后我们进入 iop
+    对上面 poll 模型 add, mod, del 进行详细封装. 
+
+### 7.5.2 libiop iop 基于 poll 详细构建.
+
+    首先看创建和删除接口设计 iop.h 
+
+```C
+#ifndef _H_SIMPLEC_IOP
+#define _H_SIMPLEC_IOP
+
+#include "iop_def.h"
+
+//
+// iop_create - 创建新的iopbase_t 对象, io模型集
+// return	: iobase_t 模型,失败返回NULL
+//
+extern iopbase_t iop_create(void);
+
+//
+// iop_delete - 销毁iopbase_t 对象
+// base		: 待销毁的io基础对象
+// return	: void
+//
+extern void iop_delete(iopbase_t base);
+
+#endif // !_H_SIMPLEC_IOP
+```
+
+    主要看 iop.c 实现部分, 核心是对 struct iopbase 结构体的填充.
+
+```C
+#include "iop.h"
+#include "iop_poll.h"
+
+// 默认event 调度事件
+static inline int _iop_devent(iopbase_t base, uint32_t id, uint32_t events, void * arg) {
+	return SufBase;
+}
+
+// 构建对象
+static iopbase_t _iopbase_new(uint32_t maxio) {
+	uint32_t i = 0, prev = INVALID_SOCKET;
+	iopbase_t base = calloc(1, sizeof(struct iopbase));
+	if (NULL == base) {
+		RETURN(NULL, "_iopbase_new calloc struct iopbase is error!");
+	}
+
+	base->iops = calloc(maxio, sizeof(struct iop));
+	if (NULL == base->iops) {
+		free(base);
+		RETURN(NULL, "calloc struct iop is error, maxio = %u.", maxio);
+	}
+
+	// 开始部署数据
+	base->maxio = maxio;
+	base->dispatchval = _INT_DISPATCH;
+	base->lastt = time(&base->curt);
+	base->lastkeepalivet = base->curt;
+	base->iohead = -1;
+	base->freetail = maxio - 1;
+
+	// 构建具体的处理
+	while (i < maxio) {
+		iop_t iop = base->iops + i;
+		iop->id = i;
+		iop->s = INVALID_SOCKET;
+		iop->fevent = _iop_devent;
+
+		iop->prev = prev;
+		prev = i;
+		iop->next = ++i;
+	}
+
+	// 设置文件描述符次数
+	SET_RLIMIT_NOFILE(_INT_POLL);
+	return base;
+}
+
+inline iopbase_t
+iop_create(void) {
+	iopbase_t base = _iopbase_new(_INT_POLL);
+	if (base) {
+		if (SufBase > iop_poll_init(base, _INT_POLL)) {
+			iop_delete(base);
+			RETURN(NULL, "iop_poll_init _INT_POLL = %d error!", _INT_POLL);
+		}
+	}
+	return base;
+}
+
+void
+iop_delete(iopbase_t base) {
+	uint32_t i;
+	if (!base) return;
+	if (base->iops) {
+		while (base->iohead != INVALID_SOCKET)
+			iop_del(base, base->iohead);
+
+		for (i = 0; i < base->maxio; ++i) {
+			iop_t iop = base->iops + i;
+			TSTR_DELETE(iop->sbuf);
+			TSTR_DELETE(iop->rbuf);
+		}
+
+		base->maxio = 0;
+		free(base->iops);
+		base->iops = NULL;
+	}
+
+	if (base->op.ffree)
+		base->op.ffree(base);
+
+	// 删除链表
+	vlist_delete(base->tplist);
+
+	free(base);
+}
+```
+
+    创建部分和删除部分都稀疏平常. 中间就是 add, del, mod 三大行为构建
+
+```C
+//
+// iop_add - 添加一个新的事件对象到iopbase 调度事件集中
+// base		: io事件集基础对象
+// s		: socket 处理句柄
+// ets		: 处理事件类型 EV_XXX
+// to		: 超时时间, '-1' 表示永不超时
+// fev		: 事件回调函数
+// arg		: 用户参数
+// return	: 成功返回iop的id, 失败返回SOCKET_ERROR
+//
+extern uint32_t iop_add(iopbase_t base, socket_t s, uint32_t ets, uint32_t to, iop_event_f fev, void * arg);
+
+// 
+// iop_del - iop销毁事件
+// base		: io事件集基础对象 
+// id		: iop事件id
+// return	: >=0 成功, <0 表示失败
+//
+extern int iop_del(iopbase_t base, uint32_t id);
+
+//
+// iop_mod - 修改iop事件订阅事件
+// base		: io事件集基础对象 
+// id		: iop事件id
+// events	: 新的events事件
+// return	: >=0 成功, <0 表示失败
+//
+extern int iop_mod(iopbase_t base, uint32_t id, uint32_t events);
+```
+
+    构建起来主要是删除麻烦一点, 主要在总的数据结构移动和释放
+
+```C
+static iop_t _iop_get(iopbase_t base) {
+	iop_t iop;
+	if (base->freehead == INVALID_SOCKET)
+		return NULL;
+
+	// 存在释放结点, 找出来处理
+	iop = base->iops + base->freehead;
+	base->freehead = iop->next;
+	if (base->freehead == INVALID_SOCKET)
+		base->freetail = INVALID_SOCKET;
+	else
+		base->iops[base->freehead].prev = INVALID_SOCKET;
+
+	return iop;
+}
+
+uint32_t
+iop_add(iopbase_t base, socket_t s, uint32_t ets, uint32_t to, iop_event_f fev, void * arg) {
+	int r = 0;
+	iop_t iop = _iop_get(base);
+	if (NULL == iop) {
+		RETURN(ErrBase, "_iop_get is base error = %p.", base);
+	}
+
+	iop->s = s;
+	iop->events = ets;
+	iop->timeout = to;
+	iop->fevent = fev;
+	iop->lastt = base->curt;
+	iop->arg = arg;
+
+	if (s != INVALID_SOCKET) {
+		iop->prev = INVALID_SOCKET;
+		iop->next = base->iohead;
+		base->iohead = iop->id;
+		iop->type = IOP_IO;
+		socket_set_nonblock(s);
+		r = base->op.fadd(base, iop->id, s, ets);
+		if (r < SufBase) {
+			iop_del(base, iop->id);
+			return r;
+		}
+	}
+
+	return iop->id;
+}
+
+int
+iop_del(iopbase_t base, uint32_t id) {
+	iop_t iop = base->iops + id;
+	switch (iop->type) {
+	case IOP_IO:
+		iop->fevent(base, id, EV_DELETE, iop->arg);
+		if (iop->s != INVALID_SOCKET) {
+			base->op.fdel(base, iop->id, iop->s);
+			socket_close(iop->s);
+			iop->s = INVALID_SOCKET;
+		}
+
+		if (iop->prev == INVALID_SOCKET) {
+			base->iohead = iop->next;
+			if (iop->next != INVALID_SOCKET)
+				base->iops[base->iohead].prev = INVALID_SOCKET;
+		}
+		else {
+			iop_t node = base->iops + iop->prev;
+			node->next = iop->next;
+			if (node->next != INVALID_SOCKET)
+				base->iops[node->next].prev = node->id;
+		}
+
+		iop->prev = base->freetail;
+		iop->next = INVALID_SOCKET;
+		base->freetail = iop->id;
+		if (base->freetail == INVALID_SOCKET)
+			base->freehead = iop->id;
+		break;
+	default:
+		CERR("iop->type = %u is error!", iop->type);
+	}
+
+	iop->type = IOP_FREE;
+
+	return SufBase;
+}
+
+int
+iop_mod(iopbase_t base, uint32_t id, uint32_t events) {
+	iop_t iop = base->iops + id;
+	if (iop->type != IOP_IO) {
+		RETURN(ErrBase, "iop type is error = [%u, %u].", iop->type, id);
+	}
+	if (iop->s == INVALID_SOCKET) {
+		RETURN(ErrBase, "iop socket is error = [%"PRIu64", %u].", (int64_t)iop->s, id);
+	}
+
+	return base->op.fmod(base, iop->id, iop->s, events);
+}
+```
+
+    最终都是围绕 iopbase::iops freehead freetail iohead 模拟一个 iop 数组处理. 其中
+    iohead 表示当前可用的 iop 对象头. 
+
+    上面接口多是为了解决一个客户端链接过来, iop 对象的内部处理. 那么我们最核心的还是发送
+    和接收
+
+```C
+// iop 轮询事件的发送接收操作, 发送没变化, 接收放在接收缓冲区
+int
+iop_send(iopbase_t base, uint32_t id, const void * data, uint32_t len) {
+	int r = SufBase;
+	const char * csts = data;
+	iop_t iop = base->iops + id;
+	tstr_t buf = iop->sbuf;
+
+	if (buf->len <= 0) {
+		r = socket_send(iop->s, data, len);
+		if (r >= 0 && (uint32_t)r >= len)
+			return SufBase;
+		if (r < 0) {
+			if (errno != EINPROGRESS && errno != EWOULDBOCK) {
+				RETURN(ErrBase, "socket_send error r = %d.", r);
+			}
+			r = 0;
+		}
+		csts += r;
+	}
+
+	// 剩余的发送部分, 下次再发
+	if (buf->cap > _INT_SEND) {
+		RETURN(ErrAlloc, "iop->sbuf->capacity error too length = %zu.", buf->cap);
+	}
+
+	// 开始填充内存
+	tstr_appendn(buf, csts, len - r);
+
+	if (iop->events & EV_WRITE)
+		return SufBase;
+
+	return iop_mod(base, id, iop->events | EV_WRITE);;
+}
+
+int
+iop_recv(iopbase_t base, uint32_t id) {
+	int r;
+	iop_t iop = base->iops + id;
+	tstr_t buf = iop->rbuf;
+
+	if (buf->cap > _INT_SEND) {
+		RETURN(ErrAlloc, "iop->rbuf->capacity error too length = %zu.", buf->cap);
+	}
+	tstr_expand(buf, _INT_RECV);
+
+	// 开始接收数据
+	r = socket_recv(iop->s, buf->str + buf->len, buf->cap - buf->len);
+	if (r < 0) {
+		if (errno != EINPROGRESS && errno != EWOULDBOCK) {
+			RETURN(ErrBase, "socket_recv error r = %d.", r);
+		}
+		return r;
+	}
+
+	// 返回最终结果
+	if (r == 0)
+		return ErrClose;
+
+	buf->len += r;
+	return SufBase;
+}
+```
+
+    通过 tstr 模拟线性数组发送数据和接收数据. 其中对于对方关闭链接单独用 ErrClose 枚举
+    表示. 对于 iop_send, 数据写入到写入缓冲区 sbuf 中之后, 立马改变 iop 处理的事件机
+    制. 通过 iop_mod 注册 EV_WRITE.
+
+    最后看下 iop 封装中需要外部一直调用的函数
+
+```C
+//
+// iop_dispatch - 启动一次事件调度
+// base		: io调度对象
+// return	: 本次调度处理事件总数
+//
+int 
+iop_dispatch(iopbase_t base) {
+	iop_t iop;
+	int curid, nextid;
+    int r = base->op.fdispatch(base, base->dispatchval);
+	// 调度一次结果监测
+	if (r < SufBase)
+		return r;
+
+	// 判断时间信息
+	if (base->curt > base->lastt) {
+		// clear keepalive, 60 seconds per times
+		if (base->curt > base->lastkeepalivet + _INT_KEEPALIVE) {
+			base->lastkeepalivet = base->curt;
+			curid = base->iohead;
+			while (curid != INVALID_SOCKET) {
+				iop = base->iops + curid;
+				nextid = iop->next;
+				if (iop->timeout > 0 && iop->lastt + iop->timeout < base->curt)
+					IOP_CB(base, iop, EV_TIMEOUT);
+				curid = nextid;
+			}
+		}
+
+		base->lastt = base->curt;
+	}
+
+	return r;
+}
+```
+
+    只要在合适的地方 iop_dispatch 循环调用, 自然这个 libiop 监测回调的结果就出来了.
+    有了这些封装, 后面简单加个异步的调用. 基本关于 io 层面就大功而成了.
+
+### 7.5.3 libiop iop 对外暴露的接口
+
+    对外暴露的接口无外乎让用, 让他停. 不妨直接看接口设计
+
+iop_server.h
+
+```C
+#ifndef _H_SIMPLEC_IOP_SERVER
+#define _H_SIMPLEC_IOP_SERVER
+
+#include "iop.h"
+
+typedef struct iops * iops_t;
+
+//
+// iops_run - 启动一个 iop tcp server, 开始监听处理
+// host         : 服务器ip
+// port         : 服务器端口
+// timeout      : 超时时间阀值
+// fparser      : 协议解析器
+// fprocessor   : 数据处理器
+// fconnect     : 当连接创建时候回调
+// fdestroy     : 退出时间的回调
+// ferror       : 错误的时候回调
+// return       : 返回 iops_t 对象, 结束时候可以调用 iops_end
+//
+extern iops_t iops_run(const char * host, uint16_t port, uint32_t timeout,
+                       iop_parse_f fparser, iop_processor_f fprocessor,
+                       iop_f fconnect, iop_f fdestroy, iop_event_f ferror);
+
+//
+// iops_end - 结束一个 iops 服务
+// iops     : iops_run 返回的对象
+// return   : void
+//
+extern void iops_end(iops_t iops);
+
+#endif // !_H_SIMPLEC_IOP_SERVER
+```
+
+    同样先从结构入手, 
+
+```C
+struct iops {
+    iopbase_t base;         // iop 调度总对象
+
+    pthread_t tid;          // 奔跑线程
+    volatile bool irun;     // true 表示 iops 对象奔跑
+
+    uint32_t timeout;
+    iop_parse_f fparser;
+    iop_processor_f fprocessor;
+    iop_f fconnect;
+    iop_f fdestroy;
+    iop_event_f ferror;
+};
+```
+
+    后面6个结构是使用 iops_run 注册的, 用于触发后回到函数. 这次从上到下分析
+
+```C
+static void _iops_run(struct iops * iops) {
+    iopbase_t base = iops->base;
+    while (iops->irun) {
+        iop_dispatch(base);   
+    }
+}
+
+iops_t 
+iops_run(const char * host, uint16_t port, uint32_t timeout,
+    iop_parse_f fparser, iop_processor_f fprocessor,
+    iop_f fconnect, iop_f fdestroy, iop_event_f ferror) {
+    int r;
+    struct iops * iops = _iops_create(host, port, timeout, 
+        fparser, fprocessor, fconnect, fdestroy, ferror);
+    if (NULL == iops) {
+        CERR_EXIT("_iops_create iops is empty!");
+    }
+
+    r = pthread_create(&iops->tid, NULL, (start_f)_iops_run, iops);
+    if (r < SufBase) {
+        CERR_EXIT("pthread_create error r = %p, %d.", iops, r);
+    }
+
+    return iops;
+}
+
+inline void 
+iops_end(iops_t iops) {
+    if (iops && iops->irun) {
+        iops->irun = false;
+        pthread_join(iops->tid, NULL);
+        iop_delete(iops->base);
+        free(iops);
+    }
+}
+```
+
+    从 iops_run -> _iops_run 可以看出 iop.h 接口中 iop_dispatch 用法. 其中
+    用到个 _iops_create, 属于构建 struct iops 对象. 
+
+```C
+// struct iops 对象创建
+static struct iops * _iops_create(
+    const char * host, uint16_t port, uint32_t timeout,
+    iop_parse_f fparser, iop_processor_f fprocessor,
+    iop_f fconnect, iop_f fdestroy, iop_event_f ferror) {
+    struct iops * sarg;
+	// 构建 socket tcp 服务
+	socket_t s = socket_tcp(host, port);
+	if (s == INVALID_SOCKET) {
+		RETURN(NULL, "socket_tcp err = %s | %u.", host, port);
+	}
+
+	// 构建系统参数, 并逐个填充内容
+	if ((sarg = malloc(sizeof(struct iops))) == NULL) {
+		socket_close(s);
+		RETURN(NULL, "calloc struct ioptcp is error!");
+	}
+
+    // 如果创建最终 iopbase_t 对象失败, 直接返回
+    if ((sarg->base = iop_create()) == NULL) {
+        free(sarg);
+        socket_close(s);
+        RETURN(NULL, "iop_create is error!");
+    }
+
+    sarg->irun = true;
+	sarg->timeout = timeout;
+    sarg->fparser = fparser;
+    sarg->fprocessor = fprocessor;
+	sarg->fconnect = fconnect;
+	sarg->fdestroy = fdestroy;
+	sarg->ferror = ferror;
+    // 添加主 iop 对象, 永不超时
+    if (SOCKET_ERROR == 
+        iop_add(sarg->base, s, EV_READ, -1, (iop_event_f)_fconnect, sarg)) {
+        iop_delete(sarg->base);
+        free(sarg);
+        socket_close(s);
+        RETURN(NULL, "iop_add is read -1 error!");
+    }
+
+    return sarg;
+}
+```
+
+    它做的事情很就是, 构建一个 struct ips 结构, 成功后将申请的主 socket 对象注册进去.
+    每次主 socket 发生变化, 都会触发 _fconnect 处理链接函数.
+
+```C
+static int _fconnect(iopbase_t base, uint32_t id, uint32_t events, struct iops * sarg) {
+	int r;
+	iop_t iop;
+	socket_t s;
+
+	if (events & EV_READ) {
+		iop = base->iops + id;
+		s = socket_accept(iop->s, NULL);
+		if (INVALID_SOCKET == s) {
+			RETURN(ErrFd, "socket_accept is error id = %u.", id);
+		}
+
+		r = iop_add(base, s, EV_READ, sarg->timeout, _fdispatch, NULL);
+		if (r < SufBase) {
+			socket_close(r);
+			RETURN(r, "iop_add EV_READ timeout = %d, r = %u", sarg->timeout, r);
+		}
+
+		iop = base->iops + r;
+		iop->sarg = sarg;
+		sarg->fconnect(base, r, iop->arg);
+	}
+
+	return SufBase;
+}
+```
+
+    当客户端有 socket 过来时候, 会触发 iop 的 EV_READ 读事件. 随后进入 accept 逻辑.
+    开始为期注册调度函数 _fdispatch. 当 accept -> connect 触发完毕, 顺带执行玩家注
+    册的 fconnect 函数. 
+
+```C
+static int _fdispatch(iopbase_t base, uint32_t id, uint32_t events, void * arg) {
+	int r, n;
+	iop_t iop = base->iops + id;
+    struct iops * sarg = iop->sarg;
+
+	// 销毁事件
+	if (events & EV_DELETE) {
+		sarg->fdestroy(base, id, arg);
+		return SufBase;
+	}
+
+	// 读事件
+	if (events & EV_READ) {
+		n = iop_recv(base, id);
+		// 服务器关闭, 直接返回关闭操作
+		if (n == ErrClose)
+			return ErrClose;
+
+		if (n < SufBase) {
+			r = sarg->ferror(base, id, EV_READ, arg);
+			return r;
+		}
+
+		for (;;) {
+			// 读取链接关闭
+			n = sarg->fparser(iop->rbuf->str, iop->rbuf->len);
+			if (n < SufBase) {
+				r = sarg->ferror(base, id, EV_CREATE, arg);
+				if (r < SufBase)
+					return r;
+				break;
+			}
+			if (n == SufBase)
+				break;
+
+			r = sarg->fprocessor(base, id, iop->rbuf->str, n, arg);
+			if (SufBase <= r) {
+				if (n == iop->rbuf->len) {
+					iop->rbuf->len = 0;
+					break;
+				}
+				tstr_popup(iop->rbuf, n);
+				continue;
+			}
+			return r;
+		}
+
+	}
+
+	// 写事件
+	if (events & EV_WRITE) {
+		if (iop->sbuf->len <= 0)
+			return iop_mod(base, id, events);
+
+		n = socket_send(iop->s, iop->sbuf->str, iop->sbuf->len);
+		if (n < SufBase) {
+            // EINPROGRESS : 进程正在处理; EWOULDBOCK : 当前缓冲区已经写满可以继续写
+			if (errno != EINPROGRESS && errno != EWOULDBOCK) {
+				r = sarg->ferror(base, id, EV_WRITE, arg);
+				if (r < SufBase)
+					return r;
+			}
+			return SufBase;
+		}
+		if (n == SufBase) return SufBase;
+
+		if (n >= (int)iop->sbuf->len)
+			iop->sbuf->len = 0;
+		else
+			tstr_popup(iop->sbuf, n);
+	}
+
+	// 超时时间处理
+	if (events & EV_TIMEOUT) {
+		r = sarg->ferror(base, id, EV_TIMEOUT, arg);
+		if (r < SufBase)
+			return r;
+	}
+
+	return SufBase;
+}
+```
+
+    调度函数中主要围绕各种事件的处理. EV_READ, EV_WRITE ... 
+    只要是基于注册的网络库基本都是上面套路. 外加上一些杂糅的语言层面的特性.
+    到这里哪怕是看天书, 但你要明白, 你所要的底层也就这样了....
+
+### 7.5.4 libiop 不如来个 Heoo
+
+    我看一些开源库的时候, 就算把源码抄写了一遍, 如果没有原始 demo 也不好理解. 
+    这里给大家构建一个回显服务器, 方便理解
+
+main.c
+
+```C
+#include <iop_server.h>
+
+#define _STR_IP         "127.0.0.1"
+#define _SHORT_PORT     (8088)
+#define _UINT_TIMEOUT   (60u)
+#define _INT_SLEEP      (5000)
+
+//
+// echo_server - 测试回显服务器
+// echo_client - 测试回显客户端
+//
+void echo_server(void);
+void echo_client(void);
+
+//
+// 简单测试 libiop 运行情况
+//
+int main(int argc, char * argv[]) {
+	// 启动 * 装载 socket 库
+	socket_start();
+
+	// 客户端和服务器雌雄同体
+	if (argc > 1 && !strcmp("client", argv[1])) {
+        echo_client();
+	}
+	else {
+		// 测试基础的服务器启动
+        echo_server();
+	}
+
+	return EXIT_SUCCESS;
+}
+
+// 数据检查
+static int _echo_parser(const char * buf, uint32_t len) {
+	return (int)len;
+}
+
+// 数据处理
+static int _echo_processor(iopbase_t base, uint32_t id, char * data, uint32_t len, void * arg) {
+	char buf[BUFSIZ];
+
+	if (len >= BUFSIZ)
+		len = BUFSIZ - 1;
+	buf[len] = '\0';
+	memcpy(buf, data, len);
+
+	printf("recv data len = %u, data = %s.\n", len, buf);
+	
+	// 开始发送数据
+	int r = iop_send(base, id, data, len);
+	if (r < 0)
+		CERR("iop_send error id = %u, len = %u.\n", id, len);
+	return r;
+}
+
+// 连接处理
+static inline void _echo_connect(iopbase_t base, uint32_t id, void * arg) {
+	printf("_echo_connect base = %p, id : %u, arg = %p.\n", base, id, arg);
+}
+
+// 最终销毁处理
+static inline void _echo_destroy(iopbase_t base, uint32_t id, void * arg) {
+	printf("_echo_destroy base = %p, id : %u, arg = %p.\n", base, id, arg);
+}
+
+// 错误处理
+static int _echo_error(iopbase_t base, uint32_t id, uint32_t err, void * arg) {
+	switch (err) {
+	case EV_READ:
+		CERR("EV_READ base = %p, id = %u, err = %u, arg = %p.", base, id, err, arg);
+		break;
+	case EV_WRITE:
+		CERR("EV_WRITE base = %p, id = %u, err = %u, arg = %p.", base, id, err, arg);
+		break;
+	case EV_CREATE:
+		CERR("EV_CREATE base = %p, id = %u, err = %u, arg = %p.", base, id, err, arg);
+		break;
+	case EV_TIMEOUT:
+		CERR("EV_TIMEOUT base = %p, id = %u, err = %u, arg = %p.", base, id, err, arg);
+		break;
+	default:
+		CERR("default id = %u, err = %u.", id, err);
+	}
+	return SufBase;
+}
+
+//
+// 测试回显服务器
+//
+void 
+echo_server(void) {
+    int r = -1;
+    iops_t base = iops_run(_STR_IP, _SHORT_PORT, _UINT_TIMEOUT,
+        _echo_parser, _echo_processor, _echo_connect, _echo_destroy, _echo_error);
+
+    printf("create a new tcp server ip %s, port %d.\n", _STR_IP, _SHORT_PORT);
+    puts("start iop run loop.");
+
+    // 这里阻塞一会等待消息, 否则异步线程直接退出了
+    while (++r < _UINT_TIMEOUT) {
+        puts("echo server run, but my is wait you ... ");
+        sh_msleep(_INT_SLEEP);
+    }
+
+    iops_end(base);
+}
+
+//
+// 会显服务器客户端
+//
+void 
+echo_client(void) {
+	int r, i = -1;
+	char str[] = "Hi - 你好!";
+
+    // 连接到服务器
+	printf("echo_client connect [%s:%d]...\n", _STR_IP, _SHORT_PORT);
+	socket_t s = socket_connectos(_STR_IP, _SHORT_PORT, _UINT_TIMEOUT);
+	if (s == INVALID_SOCKET) {
+		CERR_EXIT("socket_connectos error [%s:%u:%d]", _STR_IP, _SHORT_PORT, _UINT_TIMEOUT);
+	}
+
+	while (++i < 10) {
+		// 发送一个数据接收一个数据
+		printf("socket_sendn len = %zu, str = [%s].\n", sizeof str, str);
+		r = socket_sendn(s, str, sizeof str);
+		if (r == SOCKET_ERROR) {
+			socket_close(s);
+			CERR_EXIT("socket_sendn r = %d.", r);
+		}
+		r = socket_recvn(s, str, sizeof str);
+		if (r == SOCKET_ERROR) {
+			socket_close(s);
+			CERR_EXIT("socket_recvn r = %d.", r);
+		}
+		printf("socket_recvn len = %zu, str = [%s].\n", sizeof str, str);
+	}
+
+	socket_close(s);
+	puts("echo_client test end...");
+}
+```
+
+    有点懒, 顺带把客户端和服务器写在一块了. 测试结果如下. 
+
+![libiopwinds测试](./img/libiopwinds测试.png)
+
+![libiopunix测试](./img/libiopunix测试.png)
+
+    到这里关于 libiop 基于注册的网络库开发的流水账记录完毕了. 到这里只需要记得
+    通过基础 socket api 可以通过注册, 能够写库就够了. 
+    不妨扯一点, 单纯而言写个系统完整的库还是有点挑战的, 但有个小方法那就是. 每
+    各大库都会细化成几个细节, 我们可以随便找个简单的细节自己修炼出来. 多了之后
+    时间久了你追求的库就出来了. 
+
+    到这强行突破金丹, 以后就是时间疯狂打磨. 十年磨一剑, 霜刃未曾试 ~
+    原本关于 C 修炼到这里, 是完工了, 因为世间套路都抵不过时间, 用心去封装 ~
+
+    也许重新上路, 带上你的剑 ---88--
+
+### 7.5.5 server poll 一股至强的气息
+
+    很久以前幻想这能和那些 元婴大佬, 化神真君御剑飞行, 一步千里. (现在还在幻想)
+    偶幸得到一部元婴功法, 分享参悟, 说不行江湖下次就留下你的传说 ~
+
+    基于注册的套路, 真的和吃屎一样来回绕. 何必呢, 用的了那么纠缠吗. 倒不如从
+    底层分层依次冒上来, 最终来个元气弹. 
+
     
