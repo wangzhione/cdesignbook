@@ -4766,7 +4766,7 @@ echo_client(void) {
 
     也许重新上路, 带上你的剑 ---88--
 
-### 7.5.5 server poll 一股至强的气息
+## 7.6 server poll 一股至强的气息
 
     很久以前幻想这能和那些 元婴大佬, 化神真君御剑飞行, 一步千里. (现在还在幻想)
     偶幸得到一部元婴功法, 分享参悟, 说不行江湖下次就留下你的传说 ~
@@ -4774,4 +4774,63 @@ echo_client(void) {
     基于注册的套路, 真的和吃屎一样来回绕. 何必呢, 用的了那么纠缠吗. 倒不如从
     底层分层依次冒上来, 最终来个元气弹. 
 
-    
+    最后一招, 在这元气稀薄的大陆哈哈, 元婴灭世, ta 给你你要的一切 ~
+
+## 7.6 server poll 文件描述符监测
+
+    从 select , poll, epoll, iocp, kevent 这一切的一切到底经历过什么. 当然这些
+    有着相似的接口, 何不一块来个接口统一封装呢. 这里有你满足的一切. 不妨看下面完
+    整接口. 
+
+```C
+#ifndef _H_SIMPLEC_SOCKET_POLL
+#define _H_SIMPLEC_SOCKET_POLL
+
+#include <scsocket.h>
+
+#ifdef _MSC_VER
+typedef struct select_poll * poll_t;
+#else
+typedef int poll_t;		// * 也就大师背后, 拾人牙慧
+#endif
+
+struct event {
+	void * s;
+	bool read;
+	bool write;
+	bool error;
+};
+
+//
+// sp_create	- 创建一个poll模型
+// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
+// sp_delete	- 销毁这个poll模型
+//
+extern poll_t sp_create(void);
+extern bool sp_invalid(poll_t sp);
+extern void sp_delete(poll_t sp);
+
+//
+// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
+// sp_del		- 删除监测的socket
+// sp_write		- 修改当前socket, 并设置为写模式
+//
+extern bool sp_add(poll_t sp, socket_t sock, void * ud);
+extern void sp_del(poll_t sp, socket_t sock);
+extern void sp_write(poll_t sp, socket_t sock, void * ud, bool enable);
+
+//
+// sp_wait		- poll 的 wait函数, 等待别人自投罗网
+// sp		: poll 模型
+// e		: 返回的操作事件集
+// max		: e 的最大长度
+// return	: 返回待操作事件长度, <= 0 表示失败
+//
+extern int sp_wait(poll_t sp, struct event e[], int max);
+
+#endif // !_H_SIMPLEC_SOCKET_POLL
+```
+
+    首先明确一点, 这套库主打 unix / linux. 当初那个化神前辈只写了个 unix kevent, 
+    linux epoll 部分. 后面为了跨平台主动加了 winds select 实现. 方便测试监测. 
+    .
