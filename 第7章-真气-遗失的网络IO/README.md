@@ -4786,7 +4786,7 @@ echo_client(void) {
 #ifndef _H_SIMPLEC_SOCKET_POLL
 #define _H_SIMPLEC_SOCKET_POLL
 
-#include <scsocket.h>
+#include "scsocket.h"
 
 #ifdef _MSC_VER
 typedef struct select_poll * poll_t;
@@ -4833,4 +4833,409 @@ extern int sp_wait(poll_t sp, struct event e[], int max);
 
     首先明确一点, 这套库主打 unix / linux. 当初那个化神前辈只写了个 unix kevent, 
     linux epoll 部分. 后面为了跨平台主动加了 winds select 实现. 方便测试监测. 
-    .
+    
+### 7.6.1 select 实现
+
+    有了上面 socket_poll 接口定义, 我们开始搞起 ~
+    先来个 winds 实现, 基于 select 接口设计出我们要的接口
+
+socket_poll$select.h
+
+```C
+#if defined(_MSC_VER)
+
+#include "socket_poll.h"
+
+struct sevent {
+	void * ud;
+	bool write;
+	socket_t fd;
+};
+
+struct select_poll {
+	fd_set rsd;
+	fd_set wsd;
+	fd_set esd;
+	uint16_t n;
+	struct sevent evs[FD_SETSIZE];
+};
+
+//
+// sp_create	- 创建一个poll模型
+// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
+// sp_delete	- 销毁这个poll模型
+//
+inline poll_t 
+sp_create(void) {
+	return calloc(1, sizeof(struct select_poll));
+}
+
+inline bool 
+sp_invalid(poll_t sp) {
+	return NULL == sp;
+}
+
+inline void 
+sp_delete(poll_t sp) {
+	free(sp);
+}
+
+//
+// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
+// sp_del		- 删除监测的socket
+// sp_write		- 修改当前socket, 并设置为写模式
+//
+bool 
+sp_add(poll_t sp, socket_t sock, void * ud) {
+	struct sevent * sev, * eev;
+	if (sp->n >= FD_SETSIZE)
+		return true;
+
+	sev = sp->evs;
+	eev = sp->evs + sp->n;
+	while (sev < eev) {
+		if (sev->fd == sock)
+			break;
+		++sev;
+	}
+	if (sev == eev) {
+		++sp->n;
+		sev->fd = sock;
+	}
+
+	sev->ud = ud;
+	sev->write = false;
+	return false;
+}
+
+void 
+sp_del(poll_t sp, socket_t sock) {
+	struct sevent * sev = sp->evs, * eev = sp->evs + sp->n;
+	while (sev < eev) {
+		if (sev->fd == sock) {
+			--sp->n;
+			while (++sev < eev)
+				sev[-1] = sev[0];
+			break;
+		}
+		++sev;
+	}
+}
+
+void 
+sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
+	struct sevent * sev = sp->evs, * eev = sp->evs + sp->n;
+	while (sev < eev) {
+		if (sev->fd == sock) {
+			sev->ud = ud;
+			sev->write = enable;
+			break;
+		}
+		++sev;
+	}
+}
+
+//
+// sp_wait		- poll 的 wait函数, 等待别人自投罗网
+// sp		: poll 模型
+// e		: 返回的操作事件集
+// max		: e 的最大长度
+// return	: 返回待操作事件长度, <= 0 表示失败
+//
+int 
+sp_wait(poll_t sp, struct event e[], int max) {
+	int r, i, n, retn;
+	socklen_t len = sizeof r;
+	FD_ZERO(&sp->rsd);
+	FD_ZERO(&sp->wsd);
+	FD_ZERO(&sp->esd);
+
+	for (i = 0; i < sp->n; ++i) {
+		struct sevent * sev = sp->evs + i;
+		FD_SET(sev->fd, &sp->rsd);
+		if (sev->write)
+			FD_SET(sev->fd, &sp->wsd);
+		FD_SET(sev->fd, &sp->esd);
+	}
+
+	n = select(0, &sp->rsd, &sp->wsd, &sp->esd, NULL);
+	if (n <= 0)
+		RETURN(n, "select n = %d", n);
+
+	for (retn = i = 0; i < sp->n && retn < max && retn < n; ++i) {
+		struct sevent * sev = sp->evs + i;
+		e[retn].read = FD_ISSET(sev->fd, &sp->rsd);
+		e[retn].write = sev->write && FD_ISSET(sev->fd, &sp->wsd);
+		
+		r = 1;
+		if (FD_ISSET(sev->fd, &sp->esd)) {
+			// 只要最后没有 error那就OK | 排除带外数据
+			if (getsockopt(sev->fd, SOL_SOCKET, SO_ERROR, (char *)&r, &len) || r)
+				r = 0;
+		}
+
+		// 保存最终错误信息
+		if (e[retn].read || e[retn].write || !r) {
+			e[retn].s = sev->ud;
+			e[retn].error = !!r;
+			++retn;
+		}
+	}
+	return retn;
+}
+
+#endif
+```
+
+    核心在于 sp_wait 实现, 使用了 select 所有的参数. 核心看 sp->esd 用法加上了错误
+    验证机制. 当你学习到这里我希望你能够明白这些代码的意义了. 因为不是个让你入门的解
+    释. 而是让你理解了套路, 能够立即为线上框架贡献代码的思路.
+
+### 7.6.2 epoll 实现
+
+    其实这套接口最大的服务对象就是 linux poll 接口统一封装. 所以 epoll 封装起来特别
+    顺手. 核心很短
+
+socket_poll$epoll.h
+
+```C
+#if defined(__linux__)
+
+#include <socket_poll.h>
+#include <sys/epoll.h>
+
+//
+// sp_create	- 创建一个poll模型
+// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
+// sp_delete	- 销毁这个poll模型
+//
+inline poll_t 
+sp_create(void) {
+	return epoll_create1(0);
+}
+
+inline bool 
+sp_invalid(poll_t sp) {
+	return 0 > sp;
+}
+
+inline void 
+sp_delete(poll_t sp) {
+	close(sp);
+}
+
+//
+// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
+// sp_del		- 删除监测的socket
+// sp_write		- 修改当前socket, 并设置为写模式
+//
+inline bool 
+sp_add(poll_t sp, socket_t sock, void * ud) {
+	struct epoll_event ev = { EPOLLIN };
+	ev.data.ptr = ud;
+	return epoll_ctl(sp, EPOLL_CTL_ADD, sock, &ev) < 0;
+}
+
+inline void 
+sp_del(poll_t sp, socket_t sock) {
+	epoll_ctl(sp, EPOLL_CTL_DEL, sock, NULL);
+}
+
+inline void 
+sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
+	struct epoll_event ev;
+	ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
+	ev.data.ptr = ud;
+	epoll_ctl(sp, EPOLL_CTL_MOD, sock, &ev);
+}
+
+//
+// sp_wait		- poll 的 wait函数, 等待别人自投罗网
+// sp		: poll 模型
+// e		: 返回的操作事件集
+// max		: e 的最大长度
+// return	: 返回待操作事件长度, <= 0 表示失败
+//
+int 
+sp_wait(poll_t sp, struct event e[], int max) {
+	struct epoll_event ev[max];
+	int i, n = epoll_wait(sp, ev, max, -1);
+
+	for (i = 0; i < n; ++i) {
+		uint32_t flag = ev[i].events;
+		e[i].s = ev[i].data.ptr;
+		e[i].write = flag & EPOLLOUT;
+		e[i].read = flag & (EPOLLIN | EPOLLHUP);
+		e[i].error = flag & EPOLLERR;
+	}
+
+	return n;
+}
+
+#endif
+```
+
+    sp_wait -> epoll_wait 之后开始 read, write, error 判断. 其中对于 EPOLLHUP 解释是
+    当 socket 的一端认为对方发来了一个不存在的4元组请求的时候, 会回复一个 RST 响应, 在
+    epoll 上会响应为 EPOLLHUP 事件, 目前查资料已知的两种情况会发响应 RST. 
+        [1] 当客户端向一个没有在listen的服务器端口发送的connect的时候服务器会返回一个
+            RST 因为服务器根本不知道这个4元组的存在 
+        [2] 当已经建立好连接的一对客户端和服务器, 客户端突然操作系统崩溃, 或者拔掉电源
+            导致操作系统重新启动(kill pid或者正常关机不行的, 因为操作系统会发送 FIN 给对
+            方). 这时服务器在原有的4元组上发送数据, 会收到客户端返回的 RST, 因为客户端根
+            本不知道之前这个4元组的存在
+
+    这么做的原因是能够让下一次 read 返回 -1, 监测出 error, 走 close 操作.
+
+### 7.6.3 kevent 实现
+
+    对于 kevent unix poll 封装, 纯属抄袭. 没有亲自测试, 有兴趣的可以尝试使用.
+
+socket_poll$kevent.h
+
+```C
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
+
+#include <socket_poll.h>
+#include <sys/event.h>
+
+//
+// sp_create	- 创建一个poll模型
+// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
+// sp_delete	- 销毁这个poll模型
+//
+inline poll_t
+sp_create(void) {
+	return kqueue();
+}
+
+inline bool
+sp_invalid(poll_t sp) {
+	return 0 > sp;
+}
+
+inline void
+sp_delete(poll_t sp) {
+	close(sp);
+}
+
+//
+// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
+// sp_del		- 删除监测的socket
+// sp_write		- 修改当前socket, 并设置为写模式
+//
+bool
+sp_add(poll_t sp, socket_t sock, void * ud) {
+	struct kevent ke;
+	EV_SET(&ke, sock, EVFILT_READ, EV_ADD, 0, 0, ud);
+	if (kevent(sp, &ke, 1, NULL, 0, NULL) < 0 || ke.flags & EV_ERROR)
+		return true;
+
+	EV_SET(&ke, sock, EVFILT_WRITE, EV_ADD, 0, 0, ud);
+	if (kevent(sp, &ke, 1, NULL, 0, NULL) < 0 || ke.flags & EV_ERROR) {
+		EV_SET(&ke, sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+		kevent(sp, &ke, 1, NULL, 0, NULL);
+		return true;
+	}
+	EV_SET(&ke, sock, EVFILT_WRITE, EV_DISABLE, 0, 0, ud);
+	if (kevent(sp, &ke, 1, NULL, 0, NULL) < 0 || ke.flags & EV_ERROR) {
+		sp_del(sp, sock);
+		return true;
+	}
+	return false;
+}
+
+inline void
+sp_del(poll_t sp, socket_t sock) {
+	struct kevent ke;
+	EV_SET(&ke, sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+	kevent(sp, &ke, 1, NULL, 0, NULL);
+	EV_SET(&ke, sock, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+	kevent(sp, &ke, 1, NULL, 0, NULL);
+}
+
+void
+sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
+	struct kevent ke;
+	EV_SET(&ke, sock, EVFILT_WRITE, enable ? EV_ENABLE : EV_DISABLE, 0, 0, ud);
+	if (kevent(sp, &ke, 1, NULL, 0, NULL) < 0 || ke.flags & EV_ERROR) {
+		// todo: check error
+	}
+}
+
+//
+// sp_wait		- poll 的 wait函数, 等待别人自投罗网
+// sp		: poll 模型
+// e		: 返回的操作事件集
+// max		: e 的最大长度
+// return	: 返回待操作事件长度, <= 0 表示失败
+//
+int
+sp_wait(poll_t sp, struct event e[], int max) {
+	struct kevent ev[max];
+	int i, n = kevent(sp, NULL, 0, ev, max, NULL);
+
+	for (i = 0; i < n; ++i) {
+		e[i].s = ev[i].udata;
+		e[i].write = ev[i].filter == EVFILT_WRITE;
+		e[i].read = ev[i].filter == EVFILT_READ;
+		e[i].error = false;	// kevent has not error event
+	}
+
+	return n;
+}
+
+#endif
+```
+
+    到这里关于 socket_poll 模型在不同平台上已经实现了. 我们不妨写个测试 demo
+
+### 7.6.4 poll demo
+
+    不妨看下面
+
+```C
+#include "socket_poll.h"
+
+#define _USHORT_PORT	(8088u)
+
+//
+// 参照云风的思路自己设计了 window 部分代码
+// https://github.com/cloudwu/skynet/blob/master/skynet-src/socket_poll.h
+//
+void test_socket_poll(void) {
+	int n;
+	poll_t poll;
+	socket_t sock;
+	struct event evs[FD_SETSIZE];
+
+	// 开始构建一个 socket
+	sock = socket_tcp(NULL, _USHORT_PORT);
+	if (sock == INVALID_SOCKET)
+		return;
+
+	poll = sp_create();
+	assert(!sp_invalid(poll));
+
+	if (sp_add(poll, sock, NULL))
+		CERR("sp_add sock = is error!");
+	else {
+		// 开始等待数据
+		printf("sp_wait [127.0.0.1:%hu] listen ... \n", _USHORT_PORT);
+		n = sp_wait(poll, evs, LEN(evs));
+		printf("sp_wait n = %d. 一切都是那么意外!\n", n);
+	}
+
+    sp_delete(poll);
+	socket_close(sock);
+}
+```
+
+    test_socket_poll 只做了一件小事情, 开启 poll 监听等待一个东西过来. 随后就
+    结束. 期间输出你所展现的数据.
+
+![socket_poll](./img/socket_poll.png)
+
+## 7.7 server poll 还需要点什么...
+
+    
