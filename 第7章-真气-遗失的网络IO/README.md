@@ -5424,4 +5424,87 @@ scpipe_send(struct scpipe * spie, const void * data, size_t len) {
 
 ### 7.7.2 server poll 网络核心调度
 
+    其实一开始就从系统层面调度监测讲起, 不如从从上到下看看. 两头磨炼, 容易理解一点. 底层
+    无外乎向上层, 抛出去一个文件描述符和各种控制的 api. 
+
+    不妨假定我们给上层调用的 socket 层面封装接口如下 socket_server.h
+
+```C
+#ifndef _H_SIMPLEC_SOCKET_SERVER
+#define _H_SIMPLEC_SOCKET_SERVER
+
+#include "scpipe.h"
+#include "socket_poll.h"
+
+#define SSERVER_DATA			(0)
+#define SSERVER_CLOSE			(1)
+#define SSERVER_OPEN			(2)
+#define SSERVER_ACCEPT			(3)
+#define SSERVER_ERR				(4)
+#define SSERVER_EXIT			(5)
+#define SSERVER_UDP				(6)
+#define SSERVER_WARNING			(7)
+
+typedef struct sserver * sserver_t;
+
+struct smessage {
+	int id;
+	uintptr_t opaque;
+	// for accept, ud is new connection id ; for data, ud is size of data 
+	int ud;
+	char * data;
+};
+
+typedef struct smessage * smessage_t;
+
+extern sserver_t sserver_create(void);
+extern void sserver_delete(sserver_t ss);
+extern int sserver_poll(sserver_t ss, smessage_t result, int * more);
+
+extern void sserver_exit(sserver_t ss);
+extern void sserver_close(sserver_t ss, uintptr_t opaque, int id);
+extern void sserver_shutdown(sserver_t ss, uintptr_t opaque, int id);
+extern void sserver_start(sserver_t ss, uintptr_t opaque, int id);
+
+// return -1 when error
+extern int sserver_send(sserver_t ss, int id, const void * buffer, int sz);
+extern int sserver_send_lowpriority(sserver_t ss, int id, const void * buffer, int sz);
+
+// ctrl command below returns id
+extern int sserver_listen(sserver_t ss, uintptr_t opaque, const char * addr, uint16_t port);
+extern int sserver_connect(sserver_t ss, uintptr_t opaque, const char * addr, uint16_t port);
+extern int sserver_bind(sserver_t ss, uintptr_t opaque, socket_t fd);
+
+// for tcp
+extern void sserver_nodelay(sserver_t ss, int id);
+
+
+typedef uint8_t * udpaddr_t;
+
+// create an udp socket handle, attach opaque with it . udp socket don't need call sserver_start to recv message
+// if port != 0, bind the socket . if addr == NULL, bind ipv4 0.0.0.0 . If you want to use ipv6, addr can be "::" and port 0.
+extern int sserver_udp(sserver_t ss, uintptr_t opaque, const char * addr, uint16_t port);
+// set default dest address, return 0 when success
+extern int sserver_udp_connect(sserver_t ss, int id, const char * addr, uint16_t port);
+// If the socket_udp_address is NULL, use last call sserver_udp_connect address instead
+// You can also use sserver_send 
+extern int sserver_udp_send(sserver_t ss, int id, const udpaddr_t udpaddr, const void * buffer, int sz);
+// extract the address of the message, smessage_t  should be SSERVER_UDP
+extern const udpaddr_t sserver_udp_address(sserver_t ss, smessage_t msg, int * addrsz);
+
+struct sinterface {
+	int (* size)(void * uobj);
+	void (* free)(void * uobj);
+	void * (* buffer)(const void * uobj);
+};
+
+// if you send package sz == -1, use soi.
+extern void sserver_userobject(sserver_t ss, struct sinterface * soi);
+
+#endif // !_H_SIMPLEC_SOCKET_SERVER
+```
+
+    TCP 和 UDP 一起封装, 其实可以删掉 UDP单纯点理解一下 UDP. 但是我们这里一起把要的接口给出来.
+    先定义行为接口, 后面讲解怎么使用这些接口部分. 
+
     
