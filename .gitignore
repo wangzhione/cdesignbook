@@ -1,5 +1,7 @@
 # Ignore the uploaded folders
+Out/
 logs/
+Outs/
 Output/
 
 # Ignore the project uploaded folders
@@ -13,6 +15,7 @@ Release/
 -p
 ~*
 *~
+core
 *.db
 *.suo
 *.swp
@@ -28,6 +31,7 @@ Release/
 *.obj
 *.idb
 *.TMP
+core*
 .*.swo
 *.iobj
 *.ipdb

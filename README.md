@@ -3,7 +3,7 @@
     微笑 :)
     很久以前想写本关于 C 的华山剑法, §无趣胜在苦练~
 
-## 写作号角
+## 修炼号角
 
 >[虚虚实实 : http://music.163.com/#/song?id=189433](http://music.163.com/#/song?id=189433)  
 
@@ -19,24 +19,22 @@
     天大地大博大精深
     ...
 
-## 写作储备
+## 试炼储备
 
->[核心素材 : https://github.com/wangzhione/simplec](https://github.com/wangzhione/simplec)
+>[核心素材 : https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+... .. .
 
-    1. 1 - 6 章基于上面 simplec 服务器基础库, 构建
-    2. 7 章篇幅重, 构建一套微型跨平台的 socket. 主打网络IO套路
-    3. 8, 9 章, 合作伙伴全权负责. 
-    
+    1. 0章是开始和结束的纠缠, 正如 ~ 再见 ~
+    2. 1-6章基于服务器开发中常用基础库套路构建
+    3. 7章篇幅重, 浅议远古遗失的 socket 修真法门
     ...
     
-    当前先快速码出章节素材, 全本搭建起来, 后期迭代升级. 多重 review ~ 
+    当前先快速积累素材, 码出章节. 全本搭建好, 后期迭代升级 review ~ 
     
-    跳出文字, 直指代码 ~ 
+    跳出杂思, 直指代码 ~ 
     
     Talk is cheap, show me the code.
 
 ***
 
 ![黑龙](./第3章-气功-原子锁线程协程/img/黑龙.jpg)
-    
-    

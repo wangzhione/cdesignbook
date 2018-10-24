@@ -11,7 +11,6 @@ enum TCHARS {
 };
 
 int test_0_zero(void) {
-
 	void * ptr = NULL;
 	bool flag = false;
 

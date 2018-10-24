@@ -1,93 +1,110 @@
-## 第1章-流派-入我华山,学我剑法
+# 第1章-流派-入我华山§学我剑法
 
-      流派等同于代码范式(套路). 开发中流传已久的范式有 winds武当流派, linux昆仑流派.  
-    流派范式层出不穷自成方圆. 本书在昆仑流派的基础上精进. 并且会分析出招的所以然. 
-    眼神决定目标, 套路决定手法. 这里是 C领域, 主要围绕 C范式. 这年头一招鲜吃遍天无聊了. 
-    有趣的思路是到了不熟的领域, 第一件事忘记以前知道的, 立即训练需要现在知道的. 特定的
-    步伐能让你游刃有余, 百步穿杨. 但不管怎么扯, 一定要求简求美~  
-    本书重点讲解思路和设计, 解读那些被遗忘 C的故事. 代码搞不完, 会展示少的部分充数一哈.
+        流派等同于代码范式(套路). 开发中流传已久的范式有很多, 其中 winds 武当流派,
+    linux 昆仑流派代表性最强. 但不管什么样流派范式最基础一点就是自成方圆. 本书最终选择
+    在昆仑流派的基础上精进. 并会分析出招的所以然. 
+        眼神望见目标, 套路决定手法. 这里是 C 领域, 主要围绕 C 范式. 这年代一招鲜吃遍
+    天有点无聊了, 也很有挑战. 所以常遇到不熟悉的领域, 一种有意思方式是, 忘记以前知道的,
+    立即训练需要现在知道的, 学而不思. 特定的步伐能让你游刃有余, 百步穿杨. 但不管怎么扯,
+    宗旨追求简求美 ~ 
+        本书重点讲解思路和设计, 解读那些被遗忘 C 的故事. 代码搞不完, 会展示较少的部分
+    用于充数哈.
 
-### 1.1 缘起 main
+## 1.1 缘起 main
 
-      很久很久以前认识一个被后人称之为 main的函数. 如果要扯它估计能说个几天. 这里只引述
-    C11标准中两种规定的写法.
+        很久很久以前认识一个被无数前辈大佬称之为 main 的函数. 如果要仔细扯它的话, 估计
+    能说个几天. 这里只引述 C11 标准中仅存的两种规定正确写法.
 
 ```C
-The function called at program startup is named main. The implementation declares 
-no prototype for this function. It shall be deﬁned with a return type of int and 
-with no parameters:
+The function called at program startup is named main. The implementation
+declares no prototype for this function. It shall be deﬁned with a return
+type of int and with no parameters:
   int main(void) { /* ... */ }
-or with two parameters (referred to here as argc and argv, though any names may 
-be used, as they are local to the function in which they are declared):
+or with two parameters (referred to here as argc and argv, though any 
+names may be used, as they are local to the function in which they are 
+declared):
   int main(int argc, char *argv[]) { /* ... */ }
 or equivalent; or in some other implementation-deﬁned manner.
 ```
 
-    以上标准要牢记, 是一切美好的开始. C 的学习历程, 推荐从 Brian W. Kernighan / 
-    Dennis M. Ritchie 的 The C Programming Language 起步, 再到C标准文献, 随后看看
-    操作系统. 扯皮就搬上面的标准文献, 站在起源山峰中. 此刻希望下面是个好的开头 -_-
+    以上标准要牢记, 一切美好从这开始. C 的学习历程, 推荐从 Brian W. Kernighan / 
+    Dennis M. Ritchie 的 The C Programming Language 起步, 再到 C 标准文献, 随
+    后熟悉操作系统. 和人扯皮搬上面的标准文献, 站在起源山峰中, 够终结一切问题. 
+    
+    不知道有没有人会想起起 void main(){} or main(){} 写法呢?
+    对于 void main() {} 引述 C++ 之父 Bjarne Stroustrup 在其 FAQ 中说的 
+
+```C
+The definition void main() { /* ... * / } is not and never has been C++,
+nor has it even been C.
+```
+
+    是编译器老母亲纵容了我们的"错误". 而 main() {} 最初出现在 K&R C 年代中, 那时候函
+    数缺省定义(默认返回 int)不报警告. 当 warning 甩过来的时候, 应该听老母亲的话. 此刻
+    希望下面是个好的开头 -_-
 
 ```C
 #include <stdio.h>
 
 int main(int argc, char * argv[]) {
-  fprintf(stderr, "I am here!\n");
-  return 0;
+    fprintf(stderr, "I'm here!\n");
+    return 0;
 }
 ```
 
-### 1.2 括号的布局
+## 1.2 括号布局
 
-      C 是个强调细节的语言. 因而在用 C开发的时候都有点小心翼翼. 难接收铺场浪费, 且容易
-    在细节处栽跟头. 叶孤城通过一片被剑削过的叶子看出西门吹雪的实力. 同样一个 { } 布局就
-    能见证你的起手式. 本门华山剑法 { } 遵循的如下规则和演示
+        C 是个极其强调细节的语言. 因而在用 C 开发的时候都会有点神经嘻嘻. 难以接收铺场
+    浪费. 恶心的是, 也很容易在细节处栽跟头. 叶孤城通过一片被西门吹雪剑削过的叶子看出其
+    实力. 同样一个 { } 布局就能见证你的起手式. 本门华山剑法 { } 遵循的如下规则和演示
       a ). 左 { 右对齐
       b ). 右 } 上对齐
-      c ). 右 } 如果是完整的一段话则另起一行
+      c ). 右 } 是完整的一段代码才另起一行
 
 ```C
 #include <stdbool.h>
 
 // 1. for or while
 for(;;) {     while(true) {
-  ...
+    ...
 }             }
 
 // 2. if ... else
 if(true) {
-  ...
+    ...
 } else {
-  ...
+    ...
 }
 ```
 
-    这里多说一句 for(;;) 和 while(true)最终生成的汇编代码是一样的, 但是推荐前者.
+    多说一点 for(;;) 和 while(true) 最终生成的汇编代码是一样的, 但是推荐前者.
     因为它表达了语法层面美好的愿望, 执行死循环的时候省略一步条件判断.
     对于 if else 为什么这么写, 先看下面对比.
 
 ```C
 if(true)          if(true) {          if(true) {
-{                   ...                 ...
-  ...             }                   } else if(false) {
-}                 else if(false) {      ...
-else if(false)      ...               } else {
-{                 }                     ...
-  ...             else {              }
-}                   ...
+{                     ...                 ...
+    ...           }                   } else if(false) {
+}                 else if(false) {        ...
+else if(false)        ...             } else {
+{                 }                       ...
+    ...           else {              }
+}                     ...
 else              }
 {
-
+    ...
 }
 ```
 
-    第一种写法是 winds推崇的标准. 第三种是 linux上面常见写法. 第二种是两者的一种过渡.
-    对于上面三种范式, 都写过好久. 最后基于 C而言, 第二种也可以, 但是这里推荐第三种. 更
-    加紧凑飘逸正统! C本身就是个精简的语言, 强调最小意外原则. 第一种直接 pass, 门一旦打
-    开了, 就难关上了. 第二种还是有点不极致. 同样对于 switch语句推荐下面写法
+    第一种写法是 winds 推崇的标准. 第三种是 linux 上面常见写法. 第二种是两者的
+    一种过渡. 对于上面三种范式, 都写过好久. 最后基于 C 而言, 这里推荐第三种. 更
+    加紧凑飘逸正统! C 本身就是个精简的语言, 强调最小意外原则. 第一种直接 pass, 
+    门一旦打开了, 就难关上了. 第二种还是有点不极致. 同样对于 switch 语法推荐下面
+    写法
 
 ```C
 switch(type) {
-case SufBase:
+case SBase:
   ...
   break;
 ...  
@@ -95,19 +112,20 @@ default:
   ...
 }
 ```
-    C 中的标签都放在最左边.
+    C 中的标签都放在作用域最左边.
 
-### 1.3 C 中三大战神 - 函数 - 帝释天
+## 1.3 C 中三大战神 - 函数 § 帝释天
 
-      面向过程编程两个主旋律就是内存结构和函数封装. C中函数的一个小小的 extern声明都能搞晕
-    一批人. C函数分为声明和定义两部分. 华山剑法将其细化为3部分. 声明:确定函数地址; 定义:确
-    定函数地址和实现; 声明加定义:确定函数地址加实现还有就是限制作用域.
+        面向过程变成两个主旋律是内存结构和函数封装. C 中函数的一个小小的 extern 声明
+    都能搞晕一批人. C 函数分为声明和定义两部分. 华山剑法将其细化为 3 部分. 函数声明: 
+    确定函数地址; 函数定义: 确定函数地址和实现; 函数声明加定义: 确定函数地址和实现并且
+    限制作用域.
 
 ```C
 // 1' 函数声明
 extern void hoge(void);
 
-// 2' 函数定义 (强调返回值, 单独占一行)
+// 2' 函数定义 (返回值单独占一行, 用于强调, 标准套路)
 void
 hoge(void) {
   ...
@@ -119,34 +137,36 @@ extern void hoge(void) {
 }
 ```
 
-    上面函数返回值另起一行强调突出函数定义. 在同一行表示声明加定义. 还有一个细节是 hoge(void),
-    因为在C中函数声明 void hoge(); 表示的意思是函数 hoge参数是不确定的(__cdecl入栈方式决定的).
-    加上 void表示语法层面约束函数参数为空! 
-      当我们写库的时候, 下面两个函数声明, 表达的意思就不一样. 华山剑法添加的一种语义.
+    上面函数返回值另起一行为了突出函数定义. 在同一行表示声明加定义. 隐含的一个细节是 
+    hoge(void), 因为在 C 中函数声明 void hoge(); 表示的意思是函数 hoge 参数是不
+    确定的 ( __cdecl 入栈方式决定的). 加上 (void) 会在语法层面约束函数参数为空! 
+        当我们写库的时候, 下面两个函数声明, 表达出的意思就不一样. 华山剑法添加的一种
+    新语义.
 
 ```C
-// 显示声明加上 extern
-extern void mem_hello(void);
+// 函数声明 显示声明加上 extern
+extern void hoge(void);
 
-// 缺省声明, 没加 extern, 意图告诉别人, 可以用不推荐用, low level api
-void mem_heoo(void);
+// 函数声明 缺省 extern. 意图告诉别人, 这是个 low level api 用的时候要理解源码
+void hoge(void);
 ```
 
-    二者没啥区别, 但传达的意图不一样, 前者是外部可以调用. 后者是外部不推荐调用调用的时候需要
-    (小心)了解细节. 当然了如果希望存在inline行为, 由于编译器之间的差异, 声明的时候必须加上
-    extern. 或者声明和定义一块写(常见cl编译器). 当然了 inline 和 register差不了多少, 只是
-    一种意愿表达, 具体看编译器老大'心情'了! 请同学们多实战演练. 函数的套路至关重要.
-      同 extern相对的还有个关键字 static 特别神奇. 它描述的变量和函数表示文件或函数内私有的. 
-    请看下面演示代码->
+    二者没啥区别, 但传达的意图不一样, 前者是外部可以调用. 后者是外部不推荐调用, 调用的
+    时候需要小心, 推荐了解源码细节. 当然了如果希望存在 inline 行为, 由于编译器之间的
+    差异, 声明的时候必须加上 extern. 或者声明和定义一块写 (常见 cl 编译器). 当然了 
+    inline 和 register 很相似, 是书写者意愿表达, 具体看编译器大佬'心情'了! 请同学们
+    多实战演练. 函数的套路至关重要.
+      同 extern 相对的还有个关键字 static 特别神奇. 它描述的变量和函数表示文件或函数
+    内私有的. 请看下面演示代码 ->
 
 ```C
-static void _heoo(int arr[static 64]) {
-  static int _cnt;
+static void heoo(int arr[static 64]) {
+  static int cnt;
   ...
 }
 ```
 
-    上面精简代码中包含的套路和潜规则剖析如下:
+    上面局部代码中包含的 static 套路和潜规则剖析如下:
     a. 第一个 static表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数以下范围.
     b. 看 _heoo第一个字符 _, 它是一种约束. 来表达这个名字是私有的. C很自由, 所以有点斑驳, 约束
        可以避免一些混乱. 当然你也可以有更好的策略, 那是后话哈哈. 同样对于上层语言的命名空间, 函
