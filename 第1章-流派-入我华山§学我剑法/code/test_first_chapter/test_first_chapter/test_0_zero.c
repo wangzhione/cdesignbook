@@ -6,17 +6,17 @@
 #define test_0_zero main
 
 enum TCHARS {
-	TA,
-	TB
+    TA,
+    TB
 };
 
 int test_0_zero(void) {
-	void * ptr = NULL;
-	bool flag = false;
+    void * ptr = NULL;
+    bool flag = false;
 
-	char zero = '0';
+    char zero = '0';
 
-	printf("sizeof(enum TCHARS) = %zu.\n", sizeof(enum TCHARS));
+    printf("sizeof(enum TCHARS) = %zu.\n", sizeof(enum TCHARS));
 
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
