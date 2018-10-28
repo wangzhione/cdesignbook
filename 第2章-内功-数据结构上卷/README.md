@@ -10,7 +10,7 @@
         如果说数据结构是 C 的内功, 那毫无疑问链表 list 就是数据结构的内丹. 链式结构最
     原始抽象模型就是 list. 同样也最实用.
 
-![list](img/list.png) 
+![list](img/list.jpg) 
     
     上图是一种最原始的 list 结构, next 是指向下一个结点的地址. 自己对于 list 结构的理
     解比较简单, list 只是个实体, 并且这个实体还能找到它保存的下一个实体. 下面展示构建部
@@ -149,14 +149,14 @@ list_add(list, people_add_cmp, &p);
 double future = 6.6;
 struct people * e = list_pop(list, people_find_cmp, &future);
 
-// 销毁
-list_delete(list, NULL);
+// 销毁 - 结点中没有待释放东西, 所以 list_delete 缺省
+// list_delete(list, NULL);
 ```
 
     分析下 struct people { $LIST; ... }; 结构实现的原理
 
 ```C
-// struct people 结构展开如下
+// struct people 结构全展开
 struct people {
     struct $list {
         struct $list * next;
@@ -179,140 +179,233 @@ struct people p = { { NULL }, 100, 59, 0.0 };
     相关开发, 几乎是围绕 'list' 结构增删改查, 高级些加个缓存层, 伪删除. 对于封装库基本套路
     是三思而后行, 想好思路, 定好基本接口. 再堆实现. 设计出优雅的设计, 是第1位. 在 C 中思路
     落地等同于数据结构定型. 后续相关代码实现就已经妥了! 最后就是 Debug <-> Unit testing 
-    来回倒腾一段时间. 
+    来回倒腾一段时间.
 
 ### 2.1.2 list implements
 
-    这里会展示分析作者设计的思路. 在设计一个库的时候, 首要考虑的是创建和销毁. 关乎生存周期的
-	问题. 这里 list创建比较简单采用了一个潜规则 -> list_t list = NULL; 代表创建一个空链表.
-	链表创建有两个常见套路, 其一是自带实体头结点, 这种思路在处理头结点的时候特别方便. 
-	其二就是我们这里没有头结点一开始为从 NULL开始. 优势在于节省空间. 对于链表的销毁操作, 
-	使用了单词 destroy 毁坏, 相当于彻底销毁. 
-
-```C
-typedef void * list_t;
-typedef void (* node_f )(void * node);
-extern void list_destroy_(list_t * ph, node_f die);
-```
-
-    list_destroy_ 传达的意图是, 通过 list_t 的指针来改变 list_t 链表. 并且链表中每个结点采
-	用 die 函数行为销毁. 因而可以理解为有两部分组成 销毁行为 + 自定义的销毁动作. 用的思路是抽
-	象出行为, 自定义动作, 这类技巧在上层语言有个好听的叫法 - 委托. 扯些在 C中还有一种套路也能
-    达到同样效果, 叫宏模板. 统一行为, 内嵌动作, 性能更好. 但心智成本高点. ok 继续展示代码
-
-```C
-void
-list_destroy_(list_t * ph, node_f die) {
-	struct $lnode * head;
-	if ((!ph) || !(head = *ph))
-		return;
-
-	if (die) {
-		do {
-			struct $lnode * next = head->next;
-			die(head);
-			head = next;
-		} while (head);
-	}
-
-	*ph = NULL;
-}
-```
-
-    list_add_(list_t *, icmp_f, void *) 传达的意图这是向链表中添加结点的接口. icmp_f 是插
-	入选择的自定义行为, void * 是选择的基准. 这就是基于注册的链表插入设计思路, 一般这么搞都是
-	为了得到一定顺序的链表. 否则直接插在头结点最轻松. 
+    这里会展示并分析作者设计思路. 在设计一个库的时候, 首要考虑的是创建和删除(销毁), 事关生存
+    周期的问题. 这里 list 创建比较简单采用了一个潜规则 list_t list = NULL; 代表创建一个
+    空链表. 链表头创建常见有两个套路, 其一是自带实体头结点, 这种思路在处理头结点的时候特别方
+    便. 其二就是我们这里没有头结点一开始为从 NULL 开始, 优势在于节省空间. 对于链表的销毁操作
+    , 使用 list_delete 删除链表中结点资源
 
 ```C
 //
-// list_addhead - 采用头查法插入结点, 第一次用需要 list_t head = NULL;
-// ph		: 指向头结点的指针
-// node		: 待插入的结点对象
-// return	: 返回 SufBase 表示成功!
+// list_delete - 链表数据销毁操作
+// pist     : 指向基础的链表结构
+// fdie     : 链表中删除数据执行的方法
+// return   : void
 //
-inline int 
-list_addhead(list_t * ph, void * node) {
-	if (!ph || !node){
-		RETURN(ErrParam, "list_add check (pal == %p || node == %p)!", ph, node);
-	}
-
-	list_next(node) = *ph;
-	*ph = node;
-
-	return SufBase;
+void 
+list_delete_(void ** pist, node_f fdie) {
+    if (pist && fdie) {
+        // 详细处理链表数据变化
+        struct $list * head = *pist;
+        while (head) {
+            struct $list * next = head->next;
+            fdie(head);
+            head = next;
+        }
+        *pist = NULL;
+    }
 }
 ```
+
+    list_delete -> list_delete_ 做了 3 件事情
+        1' 检查 pist 和 fdie 是否都不为 NULL
+        2' 为 list 每个结点执行 fdie 注入函数
+        3' *pist = NULL 图个心安
+
+    相似的继续看看 list_add, 我们这里直接根据注入函数决定插入的位置
+
+```C
+//
+// list_next - 获取结点n的下一个结点.
+// n        : 当前结点
+//
+#undef  list_next
+#define list_next(n) ((struct $list *)(n))->next
+
+//
+// list_add - 链表中添加数据, 从小到大 fadd(left, ) <= 0
+// pist     : 指向基础的链表结构
+// fadd     : 插入数据方法
+// left     : 待插入的链表结点
+// return   : void
+//
+void 
+list_add_(void ** pist, icmp_f fadd, void * left) {
+    struct $list * head;
+    if (!pist || !fadd || !left)
+        return;
     
-    是不是很简单. 上面代码用的也非常多, 在不需要链表有序的时候. 那看下这里实际封装
+    // 看是否是头结点
+    head = *pist;
+    if (!head || fadd(left, head) <= 0) {
+        list_next(left) = head;
+        *pist = left;
+        return;
+    }
 
-```C
-int 
-list_add_(list_t * ph, icmp_f cmp, void * left) {
-	struct $lnode * head;
-	DEBUG_CODE({
-		if (!ph || !cmp || !left) {
-			RETURN(ErrParam, "list_add check ph=%p, cmp=%p, left=%p.", ph, cmp, left);
-		}
-	});
+    // 不是头节点, 挨个比对
+    while (head->next) {
+        if (fadd(left, head->next) <= 0)
+            break;
+        head = head->next;
+    }
 
-	head = *ph;
-	// 插入为头结点直接返回
-	if (!head || cmp(left, head) <= 0) {
-		list_next(left) = head;
-		*ph = left;
-		return SufBase;
-	}
-
-	// 中间插入了
-	while (head->next) {
-		if (cmp(left, head->next) <= 0)
-			break;
-		head = head->next;
-	}
-	list_next(left) = head->next;
-	head->next = left;
-	return SufBase;
+    // 添加最终的连接关系
+    list_next(left) = head->next;
+    head->next = left;
 }
 ```
 
-    DEBUG_CODE 是在 DEBUG 模式下才会执行的代码, 可以等同于扩展的 assert. 通过 cmp() <= 0 可以
-	看此链表是个升序排列. 链表这类代码最好能深入到本能, 闭着眼睛写, 等同于系统开发 DB的增删改查.
-	当初刚学这东西的时候, 应该从头到尾写了不下半百遍, 后面就手熟了. 
-    再来看下 list_findpop_ 字面意思是找到我们要的结点, 并弹出. 后续结点自己负责销毁与否.
+    代码和注释很详细. 额外的 list_next 函数宏很有意思, 不妨多讲点.
 
 ```C
+//
+// list_next - 获取结点n的下一个结点.
+// n        : 当前结点
+//
+#define list_next(n) ((void *)((struct $list *)(n))->next)
+
+#undef  list_next
+#define list_next(n) ((struct $list *)(n))->next
+```
+
+    可以看出它在外部用的时候, 相当于无类型指针, 只能获取值却不能操作. 内部用的时候已经转成了
+    类型指针, 就方便操作起来. 算宏控制代码使用权限的一个小技巧. 继续抛砖引玉用宏技巧带大家写
+    C 常量!
+
+```C
+#include <stdio.h>
+
+struct version {
+    int major; // 主版本号
+    int minor; // 副版本号
+    int micro; // 子版本号
+};
+
+#ifndef const_version
+inline static const struct version const_version(void) {
+    return (struct version){.major = 1, .minor = 2, .micro = 3};
+}
+#define const_version const_version()
+#endif
+
+int main(void) {
+    printf("version = { major = %d, minor = %d, micro = %d}\n", 
+        const_version.major, const_version.minor, const_version.micro);
+    return 0;
+}
+```
+
+```bash
+$ gcc -g -Wall struct.c ; ./a.out
+version = { major = 1, minor = 2, micro = 3}
+```
+
+    上面代码通过宏和 static 函数构造个 const_version const struct version 真常量.
+    是不是挺有意思, 希望读者有所感悟 ~ 
+        随后看下 list_pop, list_get, list_each 操作, 都很直白.
+```C
+//
+// list_pop - 匹配弹出链表中指定值
+// pist     : 指向基础的链表结构
+// fget     : 链表中查找数据执行的方法
+// left     : 待查找的结点内容 
+// return   : 查找到的节点, NULL 表示没有查到 
+//
 void * 
-list_findpop_(list_t * ph, icmp_f cmp, const void * left) {
-	struct $lnode * head, * tmp;
-	if((!ph) || (!cmp) || (!left) || !(head = *ph)){
-		RETURN(NULL, "check find {(!ph) || (!cmp) || (!left) || !(head = *ph)}!");
-	}
+list_pop_(void ** pist, icmp_f fget, const void * left) {
+    struct $list * head, * next;
+    if (!pist || fget)
+        return NULL;
 
-	// 头部检测
-	if(cmp(left, head) == 0){
-		*ph = head->next;
-		return head;
-	}
+    // 看是否是头节点
+    head = *pist;
+    if (fget(left, head) == 0) {
+        *pist = head->next;
+        return head;
+    }
 
-	// 后面就是普通的查找
-	while((tmp = head->next)){
-		if(cmp(left, tmp) == 0){
-			head->next = tmp->next;
-			break;
-		}
-		head = tmp;
-	}
-	
-	return tmp;
+    // 不是头节点挨个处理
+    while (!!(next = head->next)) {
+        if (fget(left, next) == 0) {
+            head->next = next->next;
+            return next;
+        }
+        head = next;
+    }
+
+    return NULL;
 }
 ```
 
-    链特性顺藤摸瓜, 给根杆子就 pa. 以上封装链表库基础行为, 创建销毁添加删除. 来回扯几次,
-    编程中其它链式结构也都势如破竹, 长虹贯日! 
-    链表是整个数据结构的内丹. 是编程内功突破最重要的一个阶段! 内功无限淳厚, 修成元婴也
-	不是不可能.
+    同样分成3部曲, 1检查, 2头节点处理, 3非头节点处理. 需要注意的是 list_pop 只是在 list
+    中弹出通过 fget(left, x) 节点. 后续 free or delete 操作还得依赖使用方自行控制.
 
-### 2.2 string
+```C
+//
+// list_get - 匹配得到链表中指定值
+// list     : 基础的链表结构
+// fget     : 链表中查找数据执行的方法
+// left     : 待查找的结点内容 
+// return   : 查找到的节点, NULL 表示没有查到
+//
+void * 
+list_get_(void * list, icmp_f fget, const void * left) {
+    if (fget) {
+        struct $list * head = list;
+        while (head) {
+            if (fget(left, head) == 0)
+                return head;
+            head = head->next;
+        }
+    }
+    return NULL;
+}
+
+//
+// list_each - 链表循环处理函数, 仅仅测试而已
+// list     : 基础的链表结构
+// feach    : 处理每个结点行为函数
+// return   : void
+//
+void 
+list_each_(void * list, node_f feach) {    
+    if (list && feach) {
+        struct $list * head = list;
+        while (head) {
+            struct $list * next = head->next;
+            feach(head);
+            head = next;
+        }
+    }
+}
+```
+
+    list_get 和 list_each 代码是质朴中的质朴. 对于 list_each 还有一种设计思路
+
+```C
+//
+// each_f - each 循环操作, arg 外部参数, node 是内部结点
+//  : int echo(void * node, void * arg) { return 0; }
+//
+typedef int (* each_f)(void * node, void * arg);
+
+extern void list_each(void * list, each_f feach, void * arg);
+... ...
+        if (feach(head, arg))
+            return;
+... ...
+```
+
+    注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是
+    选择了 node_f. 可能最终觉得, 不作才是最好. 不好意思到这 list 解释完了. 喜欢
+    的朋友可以多写几遍代码或博文 ~ 
+
+## 2.2 string
 
     有句话不知道当讲不当讲, C中 char * 其实够用了!
     用 C写过几个 string 模型, 但都不太爽, 都有点过度封装. 应用领域很模糊. 

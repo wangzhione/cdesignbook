@@ -721,28 +721,220 @@ inline void socket_init(void) {
 
     这种写法没有语法错误, 实战也可以用. 但是累人, 毕竟链接是编译器事情, 倒不如全权交给它.
     这才是真潇洒 ~ 库中直接 #pragma comment 做法不妙. 个人感悟, 跨平台是在浪费生命. 有些
-    人单纯的用 linux. 感觉很好, 毕竟越纯粹越强. linux 是个回报率很高的平台. 但是学了 C/C++ 
+    人单纯的用 linux. 感觉很好, 毕竟越纯粹越强. linux 是个回报率很高的平台. 但是学了 C/C++
     真是天高地厚不知路长~ 岁月不尽然呀...
 
 ### 1.7 夜太黑练剑好时光
 
         上面聊的有些多, 很多细节需要自己亲身建构. 回想起2013年看<<自制编程语言>>那本书, 惊为
-    天人. 感觉作者实力好强. 因为看不明白, 强行撸, 狂看猛打最后懂了点, 收益良多(也都忘了). 在编
-    程的世界里, 不需要啥, 只要 wo are 正在舞剑! 
-        如果咱们一样只是为了, 更好的生存和活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具,
-    帮人实现梦想, 就成了~ 然后回家开个水果店, 想想也挺好.
+    天人. 感觉作者实力好强. 因为看不明白, 强行撸, 狂看猛打最后懂了点, 收益良多(也都忘了). 在
+    编程的世界里, 不需要啥, 只要 wo are 正在舞剑! 
+        如果咱们一样只是为了, 更好的生存和活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具
+    , 帮人实现梦想, 就成了 ~ 然后回家开个水果店, 想想也挺好.
 
-如果你没有对象, 那就使劲打代码
+如果你没有对象, 那就使劲敲代码
 
-如果你实在无聊, 那就跑步加看书
+如果你觉得无聊, 那就跑步加看书
 
-如果你还不甘心, 那就呵呵闷闷哒
+如果你真不甘心, 那就呵呵萌萌哒
 
-> 最后在心田种颗草 --<-<-<@
+        书归正转, 前面 struct.h 头文件中引入了 alloc.h 头文件, 不知道小伙伴是否还记得. 这个 
+    alloc.h 是我们对 malloc / free 等内存操作接口包装层. 它基本原理是替换我们使用系统申请释
+    放相关函数. 并且携带了少量平台通用宏. 先看接口设计
+
+```C
+#ifndef _H_ALLOC
+#define _H_ALLOC
+
+#include <stdlib.h>
+#include <string.h>
+
+// :) 高效内存分配, 莫名伤感 ~
+// _MSC_VER -> Winds CL
+// __GNUC__ -> Linux GCC
+//
+#ifdef _MSC_VER
+//
+// CPU 检测 x64 or x86
+// ISX64 defined 表示 x64 否则 x86
+//
+#   if defined(_M_ARM64) || defined(_M_X64)
+#       define ISX64
+#   endif
+//
+// _M_PPC 为 PowerPC 平台定义, 现在已不支持 so winds 默认是小端平台
+//
+#   if defined(_M_PPC)
+#       define ISBENIAN
+#   endif
+
+#elif  __GNUC__
+
+#   if defined(__x86_64__)
+#       define ISX64
+#   endif
+//
+// 大小端检测 : ISBENIAN defined 表示大端
+//
+#   if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
+#       define ISBENIAN
+#   endif
+
+#else
+#   error BUILD (￣︶￣) S
+#endif
+
+// OFF_ALLOC - 关闭全局 free / malloc 配置
+#ifndef OFF_ALLOC
+
+#   undef  free
+#   define free    free_
+
+#   undef  strdup
+#   define strdup  strdup_
+
+#   undef  malloc
+#   define malloc  malloc_
+#   undef  calloc
+#   define calloc  calloc_
+#   undef  realloc
+#   define realloc realloc_
+
+#endif//OFF_ALLOC
+
+//
+// free_ - free 包装函数
+// ptr      : 内存首地址
+// return   : void
+//
+extern void free_(void * ptr);
+
+//
+// malloc_ - malloc 包装, 封装一些特殊业务
+// size     : 分配的内存字节
+// return   : 返回可使用的内存地址.
+//
+extern void * malloc_(size_t size);
+
+//
+// strdup_ - strdup 包装函数
+// s        : '\0' 结尾 C 字符串
+// return   : 拷贝后新的 C 字符串
+//
+extern char * strdup_(const char * s);
+
+//
+// calloc_ - calloc 包装, 封装一些特殊业务
+// num      : 数量
+// size     : 大小
+// return   : 返回可用内存地址, 并且置0
+//
+extern void * calloc_(size_t num, size_t size);
+
+//
+// realloc_ - realoc 包装函数, 封装一些特殊业务
+// ptr      : 内存首地址, NULL 等同于 malloc
+// size     : 重新分配的内存大小
+// return   : 返回重新分配好的新地址内容
+//
+extern void * realloc_(void * ptr, size_t size);
+
+#endif//_H_STDEXIT
+```
+
+    通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 而对于 ISX64 和
+    ISX64 携带私活可以忽略, 在网络协议封装时候会用到. 放在这里权当开开视界, 这种平台相关邪恶宏,
+    放在哪里都难受 ~
+        目前采用了近代软件编程中最后免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普
+    介绍可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果
+    其中遇到困难, 可以搜索和翻看作者相关博客. alloc.c 实现全在这里, 代码即注释 ~
+
+```C
+#include <stdio.h>
+
+#define OFF_ALLOC
+#include "alloc.h"
+
+#define JEMALLOC_NO_DEMANGLE
+#include <jemalloc/jemalloc.h>
+
+//
+// free_ - free 包装函数
+// ptr      : 内存首地址
+// return   : void
+//
+inline void free_(void * ptr) {
+    je_free(ptr);
+}
+
+// 简单内存不足检测处理
+static inline void * check(void * ptr, size_t size) {
+    if (NULL == ptr) {
+        fprintf(stderr, "check memory collapse %zu\n", size);
+        fflush(stderr);
+        abort();
+    }
+    return ptr;
+}
+
+//
+// malloc_ - malloc 包装, 封装一些特殊业务
+// size     : 分配的内存字节
+// return   : 返回可使用的内存地址.
+//
+inline void * malloc_(size_t size) {
+    void * ptr = je_malloc(size);
+    return check(ptr, size);
+}
+
+//
+// strdup_ - strdup 包装函数
+// s        : '\0' 结尾 C 字符串
+// return   : 拷贝后新的 C 字符串
+//
+inline char * strdup_(const char * s) {
+    if (s) {
+        size_t n = strlen(s) + 1;
+        char * ptr = malloc_(n);
+        return memcpy(ptr, s, n);
+    }
+    return NULL;
+}
+
+//
+// calloc_ - calloc 包装, 封装一些特殊业务
+// num      : 数量
+// size     : 大小
+// return   : 返回可用内存地址, 并且置0
+//
+inline void * calloc_(size_t num, size_t size) {
+    void * ptr = je_calloc(num, size);
+    return check(ptr, size);
+}
+
+//
+// realloc_ - realoc 包装函数, 封装一些特殊业务
+// ptr      : 内存首地址, NULL 等同于 malloc
+// size     : 重新分配的内存大小
+// return   : 返回重新分配好的新地址内容
+//
+inline void * realloc_(void * ptr, size_t size) {
+    void * ntr = je_realloc(ptr, size);
+    return check(ntr, size);
+}
+```
+
+    引入 jemalloc 用于内存方面抗压, 响应号召, 又给华山剑法注入了一道自信秘术 :0 
+    不练习的人不知道是否感到剑也颤抖 ~ 兴奋 ~ 原来这么简单, 就可以这么厉害. 哈哈.
+    只想说三个字, 屌 屌  屌   ~ (仔细看 alloc.h 会发现, 实现是可插拔的)
 
 ***
 
-        <<也许>> 
+> 最后在心田种颗草 ----<<@
+
+***
+
+    <<也许>> 
     - 汪国真
     也许，永远没有那一天
     前程如朝霞般绚烂
