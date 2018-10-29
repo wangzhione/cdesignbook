@@ -1,7 +1,7 @@
 # 第2章-内功-数据结构上卷
 
-        对于 C 而言, 数据结构没过, 一切都是虚妄. 其它语言好点, 复合类型标准支持的很好
-    用(中庸). 重复一点, 在 C 的世界里, 只认数据结构和操作系统. 而数据结构就是核心内功,
+        对于 C 而言, 数据结构没过, 一切都是虚妄. 其它语言好点, 结构算法标准都支持的很
+    好用(中庸). 重复说, 在 C 的世界里, 只认数据结构和操作系统. 而数据结构就是核心内功,
     一招一式全是内劲. 修炼数据结构本质是为了掌控全局, 规划整体, 捋顺输入输出. 内功没有
     几个月苦练, 很难实现外放. 内功上卷我们只讲简单一点 list, string, array, hash.
 
@@ -100,8 +100,8 @@ extern void list_each_(void * list, node_f feach);
 #endif//_H_LIST
 ```
 
-    上面用到一个去除警告的函数宏技巧. 主要看 (const void *)(intptr_t)left 便于输入指针
-    和整型变量传入. 对于 struct.h 可以参看第1章设计部分, 这里轻微回顾一下
+    (const void *)(intptr_t)left 是一个去除警告的函数宏技巧, 便于传入指针和整型变量. 
+    对于 struct.h 可以参看第1章设计部分, 这里轻微回顾一下
 
 ```C
 //
@@ -117,8 +117,8 @@ typedef int (* icmp_f)();
 typedef void (* node_f)(void * node);
 ```
 
-    推荐详细思考 struct $list { struct $list * next; }; "设计模式" 等同于最原始的继承
-    . $ 符号表示当前标识是私有的, 具备特定用途. 不推荐使用库的随便使用. 下面我们为 list 库
+    推荐详细思考 struct $list { struct $list * next; }; "设计模式" 等同于最原始的继
+    承. $ 符号标识当前是私有的, 具备特定用途. 不推荐使用库的随便使用. 下面我们用 list 库
     构建个 people list 例子
 
 ```C
@@ -274,8 +274,8 @@ list_add_(void ** pist, icmp_f fadd, void * left) {
 ```
 
     可以看出它在外部用的时候, 相当于无类型指针, 只能获取值却不能操作. 内部用的时候已经转成了
-    类型指针, 就方便操作起来. 算宏控制代码使用权限的一个小技巧. 继续抛砖引玉用宏技巧带大家写
-    C 常量!
+    类型指针, 就方便操作起来. 算宏控制代码使用权限的一个小技巧. 继续抛砖引玉用宏带大家写 C 
+    常量的技巧!
 
 ```C
 #include <stdio.h>
@@ -305,9 +305,11 @@ $ gcc -g -Wall struct.c ; ./a.out
 version = { major = 1, minor = 2, micro = 3}
 ```
 
-    上面代码通过宏和 static 函数构造个 const_version const struct version 真常量.
-    是不是挺有意思, 希望读者有所感悟 ~ 
-        随后看下 list_pop, list_get, list_each 操作, 都很直白.
+    通过宏和 static 函数构造个 const_version const struct version 真常量. 是不是挺有
+    意思, 希望读者有所感悟 ~ 
+    
+    随后看下 list_pop, list_get, list_each 操作, 都很直白.
+
 ```C
 //
 // list_pop - 匹配弹出链表中指定值
@@ -342,8 +344,8 @@ list_pop_(void ** pist, icmp_f fget, const void * left) {
 }
 ```
 
-    同样分成3部曲, 1检查, 2头节点处理, 3非头节点处理. 需要注意的是 list_pop 只是在 list
-    中弹出通过 fget(left, x) 节点. 后续 free or delete 操作还得依赖使用方自行控制.
+    同样分为3部曲, 1检查, 2头节点处理, 3非头节点处理. 需要注意的是 list_pop 只是在 list
+    中通过 fget(left, x) 弹出节点. 后续 free or delete 操作还得依赖使用方自行控制.
 
 ```C
 //
@@ -401,9 +403,9 @@ extern void list_each(void * list, each_f feach, void * arg);
 ... ...
 ```
 
-    注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是
-    选择了 node_f. 可能最终觉得, 不作才是最好. 不好意思到这 list 解释完了. 喜欢
-    的朋友可以多写几遍代码或博文 ~ 
+    注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是选择
+    了 node_f. 可能最终觉得, 不作才是最好. 不好意思到这 list 解释完了. 喜欢的朋友可
+    以多写几遍代码或博文 ~ 
 
 ## 2.2 string
 
