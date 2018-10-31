@@ -409,82 +409,129 @@ extern void list_each(void * list, each_f feach, void * arg);
 
 ## 2.2 string
 
-    有句话不知道当讲不当讲, C中 char * 其实够用了!
-    用 C写过几个 string 模型, 但都不太爽, 都有点过度封装. 应用领域很模糊. 
-    但有个方面需要扩展 char [] 就是动态字符串. 这里来简单介绍一种缓冲字符串的封装思路.
-    首先为了让大家好融进来, 先对 string.h 中一些接口扩展一点点, 顺带多加点说辞
+        有句话不知道当讲不当讲, C 中 char * 其实够用了! 也写过几个 string 模型, 自我感觉
+    都有些过度封装, 不怎么爽且应用领域很模糊. 但有个方面需要扩展 char []. 举个简单场景说, 
+    如果 char * 字符串长度不确定, 随时可能变化. 那我们怎么处理呢? 此刻就需要为其封装个动态
+    字符串库去管理这种行为. 为了让大家对 string 体会更多, 先带大家给 string.h 扩展几个小
+    接口. 磨刀不费砍柴功.
+
+### 2.2.1 string.h 扩展为 strext.h
+
+        strext.h 接口设计分成 string 相关操作和 file 相关操作两部分. 
 
 ```C
-//
-// 字符串不区分大小写比较函数
-// ls		: 左串
-// rs		: 右串
-// return	: ls > rs 返回 > 0; ... < 0; ... =0
-//
-int 
-tstr_icmp(const char * ls, const char * rs) {
-	int l, r;
-	if (!ls || !rs) 
-		return (int)(ls - rs);
+#ifndef _H_STREXT
+#define _H_STREXT
 
-	do {
-		if ((l = *ls++) >= 'a' && l <= 'z')
-			l -= 'a' - 'A';
-		if ((r = *rs++) >= 'a' && r <= 'z')
-			r -= 'a' - 'A';
-	} while (l && l == r);
+/*
+    继承 : string.h
+    功能 : 扩展 string.h 中部分功能, 方便业务层调用
+ */
 
-	return l - r;
-}
+#include "alloc.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 
 //
-// 字符串拷贝函数, 需要自己free
-// str		: 待拷贝的串
-// return	: 返回拷贝后的串
+// str_hash - Brian Kernighan 与 Dennis Ritchie hash 算法
+// str      : 字符串内容
+// return   : 返回计算后的 hash 值
 //
-char * 
-tstr_dup(const char * str) {
-	size_t len;
-	char * nstr;
-	if (NULL == str) 
-		return NULL;
+extern unsigned str_hash(const char * str);
 
-	len = strlen(str) + 1;
-	nstr = malloc(sizeof(char) * len);
-	//
-	// 补充一下, 关于 malloc的写法, 说不尽道不完. 
-	// 这里采用 日志 + exit, 这种未定义行为. 方便收集错误日志和监测大内存申请失败情况.
-	//
-	if (NULL == nstr)
-		CERR_EXIT("malloc len = %zu is empty!", len);
+//
+// str_cpyn - tar 复制内容到 src 中
+// src      : 返回保存内容
+// tar      : 目标内容
+// n        : 最大容量
+// return   : 返回字符串长度
+//
+extern int str_cpyn(char * src, const char * tar, size_t n);
 
-	return memcpy(nstr, str, len);
-}
+//
+// str_cmpi - 字符串不区分大小写比较函数
+// ls       : 左串
+// rs       : 右串
+// return   : ls > rs 返回 > 0; ... < 0; ... =0
+//
+extern int str_cmpi(const char * ls, const char * rs);
+
+//
+// str_cmpin - 字符串不区分小写的限定字符比较函数
+// ls       : 左串
+// rs       : 右串
+// n        : 长度
+// return   : ls > rs 返回 > 0; ... < 0; ... =0
+//
+extern int str_cmpin(const char * ls, const char * rs, size_t n);
+
+//
+// str_trim - 去除字符数组前后控制字符
+// str      : 待操作的字符数组 \0 结尾
+// return   : 返回构建好字符数组首地址
+//
+extern char * str_trim(char str[]);
+
+//
+// str_printf - 字符串构建函数
+// format   : 构建格式参照 pritnf
+// ...      : 参数集
+// return   : char * 堆上内存
+//
+extern char * str_printf(const char * format, ...);
+
+//
+// str_freads - 读取完整个文件内容返回, 需要事后 free
+// path     : 文件路径
+// return   : 文件内容字符串, NULL 表示读取失败
+//
+extern char * str_freads(const char * path);
+
+//
+// str_fwrites - 将 C 串 str 覆盖写到 path 文件中
+// path     : 文件路径
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
+//
+extern int str_fwrites(const char * path, const char * str);
+
+//
+// str_fappends - 将 C 串 str 追加写到 path 文件末尾
+// path     : 文件路径
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
+//
+extern int str_fappends(const char * path, const char * str);
+
+#endif//_H_STREXT
 ```
 
-    以上对 stricmp (strcasecmp) 和 strdup 这些标准中模棱两可函数的补充! 顺带再补充一点点
+    这个库比较简单, 我就多说点. 大家都懂看得热闹 ~ 
 
 ```C
 //
-// Brian Kernighan与 Dennis Ritchie 简便快捷的 hash算法
-// str		: 字符串内容
-// return	: 返回计算后的hash值
+// str_hash - Brian Kernighan 与 Dennis Ritchie hash 算法
+// str      : 字符串内容
+// return   : 返回计算后的 hash 值
 //
 unsigned 
-tstr_hash(const char * str) {
-	register unsigned h = 0;
-	if (str) {
-		register unsigned c;
-		while ((c = *str++))
-			h = h * 131 + c;
-	}
-	return h;
+str_hash(const char * str) {
+    register unsigned h = 0u;
+    if (str) {
+        register unsigned c;
+        while ((c = *str++))
+            h = h * 131u + c;
+    }
+    return h;
 }
 ```
 
-    上面是 C语言之父展示一种 hash算法, 极其简便快速. 哈希(hash) 相当于一个函数, f (char *)
-    映射成一个数值. 这样的做意图能够通过一个数值确定这个字符串. 思路特别巧妙, 同样也就造成另
-	一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解决碰撞也好搞.套路不少, 有
+    上面是 C 语言之父展示一种 hash 算法, 极其简便快速. 哈希(hash) 相当于一个数学定义上函数, 
+    f (char *) 映射为 unsigned 数值. 这样的做意图能够通过数值反向确定这个字符串一定程度的相
+    似性. 思路特别巧妙, 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰
+    撞, 解决碰撞也好搞.套路不少, 有
 	固定范围内 hash, 非固定返回内 hash...... 我们以后者举例. 如果发生碰撞了怎么处理.
     如果我们采用哈希的时候, 需要一个池子中保存所有 hash值. 那么第一种思路是池子中发生碰撞了,
     就加大池子, 再全部重新 hash一遍, 以此来搞, 原理是池子越大碰撞机会越小. 另一种思路是池子
