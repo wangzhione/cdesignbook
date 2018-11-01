@@ -415,9 +415,10 @@ extern void list_each(void * list, each_f feach, void * arg);
     字符串库去管理这种行为. 为了让大家对 string 体会更多, 先带大家给 string.h 扩展几个小
     接口. 磨刀不费砍柴功.
 
-### 2.2.1 string.h 扩展为 strext.h
+### 2.2.1 引入 strext.h
 
-        strext.h 接口设计分成 string 相关操作和 file 相关操作两部分. 
+        strex.h 是从 string.h 扩展而来, 为什么先引入 strext.h 主要方便后续相关 char *
+    操作更加顺利. strext.h 接口设计分成 string 相关操作和 file 相关操作两部分. 
 
 ```C
 #ifndef _H_STREXT
@@ -528,21 +529,283 @@ str_hash(const char * str) {
 }
 ```
 
-    上面是 C 语言之父展示一种 hash 算法, 极其简便快速. 哈希(hash) 相当于一个数学定义上函数, 
-    f (char *) 映射为 unsigned 数值. 这样的做意图能够通过数值反向确定这个字符串一定程度的相
-    似性. 思路特别巧妙, 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰
-    撞, 解决碰撞也好搞.套路不少, 有
-	固定范围内 hash, 非固定返回内 hash...... 我们以后者举例. 如果发生碰撞了怎么处理.
-    如果我们采用哈希的时候, 需要一个池子中保存所有 hash值. 那么第一种思路是池子中发生碰撞了,
-    就加大池子, 再全部重新 hash一遍, 以此来搞, 原理是池子越大碰撞机会越小. 另一种思路是池子
-	中有碰撞了, 那好我们单独开个小池子把这个碰撞的值全塞到小池子中.
-	hash 其中一个特性是, 两个模型映射的哈希值不一样, 那么二者一定不一样! 一下刷了一批!
-	多查查资料, 把 hash 设计和编码都搞明白!!! hash是为了解决急速查找问题. 
+    上面是 C 语言之父展示一种 hash 算法, 极其简便快速. 哈希(hash) 相当于一个数学定义上函数,
+    f (char *) 映射为 unsigned 数值. 意图是能够通过数值反向确定这个字符串一定程度的相似性.
+    思路特别巧妙, 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解
+    决碰撞也好搞. 套路不少如链式 hash, 桶式 hash, 混合 hash, 后面会看见相关例子. 那如果发
+    生碰撞了怎么办? 假定把保存 hash 值集合的地方叫海藻池子. 一种思路是池子中海藻挤在一起(碰撞
+    )了, 就加大池子, 让海藻分开. 原理是池子越大碰撞机会越小. 另一种思路当池子中海藻挤在一块吹
+    泡泡的时候, 那我们单独开小水沟把这些吹泡泡的值全引到小水沟中. 思路是碰撞的单独放一起. 对于
+    hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性在数据查
+    找时候一下就能够刷掉一批(非常快速)! 推荐也多查查其它资料, 把 hash 设计和编码都搞明白!!!
 
-#### 2.2.1 string 模型一种封装 tstr interface
+```C
+//
+// str_cpyn - tar 复制内容到 src 中
+// src      : 返回保存内容
+// tar      : 目标内容
+// n        : 最大容量
+// return   : 返回字符串长度
+//
+int 
+str_cpyn(char * src, const char * tar, size_t n) {
+    size_t i;
+    if (!src || !tar || !n) return -2;
+    for (i = 1; 
+        (i < n) && (*src++ = *tar++); ++i)
+        ;
+    if (i == n) *src = '\0';
+    return (int)i - 1;
+}
 
-    这里封装一种自带扩容缓冲的字符串模型, 比较好懂基础. 首先看下面总的接口声明, 有个感性
-    认知. 支持堆上和栈上声明使用
+//
+// str_cmpi - 字符串不区分大小写比较函数
+// ls       : 左串
+// rs       : 右串
+// return   : ls > rs 返回 > 0; ... < 0; ... =0
+//
+int 
+str_cmpi(const char * ls, const char * rs) {
+    int l, r;
+    if (!ls || !rs) return (int)(ls - rs);
+    
+    do {
+        if ((l = *ls++) >= 'A' && l <= 'Z')
+            l += 'a' - 'A';
+        if ((r = *rs++) >= 'A' && r <= 'Z')
+            r += 'a' - 'A';
+    } while (l == r && l);
+    return l - r;
+}
+
+//
+// str_cmpin - 字符串不区分小写的限定字符比较函数
+// ls       : 左串
+// rs       : 右串
+// n        : 长度
+// return   : ls > rs 返回 > 0; ... < 0; ... =0
+//
+int 
+str_cmpin(const char * ls, const char * rs, size_t n) {
+    int l, r;
+    if (!ls || !rs || !n) return (int)(ls - rs);
+
+    do {
+        if ((l = *ls++) >= 'A' && l <= 'Z')
+            l += 'a' - 'A';
+        if ((r = *rs++) >= 'A' && r <= 'Z')
+            r += 'a' - 'A';
+    } while (--n > 0 && l == r && l);
+    return l - r;
+}
+```
+
+    函数写的很直白. 不算"高效"(没有用编译器特定函数, 例如按照字长比较函数). 胜在异常参数处
+    理和代码通用, 这也是要写这些函数原因, 不希望传入 NULL 函数就崩溃. 再展示个 trim 功能
+
+```C
+//
+// str_trim - 去除字符数组前后控制字符
+// str      : 待操作的字符数组 \0 结尾
+// return   : 返回构建好字符数组首地址
+//
+char * 
+str_trim(char str[]) {
+    char * s, * e;
+    if (!str || !*str)
+        return str;
+
+    // 找到第一个不是空格字符的地址
+    for (s = str; isspace(*s); ++s)
+        ;
+
+    // 找到最后一个不是空格字符的地址
+    e = s + strlen(s) - 1;
+    if (isspace(*e)) {
+        do --e; while (isspace(*e));
+        e[1] = '\0';
+    }
+
+    // 开始返回移动后的首地址
+    return s == str ? str : memmove(str, s, e - s + 2);
+}
+```
+
+    主要思路是头尾查找 space 空格字符缩进, 最后 e - s + 2 = (e - s + 1) + 1 最后 1
+    是 '\0' 字符. str_trim(char []) 声明设计希望调用方传入个数组参数, 且存在修改行为.
+    对于 str_printf 由来先回忆下系统 api
+
+```C
+#if defined __USE_ISOC99 || defined __USE_UNIX98
+/* Maximum chars of output to write in MAXLEN.  */
+extern int snprintf (char *__restrict __s, size_t __maxlen,
+		     const char *__restrict __format, ...)
+     __THROWNL __attribute__ ((__format__ (__printf__, 3, 4)));
+
+extern int vsnprintf (char *__restrict __s, size_t __maxlen,
+		      const char *__restrict __format, _G_va_list __arg)
+     __THROWNL __attribute__ ((__format__ (__printf__, 3, 0)));
+#endif
+```
+
+    当初刚学习 snprintf 时候, 总觉得第一个参数好不爽. 凭什么让我来构造 char * 大小. 后面
+    看标准说不希望过多揉进动态内存分配平台相关的代码, 内存申请和释放都应该交给使用方. 目前用
+    了个很傻技巧来克服 char * 大小不确定
+
+```C
+// str_vprintf - 成功直接返回
+static char * str_vprintf(const char * format, va_list arg) {
+    char buf[BUFSIZ];
+    int n = vsnprintf(buf, sizeof buf, format, arg);
+    if (n < sizeof buf) {
+        char * ret = malloc(n + 1);
+        return memcpy(ret, buf, n + 1);
+    }
+    return NULL;
+}
+
+//
+// str_printf - 字符串构建函数
+// format   : 构建格式参照 printf
+// ...      : 参数集
+// return   : char * 堆上内存
+//
+char * 
+str_printf(const char * format, ...) {
+    char * ret;
+    int n, cap;
+    va_list arg;
+    va_start(arg, format);
+
+    // BUFSIZ 以下内存直接分配
+    ret = str_vprintf(format, arg);
+    if (ret != NULL)
+        return ret;
+
+    cap = BUFSIZ << 1;
+    for (;;) {
+        ret = malloc(cap);
+        n = vsnprintf(ret, cap, format, arg);
+        // 失败的情况
+        if (n < 0) {
+            free(ret);
+            return NULL;
+        }
+
+        // 成功情况
+        if (n < cap)
+            break;
+
+        // 内存不足的情况
+        free(ret);
+        cap <<= 1;
+    }
+
+    return realloc(ret, n + 1);
+}
+```
+
+    核心思路是利用 vsnprintf 返回值判断当前内存是否够用. 愚笨但实在. 
+
+```C
+//
+// str_freads - 读取完整个文件内容返回, 需要事后 free
+// path     : 文件路径
+// return   : 文件内容字符串, NULL 表示读取失败
+//
+char * 
+str_freads(const char * path) {
+    size_t n, cap, len;
+    char * str, buf[BUFSIZ];
+    FILE * txt = fopen(path, "rb");
+    if (NULL == txt) return NULL;
+
+    // 读取数据
+    n = fread(buf, sizeof(char), BUFSIZ, txt);
+    if (n == 0 || ferror(txt)) {
+        fclose(txt);
+        return NULL;
+    }
+
+    // 直接分配内存足够直接返回内容
+    if (n < BUFSIZ) {
+        fclose(txt);
+        str = malloc(n + 1);
+        memcpy(str, buf, n);
+        str[n] = '\0';
+        return str;
+    }
+
+    str = malloc((cap = n << 1));
+    memcpy(str, buf, len = n);
+    do {
+        n = fread(buf, sizeof(char), BUFSIZ, txt);
+        if (ferror(txt)) {
+            fclose(txt);
+            free(str);
+            return NULL;
+        }
+
+        // 填充数据
+        if (len + n >= cap)
+            str = realloc(str, cap <<= 1);
+        memcpy(str + len, buf, n);
+        len += n;
+    } while (n == BUFSIZ);
+
+    // 设置结尾, 并返回结果
+    fclose(txt);
+    str[len] = '\0';
+    return realloc(str, len + 1);
+}
+
+// str_fwrite - 按照约定输出数据到文件中
+static int str_fwrite(const char * p, const char * s, const char * m) {
+    int len;
+    FILE * txt;
+    if (!p || !*p || !s || !m)
+        return -2;
+    // 打开文件, 写入消息, 关闭文件
+    if (!(txt = fopen(p, m)))
+        return -3;
+
+    len = fputs(s, txt);
+    fclose(txt);
+    // 输出文件长度
+    return len;
+}
+
+//
+// str_fwrites - 将 C 串 str 覆盖写到 path 文件中
+// path     : 文件路径
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
+//
+inline int 
+str_fwrites(const char * path, const char * str) {
+    return str_fwrite(path, str, "wb");
+}
+
+//
+// str_fappends - 将 C 串 str 追加写到 path 文件末尾
+// path     : 文件路径
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
+//
+inline int 
+str_fappends(const char * path, const char * str) {
+    return str_fwrite(path, str, "ab");
+}
+```
+ 
+    str_freads 和 str_printf 思路是一样的都在进行内存是否合适的尝试. str_fwrite 结果
+    就很普通. 以上关于 string.h 接口扩展部分不华丽, 但是又不可或缺. 适合传授新手演练 ~
+
+### 2.2.2 interface
+
+        经过 strext.h 接口设计, 我们已经回忆起 C string.h 最基础库的部分功能. 趁热打铁
+    开始封装一种自带扩容缓冲的字符串模型, 比较好懂. 首先看下面总的接口声明, 有个感性认知. 
+    支持堆上和栈上声明使用
 
 ```C
 #ifndef _H_SIMPLEC_TSTR
