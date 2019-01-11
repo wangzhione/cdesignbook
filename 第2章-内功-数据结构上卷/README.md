@@ -1488,10 +1488,10 @@ struct noid {
 
 struct haid {
     struct noid ** hash;
-    struct noid * ids;
+    struct noid * set;
     int mod;
     int cap;
-    int cnt;
+    int len;
 };
 
 static void haid_init(struct haid * h, int max) {
@@ -1501,30 +1501,30 @@ static void haid_init(struct haid * h, int max) {
         cap <<= 1;
 
     for (int i = 0; i < max; ++i)
-        h->ids[i] = (struct noid) { NULL, -1 };
+        h->set[i] = (struct noid) { NULL, -1 };
     h->hash = calloc(cap, sizeof(struct haid *));
     assert(h->hash && cap);
 
-    h->ids = malloc(max * sizeof(struct noid));
-    assert(h->ids && max);
+    h->set = malloc(max * sizeof(struct noid));
+    assert(h->set && max);
 
     h->mod = cap - 1;
     h->cap = max;
-    h->cnt = 0;
+    h->len = 0;
 }
 
 static inline void haid_clear(struct haid * h) {
     free(h->hash); h->hash = NULL;
-    free(h->ids); h->ids = NULL;
+    free(h->set); h->set = NULL;
     h->mod = 1;
-    h->cnt = h->cap = 0;
+    h->len = h->cap = 0;
 }
 
 static int haid_lookup(struct haid * h, int id) {
     struct noid * c = h->hash[id & h->mod];
     while (c) {
         if (c->id == id)
-            return c - h->ids;
+            return c - h->set;
         c = c->next;
     }
     return -1;
@@ -1538,7 +1538,7 @@ static int haid_remove(struct haid * h, int id) {
 
     if (c->id == id) {
         h->hash[i] = c->next;
-        goto out_clr;
+        goto ret_clr;
     }
 
     while (c->next) {
@@ -1546,16 +1546,16 @@ static int haid_remove(struct haid * h, int id) {
             struct noid * tmp = c->next;
             c->next = tmp->next;
             c = tmp;
-            goto out_clr;
+            goto ret_clr;
         }
         c = c->next;
     }
 
-out_clr:
+ret_clr:
     c->id = -1;
     c->next = NULL;
-    --h->cnt;
-    return c - h->ids;
+    --h->len;
+    return c - h->set;
 }
 
 static int haid_insert(struct haid * h, int id) {
@@ -1563,63 +1563,62 @@ static int haid_insert(struct haid * h, int id) {
     struct noid * c = NULL;
     for (i = 0; i < h->cap; ++i) {
         int j = (i + id) % h->cap;
-        if (h->ids[j].id == -1) {
-            c = h->ids + j;
+        if (h->set[j].id == -1) {
+            c = h->set + j;
             break;
         }
     }
     assert(c && c->next == NULL);
 
-    ++h->cnt;
+    ++h->len;
     c->id = id;
     i = id & h->mod;
     if (h->hash[i])
         c->next = h->hash[i];
     h->hash[i] = c;
-    return c - h->ids;
+    return c - h->set;
 }
 
 static inline int haid_full(struct haid * h) {
-    return h->cnt >= h->cap;
+    return h->len >= h->cap;
 }
 
 #endif//_H_HAID
 ```
 
-	代码比注释值钱.
-	一般书中也许会有习题, 我们这里当成一篇阅读理解. 哈哈. 来一同感受设计的细节. 有些朴实, 
-	有些飘逸, 有些巧妙. 下面先阅读完讲解一点潜规则, 先入为主
+	代码比注释值钱. 一般书中也许会有习题, 我们这里只有阅读理解. 哈哈. 来一同感受设计的细节.
+    hsid 库设计就是这次的阅读理解, 有些飘逸, 有些巧妙. 阅读完后讲解一点潜规则, 先入为主
 
-* 0' -> 	return -1;
+* 0'> return -1;
 
 		没有找见就返回索引 -1, 作为默认错误和 POSIX 默认错误码相同. POSIX 错误码引入了
-		errno机制, 不太好, 封装过度. 上层需要二次判断, 开发起来要命. 可能我们后续设计
-		思路也是采用这种 POSIX思路, 但愿是 上错花轿嫁对郎.
+		errno 机制, 不太好, 封装过度. 上层需要二次判断, 开发起来要命. 可能我们后续设计
+		思路也是承接这种 POSIX 思路, 但愿是上错花轿嫁对郎.
 
-* 1' -> int hcap = 16;  
+* 1'> cap <<= 1;
 
-		这个 hcap 初始值必须是2的幂数, 方便得到 hi->mod = 2 ^ x - 1 = hcap - 1
+		这个 cap 初始值必须是 2 的幂数, 方便得到 h->mod = 2 ^ x - 1 = cap - 1
 
-* 2' -> hi->hash = calloc(hcap, sizeof(struct hashid *));  
+* 2'> h->hash = calloc(cap, sizeof(struct haid *));
 
-		这里表明当前 hash实体已经全部申请好了, 只能用这些了. 所以有了 hashid_full 接口.
+		这里表示当前 hash 实体已经全部申请好了, 只能用这些了. 所以有了 haid_full 接口.
 
-* 3' -> assert(c && c->next == NULL);  
+* 3'> assert(c && c->next == NULL);  
 
-		这个在 hashid_insert中, 表明意思是插入一定成功. 那么这个接口必须在 hashid_full
+		代码在 haid_insert 中出现, 表明意思是插入一定成功. 那么这个接口必须在 haid_full
 		之后执行. 
 
-* 4' -> int idx = (i + id) % hi->cap;  
+* 4'> int j = (i + id) % h->cap;
 
 		一种查找策略, 可以有也可以无. 和 O(n) 纯 for 查找没啥区别. 看数据随机性.
 
-* 5' -> 最后小总结
+* 5'> 最后小总结
 		
-		通过以上就好理解了. 上面我们构建的一种 hashid api, 完成的工作就是方便 
-		int id的映射工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 
-		写一遍想一遍就能感受到那些游动于指尖的美好~
+		有了这些就好理解了. 上面我们构建的一种 hash id api, 完成的工作就是方便 int id
+        的映射工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 写一遍想一遍
+        就能感受到那些游动于指尖的美好 ~
 
-### 2.5 内功心法上卷结构
+### 2.5 内功心法上卷
 
 	渔家傲·平岸小桥千嶂抱
 	王安石·宋
@@ -1636,4 +1635,4 @@ static inline int haid_full(struct haid * h) {
 	贪梦好，
 	茫然忘了邯郸道。
 
-![云飘宁](./img/七彩祥云.jpg)
+![云飘宁](./img/我猜中了前头.jpg)
