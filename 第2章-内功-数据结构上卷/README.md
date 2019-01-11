@@ -308,8 +308,8 @@ $ gcc -g -Wall const_version.c ; ./a.out
 version = { major = 1, minor = 2, micro = 3 }
 ```
 
-    通过宏和 static 函数构造个 const_version const struct version 真常量. 是不是挺有
-    意思, 希望读者有所消遣 ~ 
+    通过宏和定义 static 函数构造 const_version const struct version 真常量. 是不是
+	挺有意思, 希望读者有所消遣 ~ 
     
     随后看下 list_pop, list_get, list_each 操作, 都很直白.
 
@@ -400,29 +400,29 @@ list_each_(void * list, node_f feach) {
 typedef int (* each_f)(void * node, void * arg);
 
 extern int list_each(void * list, each_f feach, void * arg);
-... ...
+... .. .
 	int ret = feach(head, arg);
 	if (ret < 0)
 		return ret;
-... ...
+... .. .
 ```
 
     注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是选择
     了 node_f. 可能最终觉得, 不作才是最好. 不好意思到这 list 设计套路解释完了. 喜欢
-	的朋友可以多写几遍代码或博文去体会和分享 ~ 
+	的朋友可以多写几遍代码去体会和分享 ~ 
 
 ## 2.2 string
 
-        有句话不知道当讲不当讲, C 中 char * 其实够用了! 也写过几个 string 模型, 自我感觉
-    都有些过度封装, 不怎么爽且应用领域很模糊. 但有个方面需要扩展 char []. 举个简单场景说, 
-    如果 char * 字符串长度不确定, 随时可能变化. 那我们怎么处理呢? 此刻就需要为其封装个动态
-    字符串库去管理这种行为. 为了让大家对 string 体会更多, 先带大家给 string.h 扩展几个小
+        有句话不知道当讲不当讲, C 中 char * 其实够用了! 写过几个 string 模型, 自我感
+	觉都有些过度封装, 不怎么爽且应用领域很鸡肋. 但也有场景需要扩展 char *. 例如说, 如果 
+	char * 字符串长度不确定, 随时可能变化. 那我们怎么处理呢? 此刻就需要为其封装个动态字
+	符串库去管理这种行为. 为了让大家对 string 体会更多, 先带大家为 string.h 扩展几个小
     接口. 磨刀不费砍柴功.
 
 ### 2.2.1 引入 strext.h
 
         strex.h 是从 string.h 扩展而来, 为什么先引入 strext.h 主要方便后续相关 char *
-    操作更加顺利. strext.h 接口设计分成 string 相关操作和 file 相关操作两部分. 
+    操作更加顺利. strext.h 接口设计分成 string 相关操作和 file 交互 string 相关操作. 
 
 ```C
 #ifndef _H_STREXT
@@ -437,7 +437,6 @@ extern int list_each(void * list, each_f feach, void * arg);
 #include <ctype.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <string.h>
 
 //
 // str_hash - Brian Kernighan 与 Dennis Ritchie hash 算法
@@ -481,14 +480,14 @@ extern char * str_trim(char str[]);
 
 //
 // str_printf - 字符串构建函数
-// format   : 构建格式参照 pritnf
+// format   : 构建格式参照 printf
 // ...      : 参数集
 // return   : char * 堆上内存
 //
 extern char * str_printf(const char * format, ...);
 
 //
-// str_freads - 读取完整个文件内容返回, 需要事后 free
+// str_freads - 读取整个文件内容返回, 需要事后 free
 // path     : 文件路径
 // return   : 文件内容字符串, NULL 表示读取失败
 //
@@ -533,15 +532,15 @@ str_hash(const char * str) {
 }
 ```
 
-    上面是 C 语言之父展示一种 hash 算法, 极其简便快速. 哈希(hash) 相当于一个数学定义上函数,
-    f (char *) 映射为 unsigned 数值. 意图是能够通过数值反向确定这个字符串一定程度的相似性.
-    思路特别巧妙, 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解
-    决碰撞也好搞. 套路不少如链式 hash, 桶式 hash, 混合 hash, 后面会看见相关例子. 那如果发
-    生碰撞了怎么办? 假定把保存 hash 值集合的地方叫海藻池子. 一种思路是池子中海藻挤在一起(碰撞
-    )了, 就加大池子, 让海藻分开. 原理是池子越大碰撞机会越小. 另一种思路当池子中海藻挤在一块吹
-    泡泡的时候, 那我们单独开小水沟把这些吹泡泡的值全引到小水沟中. 思路是碰撞的单独放一起. 对于
-    hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性在数据查
-    找时候一下就能够刷掉一批(非常快速)! 推荐也多查查其它资料, 把 hash 设计和编码都搞明白!!!
+    上面是 C 语言之父展示一种极其简便快速 hash 算法. 哈希(hash) 映射相当于定义一个数学上函
+	数, f (char *) 映射为 unsigned 数值. 意图是通过数值反向确定这个字符串一定程度的相似性.
+    思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解
+    决碰撞也好搞. 套路不少如链式 hash, 桶式 hash, 混合 hash, 后面会看见相关例子. 即如果发
+    生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子. 一种思路是池子中海藻挤在一起
+	(碰撞)了, 就加大池子, 让海藻分开. 原理是池子越大碰撞机会越小. 另一种思路当池子中海藻挤在
+	一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的值全引流到小水沟中. 思路是碰撞的单独放一
+	起. 对于 hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性
+	在数据查找时能够非常快速刷掉一批! 推荐也多查查其它资料, 把 hash 设计和编码仔细搞明白!!
 
 ```C
 //
@@ -554,7 +553,7 @@ str_hash(const char * str) {
 int 
 str_cpyn(char * src, const char * tar, size_t n) {
     size_t i;
-    if (!src || !tar || !n) return -2;
+    if (!src || !tar || !n) return EParam;
     for (i = 1; 
         (i < n) && (*src++ = *tar++); ++i)
         ;
@@ -604,8 +603,8 @@ str_cmpin(const char * ls, const char * rs, size_t n) {
 }
 ```
 
-    函数写的很直白. 不算"高效"(没有用编译器特定函数, 例如按照字长比较函数). 胜在异常参数处
-    理和代码通用, 这也是要写这些函数原因, 不希望传入 NULL 函数就崩溃. 再展示个 trim 功能
+    函数写的很普通. 不算"高效"(没有用编译器特定函数, 例如按照字长比较函数). 胜在异常参数
+	处理和代码朴实, 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 再展示 trim 函数
 
 ```C
 //
@@ -635,8 +634,8 @@ str_trim(char str[]) {
 }
 ```
 
-    主要思路是头尾查找 space 空格字符缩进, 最后 e - s + 2 = (e - s + 1) + 1 最后 1
-    是 '\0' 字符. str_trim(char []) 声明设计希望调用方传入个数组参数, 且存在修改行为.
+    主要思路是头尾都查找 space 字符并缩进, 最后 e - s + 2 = (e + 1 - s) + 1 最后 1
+    是 '\0' 字符. str_trim(char []) 声明设计希望调用方传入参数是数组, 且允许修改行为.
     对于 str_printf 由来先回忆下系统 api
 
 ```C
@@ -652,9 +651,9 @@ extern int vsnprintf (char *__restrict __s, size_t __maxlen,
 #endif
 ```
 
-    当初刚学习 snprintf 时候, 总觉得第一个参数好不爽. 凭什么让我来构造 char * 大小. 后面
-    看标准说不希望过多揉进动态内存分配平台相关的代码, 内存申请和释放都应该交给使用方. 目前用
-    了个很傻技巧来克服 char * 大小不确定
+    当初刚学习 snprintf 时候, 总觉得第一个参数好不爽. 凭什么让我来预先构造 char * 大小. 
+	后面看标准说不希望过多揉进动态内存分配平台相关的代码, 内存申请和释放都应该交给使用方. 目
+	前用了个很傻技巧来克服 char * 大小不确定
 
 ```C
 // str_vprintf - 成功直接返回
@@ -713,7 +712,7 @@ str_printf(const char * format, ...) {
 
 ```C
 //
-// str_freads - 读取完整个文件内容返回, 需要事后 free
+// str_freads - 读取整个文件内容返回, 需要事后 free
 // path     : 文件路径
 // return   : 文件内容字符串, NULL 表示读取失败
 //
@@ -768,10 +767,10 @@ static int str_fwrite(const char * p, const char * s, const char * m) {
     int len;
     FILE * txt;
     if (!p || !*p || !s || !m)
-        return -2;
+        return EParam;
     // 打开文件, 写入消息, 关闭文件
     if (!(txt = fopen(p, m)))
-        return -3;
+        return EFd;
 
     len = fputs(s, txt);
     fclose(txt);
@@ -802,167 +801,177 @@ str_fappends(const char * path, const char * str) {
 }
 ```
  
-    str_freads 和 str_printf 思路是一样的都在进行内存是否合适的尝试. str_fwrite 结果
+    str_freads 和 str_printf 思路一样, 都在进行内存是否合适的尝试. str_fwrite 设计
     就很普通. 以上关于 string.h 接口扩展部分不华丽, 但是又不可或缺. 适合传授新手演练 ~
 
 ### 2.2.2 interface
 
-        经过 strext.h 接口设计, 我们已经回忆起 C string.h 最基础库的部分功能. 趁热打铁
+        经过 strext.h 接口设计, 已经可以回忆起 C string.h 基础库的部分功能. 趁热打铁
     开始封装一种自带扩容缓冲的字符串模型, 比较好懂. 首先看下面总的接口声明, 有个感性认知. 
-    支持堆上和栈上声明使用
+    tstr.h 支持堆上和栈上声明使用
 
 ```C
-#ifndef _H_SIMPLEC_TSTR
-#define _H_SIMPLEC_TSTR
+#ifndef _H_TSTR
+#define _H_TSTR
 
-#include "struct.h"
+#include "strext.h"
 
-#ifndef _STRUCT_TSTR
+#ifndef TSTR_CREATE
 
 struct tstr {
-	char * str;			// 字符串实际保存的内容
-	size_t len;			// 当前字符串长度
-	size_t cap;			// 字符池大小
+    size_t len;   // 长度
+    size_t cap;   // 容量
+    char * str;   // 字符池
 };
 
-// 定义的字符串类型
 typedef struct tstr * tstr_t;
 
-#define _STRUCT_TSTR
-#endif
+//
+// TSTR_CREATE - 栈上创建 tstr_t 结构
+// TSTR_DELETE - 释放栈上 tstr_t 结构
+// var  : 变量名
+//
+#define TSTR_CREATE(var)                                    \
+struct tstr var[1] = { { 0, 0, NULL } }
 
-//文本串栈上创建内容,不想用那些技巧了,就这样吧
-#define TSTR_CREATE(var) \
-	struct tstr var[1] = { { NULL } }
-#define TSTR_DELETE(var) \
-	free((var)->str)
+#define TSTR_DELETE(var)                                    \
+free((var)->str)
 
-#endif // !_H_SIMPLEC_TSTR
+#endif//TSTR_CREATE
+
+#endif//_H_TSTR
 ```
 
-    通过 struct tstr 就可以理解作者思路, str存放内容, len记录当前字符个数, cap 表示str能够保存
-    的容量. 声明了字符串类型 tstr_t 用于堆上声明, 如果想在栈上声明, 可以用提供的宏. 其实很多编译
-	器支持运行期结束自动执行析构操作, 其实只是编译器的语法糖, 编译内嵌析构操作. 例如下面套路
+    通过 struct tstr 就可以理解作者思路, str 存放内容, len 记录当前字符长度, cap 表示字符池
+	容量. 声明了字符串类型 tstr_t 用于堆上声明. 如果想在栈上声明, 可以用提供的宏. 其实很多编译
+	器支持运行期结束自动析构操作, 其实只是编译器的语法糖, 内嵌析构操作. 例如下面套路
 
 ```C
-#define TSTR_USING(var, code) \
-    do { \
-        TSTR_CREATE(var); \
-        code \
-        TSTR_DELETE(var); \
-    } while(0)
+#define TSTR_USING(var, code)								\
+do { 														\
+	TSTR_CREATE(var); 										\
+	code 													\
+	TSTR_DELETE(var); 										\
+} while(0)
 ```
 
-    模拟函数退栈 pop自动销毁栈上字符串 var变量. C 修炼入门, 至少也会说, 早已看穿, 却入戏太深.
-    通过上面结构的构造, 关于行为的部分那就好理解多了. 多扯一点, C中没有'继承'(当然也可以搞)但
-	是有文件依赖, 本质是文件继承. 例如上面 #include "struct.h" 表达的意思是 tstr.h 接口文件
-	继承 struct.h 接口文件. 强加文件继承关系, 能够明朗化文件包含关系. 那么看后续设计
+    模拟函数退栈自动销毁栈上字符串 var 变量. C 修炼入门, 多数会说, 早已看穿, 却入戏太深.
+    有了上面数据结构结构, 关于行为的部分代码那就好理解多了. 多扯一点, C 中没有'继承'(当然也可
+	以搞)但是有文件依赖, 本质是文件继承. 例如上面 #include "strext.h" 表达的意思是 tstr.h 
+	接口文件继承 strext.h 接口文件. 强加文件继承关系, 能够明朗化文件包含关系. 那么看后续设计
 
 ```C
 //
-// tstr_t 创建函数, 会根据c的tstr串创建一个 tstr_t结构的字符串
-// str		: 待创建的字符串
-// len		: 创建串的长度
-// return	: 返回创建好的字符串,内存不足会打印日志退出程序
+// tstr_delete - tstr_t 释放函数
+// tsr      : 待释放的串结构
+// return   : void
+//
+extern void tstr_delete(tstr_t tsr);
+
+//
+// tstr_expand - 为当前字符串扩容, 属于低级api
+// tsr      : 可变字符串
+// len      : 扩容的长度
+// return   : tsr->str + tsr->len 位置的串
+//
+char * tstr_expand(tstr_t tsr, size_t len);
+
+//
+// tstr_t 创建函数, 根据 C 的 str 串创建 tstr_t 字符串
+// str      : 待创建的字符串
+// len      : 创建串的长度
+// return   : 返回创建好的字符串,内存不足会打印日志退出程序
 //
 extern tstr_t tstr_create(const char * str, size_t len);
 extern tstr_t tstr_creates(const char * str);
 
 //
-// tstr_t 释放函数
-// tstr		: 待释放的串结构
+// 向 tstr_t 串结构中添加字符等, 内存分配失败内部会自己处理
+// c        : 单个添加的char
+// str      : 添加的 C 串
+// sz       : 添加串的长度
 //
-extern void tstr_delete(tstr_t tstr);
+extern void tstr_appendc(tstr_t tsr, int c);
+extern void tstr_appends(tstr_t tsr, const char * str);
+extern void tstr_appendn(tstr_t tsr, const char * str, size_t sz);
 
 //
-// tstr_expand - 为当前字符串扩容, 属于低级api
-// tstr		: 可变字符串
-// len		: 扩容的长度
-// return	: tstr->str + tstr->len 位置的串
+// tstr_cstr - 通过 str_t 串得到一个 C 串以'\0'结尾
+// tsr      : tstr_t 串
+// return   : 返回构建 C 串, 内存地址 tsr->str
 //
-char * tstr_expand(tstr_t tstr, size_t len);
-
-//
-// 向tstr_t串结构中添加字符等, 内存分配失败内部会自己处理
-// c		: 单个添加的char
-// str		: 添加的c串
-// sz		: 添加串的长度
-//
-extern void tstr_appendc(tstr_t tstr, int c);
-extern void tstr_appends(tstr_t tstr, const char * str);
-extern void tstr_appendn(tstr_t tstr, const char * str, size_t sz);
-
-//
-// 通过cstr_t串得到一个c的串以'\0'结尾
-// tstr		: tstr_t 串
-// return	: 返回构建好的c的串, 内存地址tstr->str
-//
-extern char * tstr_cstr(tstr_t tstr);
+extern char * tstr_cstr(tstr_t tsr);
 ```
 
-    还是无外乎创建销毁, 其中 tstr_expand 表示为 tstr扩容操作. 没加 extern 表达的意图是使用
-    这个接口要小心, 低等级接口. tstr_cstr 安全的得到 C 类型 char * 串. 当然如果足够自信, 也
-    可以直接 tstr->str走起, 安全因人而异. 这个是 C的'自由', 大神在缥缈峰上, 菜鸡在自家坑中.
-    对于 tstr_cstr 封装也很直白, 就是看结尾是否有 C的 '\0'
+    还是无外乎创建销毁, 其中 tstr_expand 表示为 tstr 扩容操作. 没加 extern 表达的意图
+	是使用这个低等级接口要小心. tstr_cstr 安全的得到 C 类型 char * 串. 当然如果足够自信
+	, 也可以直接 tstr->str 走起, 安全因人而异. 这个是 C 的'自由', 大神在缥缈峰上, 菜鸡
+	在自家坑中. 对于 tstr_cstr 封装也很直白, 就是看结尾是否有 C 的 '\0'
 
 ```C
+//
+// tstr_cstr - 通过 str_t 串得到一个 C 串以'\0'结尾
+// tsr      : tstr_t 串
+// return   : 返回构建 C 串, 内存地址 tsr->str
+//
 inline char * 
-tstr_cstr(tstr_t tstr) {
-	// 本质是检查最后一个字符是否为 '\0'
-	if (tstr->len < 1 || tstr->str[tstr->len - 1]) {
-		tstr_expand(tstr, 1);
-		tstr->str[tstr->len] = '\0';
-	}
-
-	return tstr->str;
+tstr_cstr(tstr_t tsr) {
+    if (tsr->len < 1u || tsr->str[tsr->len - 1]) {
+        tstr_expand(tsr, 1u);
+        tsr->str[tsr->len] = '\0';
+    }
+    return tsr->str;
 }
 ```
 
-    一切封装从简, 最好的自然是大道于无为~
+    一切封装从简, 最好的自然 ~ 大道于无为 ~
 
 #### 2.2.2 tstr implement
 
-    这里详细谈一下 tstr的实现, 首先看最重要的一个接口 tstr_expand 操作内存.
-	C 中, 内存有了完全可以为所欲为
+    这里详细谈一下 tstr 的实现, 首先看最重要的一个接口 tstr_expand 操作内存. C 中只要
+	内存有了, 完全可以为所欲为.
 
 ```C
-inline void 
-tstr_delete(tstr_t tstr) {
-	free(tstr->str);
-	free(tstr);
+// INT_TSTR - 字符串构建的初始化大小
+#define INT_TSTR  (1<<8)
+
+//
+// tstr_expand - 为当前字符串扩容, 属于低级api
+// tsr      : 可变字符串
+// len      : 扩容的长度
+// return   : tsr->str + tsr->len 位置的串
+//
+char * 
+tstr_expand(tstr_t tsr, size_t len) {
+    size_t cap = tsr->cap;
+    if ((len += tsr->len) > cap) {
+        // 走 1.5 倍内存分配, '合理'降低内存占用
+        cap = cap < INT_TSTR ? INT_TSTR : cap;
+        while (cap < len) cap = cap * 3 / 2;
+        tsr->str = realloc(tsr->str, cap);
+        tsr->cap = cap;
+    }
+    return tsr->str + tsr->len;
 }
 
-// 文本字符串创建的初始化大小
-#define _UINT_TSTR		(32u)
-
-char *
-tstr_expand(tstr_t tstr, size_t len) {
-	size_t cap = tstr->cap;
-	if ((len += tstr->len) >= cap) {
-		char * nstr;
-		for (cap = cap < _UINT_TSTR ? _UINT_TSTR : cap; cap < len; cap <<= 1)
-			;
-		// 开始分配内存
-		if ((nstr = realloc(tstr->str, cap)) == NULL) {
-			tstr_delete(tstr);
-			CERR_EXIT("realloc cap = %zu empty!!!", cap);
-		}
-
-		// 重新内联内存
-		tstr->str = nstr;
-		tstr->cap = cap;
-	}
-
-	return tstr->str + tstr->len;
+//
+// tstr_delete - tstr_t 释放函数
+// tsr      : 待释放的串结构
+// return   : void
+//
+inline void 
+tstr_delete(tstr_t tsr) {
+    free(tsr->str);
+    free(tsr);
 }
 ```
     
-	上面关于 cap <<= 1 的做法在内存分配的时候很常见, 一个最小初始值, 幂级别增长. 还有一种封装
-	库的时候替代上面写法的操作, 如下(失传已久的装波升级)
+	上面关于 cap = cap * 3 / 2 的做法在内存分配的时候很常见, 初始值加幂级别增长. 最初
+	版本用的是 cap <<= 1, 并用了位操作失传已久的装波升级技巧
 
 ```C
-// 2 ^ n >= x , 返回 [2 ^ n] 
-static inline int _pow2gt(int x) {
+// pow2gt - 2 ^ n >= x , 返回 [2 ^ n] 
+static inline int pow2gt(int x) {
 	--x;
 	x |= x >> 1;
 	x |= x >> 2;
@@ -973,577 +982,608 @@ static inline int _pow2gt(int x) {
 }
 ```
 
-	原理是 2 ^ n - 1 位数全是1, 但不太通用. 对于 realloc返回 NULL的时候, 直接 exit操作也可以
-	不需要再次销毁内存了. 以前一位巨擘说过, 进程的事情理应交给操作系统. 想过好久感觉特别有道理.
-	后面有机会会统一构建内存管理模块. 再看看添加数据模块实现, 就轻松许多了 ->
+	原理是 2 ^ n - 1 位数全是1, 1 -> 11 -> 1111 -> 11111111 -> ... 但不太通用. 
 
 ```C
+//
+// 向 tstr_t 串结构中添加字符等, 内存分配失败内部会自己处理
+// c        : 单个添加的char
+// str      : 添加的 C 串
+// sz       : 添加串的长度
+//
 inline void 
-tstr_appendc(tstr_t tstr, int c) {
-	// 这类函数不做安全检查, 为了性能
-	tstr_expand(tstr, 1);
-	tstr->str[tstr->len++] = c;
-}
-
-void 
-tstr_appends(tstr_t tstr, const char * str) {
-	size_t len;
-	if (!tstr || !str) {
-		RETURN(NIL, "check '!tstr || !str' param is error!");
-	}
-
-	len = strlen(str);
-	if(len > 0)
-		tstr_appendn(tstr, str, len);
-	tstr_cstr(tstr);
+tstr_appendc(tstr_t tsr, int c) {
+    // 这类函数不做安全检查, 为了性能
+    tstr_expand(tsr, 1);
+    tsr->str[tsr->len++] = c;
 }
 
 inline void 
-tstr_appendn(tstr_t tstr, const char * str, size_t sz) {
-	tstr_expand(tstr, sz);
-	memcpy(tstr->str + tstr->len, str, sz);
-	tstr->len += sz;
+tstr_appendn(tstr_t tsr, const char * str, size_t sz) {
+    tstr_expand(tsr, sz);
+    memcpy(tsr->str + tsr->len, str, sz);
+    tsr->len += sz;
+}
+
+inline void 
+tstr_appends(tstr_t tsr, const char * str) {
+    if (tsr && str) {
+        unsigned sz = (unsigned)strlen(str);
+        if (sz > 0)
+            tstr_appendn(tsr, str, sz);
+        tstr_cstr(tsr);
+    }
 }
 ```
 
-	思路完全是大白话, [ 还能撑住吗 -> 不能了, 请求支援 -> 能撑住了 -> 继续撑.... ]
+	思路完全是大白话, [ 还能撑住吗 -> 不能, 请求支援 -> 能撑住了 -> 继续撑.... ]
 	随后看看创建模块
 
 ```C
-tstr_t 
+//
+// tstr_t 创建函数, 根据 C 的 str 串创建 tstr_t 字符串
+// str      : 待创建的字符串
+// len      : 创建串的长度
+// return   : 返回创建好的字符串,内存不足会打印日志退出程序
+//
+inline tstr_t 
 tstr_create(const char * str, size_t len) {
-	tstr_t tstr = calloc(1, sizeof(struct tstr));
-	if (NULL == tstr)
-		CERR_EXIT("malloc sizeof struct tstr is error!");
-	if (str && len > 0)
-		tstr_appendn(tstr, str, len);
-	return tstr;
+    tstr_t tsr = calloc(1, sizeof(struct tstr));
+    if (str && len) tstr_appendn(tsr, str, len);
+    return tsr;
 }
 
-tstr_t
+inline tstr_t 
 tstr_creates(const char * str) {
-	tstr_t tstr = calloc(1, sizeof(struct tstr));
-	if (NULL == tstr)
-		CERR_EXIT("malloc sizeof struct tstr is error!");
-	if(str)
-		tstr_appends(tstr, str);
-	return tstr;
+    tstr_t tsr = calloc(1, sizeof(struct tstr));
+    if (str) tstr_appends(tsr, str);
+    return tsr;
 }
 ```
 
-	使用了潜规则 1' struct tstr 为空属性全部要为0; 2' calloc 返回成功后内存会设置为 '0'
-	到这里简单的完成了一个C字符串, 准确的说是字符池模块. 顺手展示几个应用
+	存在潜规则 1' struct tstr 属性全部要求为空(0); 2' calloc 返回成功的内存会填充 0
+	到这简单完成了一个 C 字符串, 准确的说是字符池模块. 顺手展示几个应用
 
 ```C
 //
-// 简单的文件读取类,会读取完毕这个文件内容返回,失败返回NULL.
-// path		: 文件路径
-// return	: 创建好的字符串内容, 返回NULL表示读取失败
+// tstr_dupstr - 得到 C 的串, 需要自行 free
+// tsr      : tstr_t 串
+// return   : 返回创建好的 C 串
 //
-tstr_t 
-tstr_freadend(const char * path) {
-	int err;
-	size_t rn;
-	tstr_t tstr;
-	char buf[BUFSIZ];
-	FILE * txt = fopen(path, "rb");
-	if (NULL == txt) {
-		RETURN(NULL, "fopen r %s is error!", path);
-	}
+inline char * 
+tstr_dupstr(tstr_t tsr) {
+    if (tsr && tsr->len >= 1) {
+        // 构造内存, 返回最终结果
+        size_t len = tsr->len + !!tsr->str[tsr->len - 1];
+        char * str = malloc(len * sizeof(char));
+        memcpy(str, tsr->str, len - 1);
+        str[len - 1] = '\0';
+        return str;
+    }
+    return NULL;
+}
 
-	// 分配内存
-	tstr = tstr_creates(NULL);
-
-	// 读取文件内容
-	do {
-		rn = fread(buf, sizeof(char), BUFSIZ, txt);
-		if ((err = ferror(txt))) {
-			fclose(txt);
-			tstr_delete(tstr);
-			RETURN(NULL, "fread err path = %d, %s.", err, path);
-		}
-		// 保存构建好的数据
-		tstr_appendn(tstr, buf, rn);
-	} while (rn == BUFSIZ);
-
-	fclose(txt);
-
-	// 继续构建数据, 最后一行补充一个\0
-	tstr_cstr(tstr);
-
-	return tstr;
+//
+// tstr_popup - 字符串头弹出 len 长度字符
+// tsr      : 可变字符串
+// len      : 弹出的长度
+// return   : void
+//
+inline void 
+tstr_popup(tstr_t tsr, size_t len) {
+    if (len >= tsr->len)
+        tsr->len = 0;
+    else {
+        tsr->len -= len;
+        memmove(tsr->str, tsr->str + len, tsr->len);
+    }
 }
 ```
 
-	上面是一个性能不错的读取文件全部内容的一个子功能. 有了读自然需要有写了, 不妨搞个
+	tstr_dupstr 用于 tstr_t 到 char * 转换. tstr_popup 头部弹出特定长度字符操作, 可用于
+	协议解析模块. 随后带大家写个 tstr_printf 用于 tstr sprintf 操作
 
 ```C
-static int _tstr_fwrite(const char * path, const char * str, const char * mode) {
-	FILE * txt;
-	if (!path || !*path || !str) {
-		RETURN(ErrParam, "check !path || !*path || !str'!!!");
-	}
-
-	// 打开文件, 写入消息, 关闭文件
-	if ((txt = fopen(path, mode)) == NULL) {
-		RETURN(ErrFd, "fopen mode = '%s', path = '%s' error!", mode, path);
-	}
-	fputs(str, txt);
-	fclose(txt);
-
-	return SufBase;
+// tstr_vprintf - BUFSIZ 以下内存处理
+static int tstr_vprintf(tstr_t tsr, const char * fmt, va_list arg) {
+    char buf[BUFSIZ];
+    int len = vsnprintf(buf, sizeof buf, fmt, arg);
+    if (len < sizeof buf) {
+        // 合法直接构建内存返回
+        if (len > 0)
+            tstr_appendn(tsr, buf, len);
+        tstr_cstr(tsr);
+        va_end(arg);
+    }
+    return len;
 }
 
 //
-// 将c串str覆盖写入到path路径的文件中
-// path		: 文件路径
-// str		: c的串内容
-// return	: SufBase | ErrParam | ErrFd
+// tstr_printf - 参照 sprintf 填充方式写入内容
+// tsr      : tstr_t 串
+// fmt      : 待格式化的串
+// ...      : 等待进入的变量
+// return   : 返回创建的 C 字符串内容
 //
-inline int 
-tstr_fwrites(const char * path, const char * str) {
-	return _tstr_fwrite(path, str, "wb");
-}
+char * 
+tstr_printf(tstr_t tsr, const char * fmt, ...) {
+    int n, cap;
+    va_list arg;
+    va_start(arg, fmt);
 
-//
-// 将c串str写入到path路径的文件中末尾
-// path		: 文件路径
-// str		: c的串内容
-// return	: SufBase | ErrParam | ErrFd
-//
-inline int 
-tstr_fappends(const char * path, const char * str) {
-	return _tstr_fwrite(path, str, "ab");
+    // 初步构建失败直接返回
+    cap = tstr_vprintf(tsr, fmt, arg);
+    if (cap < BUFSIZ)
+        return tsr->str;
+    
+    // 开始详细构建内存
+    do {
+        char * ret = malloc(cap <<= 1);
+        n = vsnprintf(ret, cap, fmt, arg);
+        // 内存足够就开始填充, 以备结束
+        if (n < cap && n > 0)
+            tstr_appendn(tsr, ret, n);
+        free(ret);
+    } while (n < cap);
+
+    va_end(arg);
+    return tstr_cstr(tsr);
 }
 ```
 
-	到这 C中字符串辅助模块基本搞定了. string 不是 C必须的, 目前 C的标准更新完全取决于内核层
-	的需要. 单纯就目前而言对 C标准支持的最好的是 gcc , 最被期待是 clang, 最水的是 cl!
-
+	到这 C 字符串辅助模块基本搞定了. string 不是 C 必须的, 有的话在特定场景会很舒服.
+	从中可以看出 C 写代码方式是 数据结构设计 -> 内存处理设计 -> 业务设计. 而多数现代
+	语言在多数只需要处理 业务设计. 总结就是性能和生产力成反比相关性. 
 
 ### 2.3 array
 
-	这里的 array指的是可变数组模块. 但在 C中其实固定数组就够用了! 顺带说一点 C99中支持变量数
-	数组, 如下声明本质是编译器帮我们 malloc + free, 但是运行时不可改变大小. 我们这里的 array
+	array 指的是可变数组模块. 但在 C 中其实固定数组就够用了! 顺带说一点 C99 中支持变
+	量数数组, 如下声明本质是编译器帮我们在栈上分配和释放, 但是运行时不可改变大小. 
 
 ```C
 int n = 64;
-int a[n];
+int array[n];
 ``` 
 
-	支持运行时大小的扩容. 设计原理简单和上面封装 tstr很相似, 只是 char独立单元变成了 void *
-	独立单元.
+	我们这里的 array, 支持运行时大小的扩容. 设计原理和上面封装 tstr 很相似, 只是 char 
+	独立单元变成了 void * 独立单元.
 
 ```C
-#ifndef _H_SIMPLEC_ARRAY
-#define _H_SIMPLEC_ARRAY
+#ifndef _H_ARRAY
+#define _H_ARRAY
 
 #include "struct.h"
 
 struct array {
-	void *		as;		/* 存储数组具体内容首地址 */
-	unsigned	len;	/* 当前数组的长度 */
-	unsigned	size;   /* 当前数组容量大小 */
-	size_t		alloc;	/* 每个元素字节大小 */
+    unsigned size;      // 元素大小
+    unsigned cap;       // 数组容量
+    unsigned len;       // 数组长度
+    void *  data;       // 数组存储
 };
 
-// 定义可变数组类型 对象
+// array_t - 动态数组类型
 typedef struct array * array_t;
 
-#endif//_H_SIMPLEC_ARRAY
+//
+// ARRAY_CREATE - 栈上创建动态数组对象
+// ARRAY_DELETE - 销毁栈上动态数组对象
+// var          : 创建动态数组对象名字
+// UINT_AINIT   - 数组初始化默认大小
+#define UINT_AINIT      (1u<<5)
+#define ARRAY_CREATE(type, var)             \
+struct array var[1] = { {                   \
+    sizeof(type),                           \
+    UINT_AINIT,                             \
+    0,                                      \
+    malloc(sizeof(type) * UINT_AINIT)       \
+} }
+
+#define ARRAY_DELETE(var)                   \
+free((var)->data)
+
+#endif//_H_ARRAY
 ```
 
-	array通过注册的 alloc确定数组中每个对象内存模型. 一种原始的反射思路. 上层语言做的
-	很多工作就是把编译时转到了运行时. 更高级的魔法直接跳过编译时吟唱阶段瞬发.
+	在 C 中数组 [1] 这个技巧本质是为了追求指针对象写法的统一, 全是 -> 去调用. 是不是有点
+	意思. 其中 struct array 通过注册的 size 确定数组中每个对象模型内存大小, 是一种很原
+	始的反射思路. 高级语言做的很多工作就是把原本编译时做的事情转到了运行时. 更现代化的魔法
+	直接跳过编译时吟唱阶段而瞬发.
 
 #### 2.3.1 array interface
 
-	array 接口设计分为两部分, 核心部分围绕构建删除, 入栈出栈. 
+	array 接口设计分为两部分, 第一部分是核心围绕创建, 删除, 入栈, 出栈. 第二部分是外围
+	围绕 array 做一些事情. 
 
 ```C
-/*
- * 返回创建数组对象
- * size		: 创建数组的总大小个数, 0表示走默认值创建
- * alloc	: 数组中每个元素的字节数, need > 1 否则行为未知
- *			: 返回创建的数组对象
- */
-extern array_t array_new(unsigned size, size_t alloc);
+//
+// array_create - 返回创建动态数组对象
+// size     : 元素大小
+// return   : 返回创建的动态数组对象
+//
+extern array_t array_create(unsigned size);
 
-/*
- * 销毁这个创建的数组对象
- * a		: 创建的数组对象
- */
-extern void array_die(array_t a);
+//
+// array_delete - 销毁动态数组对象
+// a        : 动态数组对象 
+// return   : void
+//
+extern void array_delete(array_t a);
 
-/*
- * 重新构建一个数组对象
- * a		: 可变数组对象
- * size		: 新可变数组总长度
- */
-extern void array_init(array_t a, unsigned size);
-
-/*
- * 为可变数组插入一个元素, 并返回这个元素的首地址
- * a		: 可变数组对象
- *			: 返回创建对象位置
- */
+//
+// array_push - 数组中插入一个数据
+// a        : 动态数组
+// return   : void * 压入数据首地址
+//
 extern void * array_push(array_t a);
 
-/*
- * 弹出一个数组元素
- * a		: 可变数组对象
- *			: 返回弹出数组元素节点
- */
+//
+// array_pop - 数组中弹出一个数据
+// a        : 动态数组
+// return   : void * 返回数据首地址
+//
 extern void * array_pop(array_t a);
 ```
 
-	上面接口构建的是堆上对象, 如果想构建栈上的对象, 可以采用下面设计
+	上面是第一部分核心接口设计, 其中第二部分外围接口设计如下
 
 ```C
-/*
- * 在栈上创建对象var
- * var		: 创建对象名称
- * size		: 创建对象总长度
- * alloc	: 每个元素分配空间大小
- */
-#define ARRAY_NEW(var, size, alloc) \
-	struct array var[1] = { { NULL, 0, 0, alloc } }; \
-	array_init(var, size)
-#define ARRAY_DIE(var) \
-	free(var->as)
-```
-
-	在 C中 数组 [1] 这个技巧本质是为了追求指针对象写法的统一, 全是 -> . 是不是很有意思.
-	另外部分辅助接口设计如下
-
-```C
-/*
- * 按照索引得到数组元素
- * a		: 可变数组对象
- * idx		: 索引位置
- *			: 返回查询到数据
- */
-extern void * array_get(array_t a, unsigned idx);
-
-/*
- * 得到节点elem在数组中索引
- * a		: 可变数组对象
- * elem		: 查询元素
- *			: 返回查询到位置
- */
-extern unsigned array_idx(array_t a, void * elem);
-
-/*
- * 得到数组顶的元素
- * a		: 可变数组对象
- *			: 返回得到元素
- */
+//
+// array_top - 得到动态数组顶元素
+// a        : 动态数组
+// return   : 得到返回动态数组顶部元素
+//
 extern void * array_top(array_t a);
 
-/*
- * 两个数组进行交换
- * a		: 数组a
- * b		: 数组b
- */
+//
+// array_get - 索引映射数组元素
+// a        : 动态数组
+// idx      : 索引位置
+// return   : NULL is not found
+//
+extern void * array_get(array_t a, unsigned idx);
+
+//
+// array_idx - 通过节点返回索引
+// a        : 动态数组
+// elem     : 查询元素
+// return   : 索引
+//
+extern unsigned array_idx(array_t a, void * elem);
+
+//
+// array_swap - 动态数组交换
+// a        : 动态数组
+// b        : 动态数组
+// return   : void
+//
 extern void array_swap(array_t a, array_t b);
 
-/*
- * 数组进行排序
- * a		: 数组对象
- * compare	: 比对规则
- */
-extern void array_sort(array_t a, icmp_f compare);
+//
+// array_sort - 动态数组排序
+// a        : 动态数组
+// fcmp     : 数组元素的比较函数
+// return   : void
+//
+extern void array_sort(array_t a, cmp_f fcmp);
 
-/*
- * 数组进行遍历
- * a		: 可变数组对象
- * func		: 执行每个节点函数, typedef int	(* each_f)(void * node, void * arg);
- * arg		: 附加参数
- *			: 返回操作结果状态码
- */
-int array_each(array_t a, each_f func, void * arg);
+//
+// array_each - 动态数组遍历
+// a        : 动态数组
+// func     : 遍历行为
+// return   : >= 0 表示成功, < 0 表示失败
+//
+extern int array_each(array_t a, each_f func, void * arg);
 ```
 
-	结构是设计的内在, 内功循环的套路. 接口是设计的外在, 发招后内力外在波动.
-	而实现就是无数次重复磨炼~
+	结构是设计的内在, 内功循环的丹田. 接口是设计的外在, 发招后内力外在波动. 
+	而实现就是无数次重复锤炼 ~
 
 #### 2.3.2 array implement
 
 	情不知所起，一往而深.
-	这里继续扯编程实现, 同样的, 9成库打头阵的都是内存管理这块. 
+	这里还是继续扯编程实现, 同样的 9 成库打头阵的都是内存管理这块. 
 
 ```C
-#define _INT_ARRAY_SIZE		(16)		// 数组的默认大小
-
-array_t 
-array_new(unsigned size, size_t alloc) {
-	struct array * a = malloc(sizeof(struct array));
-	assert(NULL != a);
-	// 指定默认size大小
-	size = size ? size : _INT_ARRAY_SIZE;
-	a->as = malloc(size * alloc);
-	assert(NULL != a->as);
-	a->len = 0;
-	a->size = size;
-	a->alloc = alloc;
-
-	return a;
+//
+// array_create - 返回创建动态数组对象
+// size     : 元素大小
+// return   : 返回创建的动态数组对象
+//
+inline array_t 
+array_create(unsigned size) {
+    struct array * a = malloc(sizeof(struct array));
+    assert(NULL != a && size > 0);
+    // set default cap size
+    a->cap = UINT_AINIT;
+    a->data = malloc(size * a->cap);
+    a->size = size;
+    a->len = 0;
+    return a;
 }
 
+//
+// array_delete - 销毁动态数组对象
+// a        : 动态数组对象 
+// return   : void
+//
 inline void 
-array_die(array_t a) {
-	if (a) {
-		free(a->as);
-		free(a);
-	}
-}
-
-inline void
-array_init(array_t a, unsigned size) {
-	assert(NULL != a);
-	a->as = realloc(a->as, size * a->alloc);
-	assert(NULL != a->as);
-	if (a->len > size)
-		a->len = size;
-	a->size = size;
+array_delete(array_t a) {
+    if (a) {
+        free(a->data);
+        free(a);
+    }
 }
 ```
 
-	思路很朴实那里需要内存那里就向服务器申请内存. 随后展示 push 和 pop 设计
+	不忍直视, 那里要内存就那里向服务器申请要内存. 随后展示 push 和 pop 设计
 
 ```C
+//
+// array_delete - 销毁动态数组对象
+// a        : 动态数组对象 
+// return   : void
+//
+inline void 
+array_delete(array_t a) {
+    if (a) {
+        free(a->data);
+        free(a);
+    }
+}
+
+//
+// array_push - 数组中插入一个数据
+// a        : 动态数组对象
+// return   : void * 压入数据首地址
+//
 inline void * 
 array_push(array_t a) {
-	assert(NULL != a);
+    if (a->len >= a->cap) {
+        /* the array is full; allocate new array */
+        a->cap <<= 1;
+        a->data = realloc(a->data, a->cap * a->size);
+    }
 
-	if (a->len == a->size) {
-		/* the array is full; allocate new array */
-		a->size <<= 1;
-		a->as = realloc(a->as, a->size * a->alloc);
-		assert(NULL != a->as);
-	}
-
-	return (unsigned char *)a->as + a->alloc * a->len++;
-}
-
-inline void * 
-array_pop(array_t a) {
-	assert(NULL != a && 0 != a->len);
-	--a->len;
-	return (unsigned char *)a->as + a->alloc * a->len;
+    return (char *)a->data + a->size * a->len++;
 }
 ```
 
-	代码思索多了, 也就更朴实了. 
-	毕竟是剖析, 上面有个争议的地方关于 realloc 用法, 写个装波的教科书用法:
+	代码写来写去, 也就有点朴实无华了. 
 
 ```C
-char * str = malloc(sizeof int);
-if (NULL == str) {
-	return NULL;
-}
-
-char * nstr = realloc(str, sizeof long long);
-if (NULL == nstr) {
-	free(nstr);
-	return NULL;
-}
-
-str = nstr;
-```
-
-	核心围绕 realloc 存在返回 NULL, 泄漏内存的风险. 3年内程序猿喜欢这么搞. 除了定式
-	范式, 其它部分就随意了. 最上面做法造成结果会依操作系统而定, 另一个名词统称
-	`未定义行为'. 后面看一下辅助代码的设计就异常简单:
-
-```C
-inline void * 
-array_get(array_t a, unsigned idx) {
-	assert(NULL != a && idx < a->len);
-	return (unsigned char *)a->as + a->alloc * idx;
-}
-
-inline unsigned 
-array_idx(array_t a, void * elem) {
-	unsigned char * p, * q;
-	unsigned off;
-
-	assert(NULL != a && elem >= a->as);
-
-	p = a->as;
-	q = elem;
-	off = (unsigned)(q - p);
-
-	assert(off % (unsigned)a->alloc == 0);
-
-	return off / (unsigned)a->alloc;
-}
-
+//
+// array_top - 得到动态数组顶元素
+// a        : 动态数组
+// return   : 得到返回动态数组顶部元素
+//
 inline void * 
 array_top(array_t a) {
-	assert(NULL != a && 0 != a->len);
-	return (unsigned char *)a->as + a->alloc * (a->len - 1);
+    assert(NULL != a && a->len > 0);
+    return (char *)a->data + a->size * (a->len - 1);
+}
+
+//
+// array_get - 索引映射数组元素
+// a        : 动态数组
+// idx      : 索引位置
+// return   : NULL is not found
+//
+inline void * 
+array_get(array_t a, unsigned idx) {
+    assert(NULL != a && idx < a->len);
+    return (char *)a->data + a->size * idx;
+}
+
+//
+// array_idx - 通过节点返回索引
+// a        : 动态数组
+// elem     : 查询元素
+// return   : 索引
+//
+inline unsigned 
+array_idx(array_t a, void * elem) {
+    unsigned off = (unsigned)((char *)elem - (char *)a->data);
+    assert(a && elem >= a->data && off % a->size == 0);
+    return off / a->size;
+}
+
+//
+// array_swap - 动态数组交换
+// a        : 动态数组
+// b        : 动态数组
+// return   : void
+//
+inline void 
+array_swap(array_t a, array_t b) {
+    struct array t = *a;
+    *a = *b; 
+    *b = t;
 }
 ```
 
-	当然了, 越是经过筛选的好东西, 理应很顺很清晰.
-	最后一弹, 抽象行为, 自定义动作
+	当然了, 越是经过筛选的好东西, 理应很顺很清晰. 最后一弹, 抽象行为, 自定义动作
 
 ```C
-inline 
-void array_swap(array_t a, array_t b) {
-	struct array t = *a;
-	*a = *b;
-	*b = t;
-}
-
+//
+// array_sort - 动态数组排序
+// a        : 动态数组
+// fcmp     : 数组元素的比较函数
+// return   : void
+//
 inline void 
-array_sort(array_t a, icmp_f compare) {
-	assert(NULL != a && 0 != a->len && NULL != compare);
-	qsort(a->as, a->len, a->alloc, (int (*)(const void *, const void *))compare);
+array_sort(array_t a, cmp_f fcmp) {
+    assert(NULL != a && a->len && fcmp != NULL);
+    qsort(a->data, a->len, a->size, 
+        (int (*)(const void *, const void *))fcmp);
 }
 
+//
+// array_each - 动态数组遍历
+// a        : 动态数组
+// func     : 遍历行为
+// return   : >= 0 表示成功, < 0 表示失败
+//
 int 
 array_each(array_t a, each_f func, void * arg) {
-	int rt;
-	unsigned char * s, * e;
+    assert(NULL != a && func != NULL);
+    char * s = a->data;
+    char * e = s + a->size * a->len;
+    while (s < e) {
+        int ret = func(s, arg);
+        if (ret < 0)
+            return ret;
+        s += a->size;
+    }
 
-	assert(NULL != a && NULL != func);
-
-	s = a->as;
-	e = s + a->alloc * a->len;
-	while (s < e) {
-		rt = func(s, arg);
-		if (SufBase != rt)
-			return rt;
-		s += a->alloc;
-	}
-
-	return SufBase;
+    return 0;
 }
 ```
 
 	顺带扯一点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 谎言需要另一个谎言来弥补.
-	多大量的用标准中推出的解决方案. 例如 多用标准提供的跨平台类型, stdint.h and stddef.h 
-	定义全平台类型. 不妨将这么多年习得的无上秘法, 血之限界 - 血轮眼 - 不懂的代码抄几遍, 
-	一切如梦如幻! 回到正题, 真没必要多说. 神来一笔就是 if (SufBase != rt) return rt; 
-	关于 array的内功学会之后, 可以自己写写单元测试, 融会贯通一下. 
-	有篇幅的话会写个单元测试框架, 供参考.
+	并且多用标准中推出的解决方案. 例如标准提供的跨平台类型, stdint.h 和 stddef.h 定义全平
+	台类型. 不妨传大家我这么多年习得的无上秘法, 开 血之限界 -> 血轮眼 -> 不懂装懂, 抄抄抄. 
+	一切如梦如幻! 回到正题. 再带大家写个很傻的单元测试, 供参考. 有篇幅的话会带大家写个单元
+	测试框架.
+
+```C
+#include <array.h>
+
+// array_test - array test
+void array_test(void) {
+    // 构建一个在栈上的动态数组
+    ARRAY_CREATE(double, a);
+
+    // 开始处理数据
+    *(double *)array_push(a) = 1.1234;
+    *(double *)array_push(a) = 2.2345;
+    *(double *)array_push(a) = 4.9876;
+
+    // 输出数据
+    printf("v = %lf\n", *(double *)array_pop(a));
+    printf("v = %lf\n", *(double *)array_pop(a));
+    printf("v = %lf\n", *(double *)array_pop(a));
+
+    ARRAY_DELETE(a);
+}
+```
 
 ### 2.4 hash
 
-	我们这里讲述的 hash比较针对, 对数值进行哈希映射(想起一个分析名词收敛). 应用场景也多, 
-	例如内核层给应用层的句柄id. 无法对其规律进行假设, 那我们把它映射到特定的范围内. 就很
-	控制了. 封装系统 io复用的时候很常见.
-	下面展示一个 hashid的封装, 原始思路来自云风大佬的 skynet c gate server 上设计
+	这里讲述的 hash 比较针对, 对数值进行哈希映射(想起一个分析名词收敛). 应用场景也多, 
+	例如内核层给应用层的句柄 id. 无法对其规律进行假设, 那我们把它映射到特定的范围内. 
+	就很控制了. 封装系统 io 复用的时候很常见. 下面展示一个 hash id 相关库封装. 原始
+	思路来自云风大佬的 skynet c gate server 上设计
 
 ```C
-#ifndef _H_SIMPLEC_HASHID
-#define _H_SIMPLEC_HASHID
+#ifndef _H_HAID
+#define _H_HAID
 
 #include <assert.h>
 #include <stdlib.h>
 
-struct nodeid {
-	int id;
-	struct nodeid * next;
+struct noid {
+    struct noid * next;
+    int id;
 };
 
-struct hashid {
-	int mod;
-	int cap;
-	int cnt;
-	struct nodeid * ids;
-	struct nodeid ** hash;
+struct haid {
+    struct noid ** hash;
+    struct noid * ids;
+    int mod;
+    int cap;
+    int cnt;
 };
 
-static void hashid_init(struct hashid * hi, int max) {
-	int hcap = 16;
-	assert(hi && max > 1);
-	while (hcap < max)
-		hcap *= 2;
+static void haid_init(struct haid * h, int max) {
+    int cap = sizeof(struct haid);
+    assert(h && max >= 0);
+    while (cap < max)
+        cap <<= 1;
 
-	hi->mod = hcap - 1;
-	hi->cap = max;
-	hi->ids = malloc(max * sizeof(struct nodeid));
-	hi->cnt = 0;
-	for (int i = 0; i < max; ++i) 
-		hi->ids[i] = (struct nodeid) { -1, NULL };
-	
-	hi->hash = calloc(hcap, sizeof(struct hashid *));
+    for (int i = 0; i < max; ++i)
+        h->ids[i] = (struct noid) { NULL, -1 };
+    h->hash = calloc(cap, sizeof(struct haid *));
+    assert(h->hash && cap);
+
+    h->ids = malloc(max * sizeof(struct noid));
+    assert(h->ids && max);
+
+    h->mod = cap - 1;
+    h->cap = max;
+    h->cnt = 0;
 }
 
-static void inline hashid_clear(struct hashid * hi) {
-	free(hi->ids); 	hi->ids = NULL;
-	free(hi->hash); hi->hash = NULL;
-	hi->mod = 1;
-	hi->cap = 0;
-	hi->cnt = 0;
+static inline void haid_clear(struct haid * h) {
+    free(h->hash); h->hash = NULL;
+    free(h->ids); h->ids = NULL;
+    h->mod = 1;
+    h->cnt = h->cap = 0;
 }
 
-static int hashid_lookup(struct hashid * hi, int id) {
-	int h = id & hi->mod;
-	struct nodeid * c = hi->hash[h];
-	while (c) {
-		if (c->id == id)
-			return c - hi->ids;
-		c = c->next;
-	}
-	return -1;
+static int haid_lookup(struct haid * h, int id) {
+    struct noid * c = h->hash[id & h->mod];
+    while (c) {
+        if (c->id == id)
+            return c - h->ids;
+        c = c->next;
+    }
+    return -1;
 }
 
-static int hashid_remove(struct hashid * hi, int id) {
-	int h = id & hi->mod;
-	struct nodeid * c = hi->hash[h];
-	if (c == NULL)
-		return -1;
+static int haid_remove(struct haid * h, int id) {
+    int i = id & h->mod;
+    struct noid * c = h->hash[i];
+    if (NULL == c)
+        return -1;
 
-	if (c->id == id) {
-		hi->hash[h] = c->next;
-		goto _clear;
-	}
-	while (c->next) {
-		if (c->next->id == id) {
-			struct nodeid * temp = c->next;
-			c->next = temp->next;
-			c = temp;
-			goto _clear;
-		}
-		c = c->next;
-	}
+    if (c->id == id) {
+        h->hash[i] = c->next;
+        goto out_clr;
+    }
 
-_clear:
-	c->id = -1;
-	c->next = NULL;
-	--hi->cnt;
-	return c - hi->ids;
+    while (c->next) {
+        if (c->next->id == id) {
+            struct noid * tmp = c->next;
+            c->next = tmp->next;
+            c = tmp;
+            goto out_clr;
+        }
+        c = c->next;
+    }
+
+out_clr:
+    c->id = -1;
+    c->next = NULL;
+    --h->cnt;
+    return c - h->ids;
 }
 
-static int hashid_insert(struct hashid * hi, int id) {
-	struct nodeid * c = NULL;
-	for (int i = 0; i < hi->cap; ++i) {
-		int idx = (i + id) % hi->cap;
-		if (hi->ids[idx].id == -1) {
-			c = hi->ids + idx;
-			break;
-		}
-	}
-	assert(c && c->next == NULL);
+static int haid_insert(struct haid * h, int id) {
+    int i;
+    struct noid * c = NULL;
+    for (i = 0; i < h->cap; ++i) {
+        int j = (i + id) % h->cap;
+        if (h->ids[j].id == -1) {
+            c = h->ids + j;
+            break;
+        }
+    }
+    assert(c && c->next == NULL);
 
-	++hi->cnt;
-	c->id = id;
-	int h = id & hi->mod;
-	if (hi->hash[h])
-		c->next = hi->hash[h];
-	hi->hash[h] = c;
-	return c - hi->ids;
+    ++h->cnt;
+    c->id = id;
+    i = id & h->mod;
+    if (h->hash[i])
+        c->next = h->hash[i];
+    h->hash[i] = c;
+    return c - h->ids;
 }
 
-static inline int hashid_full(struct hashid * hi) {
-	return hi->cnt >= hi->cap;
+static inline int haid_full(struct haid * h) {
+    return h->cnt >= h->cap;
 }
 
-#endif//_H_SIMPLEC_HASHID
+#endif//_H_HAID
 ```
 
 	代码比注释值钱.
