@@ -1,47 +1,47 @@
-## 第3章-气功-原子锁线程协程
+# 第3章-气功-原子锁线程协程
 
-    不妨恶作剧的为编程行业引入修真体系 [炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神] . 
-    那时候在学校中或者野路子锻炼感受天地间元气, 在练气期幸福不知睡眠. 感受编程行业斑驳交割
-    的元气最终选择几门开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒心中豪情啪一声进入
-    筑基期, 心随意动. 修炼生涯正式展开, 蹭蹭的进入了门派中磨炼. 随着门派体系或者一些心有不
-    甘的选手日夜操戈, 自我驱动跃升成为人妖大战的前线主力, 吾为金丹期. 此时的战场才刚刚开始.
-    同样以前修炼暴露的问题也一并展开. 无数人在此厮杀, 对抗域外天魔, 或者在远古战场中获得奇
-    遇. 又或者占有一个门派的全力支持, 通过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间
-    自带领域此时也是白骨功成, 为门派马首是瞻. 同样于生时天资聪慧, 道心自成的元婴大佬, 不被
-    红尘迷恋. 占一代之大气运, 耐一世之大孤独. 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一
-    化神巨擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰~
-    各位看官化神难道就是编程的极限吗, 一切刚刚开始, 这里先不表.
-    本章讲的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依
-	赖于平台, 不同平台的修炼总会有大不同. 本章就是在不同平台间练就一门气功, 剑气贯双江
+	    不妨仰望星海为编程行业尝试引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ].
+	那时候在学校里或者野路子中锻炼并感受者天地间的元气, 在练气期幸福而不知睡眠. 感受着编程
+	行业斑驳交割的元气, 最终选择几股元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒
+	心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 随着
+	门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜血, 
+	一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并展开. 无数人在此
+	厮杀, 对抗域外天魔. 此时或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通过大
+	毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 此刻也是白骨功成, 为门派马
+	首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 耐一
+	世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于东方.
+	无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚
+	    各位看官, 化神难道就是编程的极限吗? 然而一切才刚刚开始, 这里先不表. 本章讲的气功, 
+	等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同
+	平台的修炼会有有大不同. 本章就是在不同平台间练就一门气功, 剑气贯双江
     
-### 3.1 原子锁
+## 3.1 原子锁
 
-    一个古老的话题, 主要为了解决资源竞争问题. 在说原子锁之前需要科普一些基本原子操作.
+	    一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需要科普些
+	基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
-#### 3.1.1 常用的几种原子操作
+### 3.1.1 常用的几种原子操作
 
-    首先来举个简单例子:
+    首先举个简单例子:
 
 ```C
-static int _a = 0;
+volatile int i = 0;
 
-++_a; 
-/*
-	++_a 大致可以拆分为下面三步
-
-	1' 把 _a 的值放入寄存器中
-	2' 把 寄存器中值加1
-	3' 返回寄存器中值并且设置给a
-
- */
+// ++i 大致可以拆分为下面三步
+//
+// 1' 把 i 的值放入寄存器中
+// 2' 把寄存器中的值加 1
+// 3' 返回寄存器中值并设置给 i
+++i;
 ```
 
-    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象 _a最终没有预期的
-	大. 如何避免上面问题呢. 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作
-	. 用 CPU原子指令的封装. 说白了用编译器提供这方面基础功能, 让我们实现原子相加. 
-	例如 GCC就提供不少像下面这种指令.  
+    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象 i 最终没有预期的大.
+    如何避免上面问题呢. 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 本质
+    利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原子性). 说
+    直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供不少像下面
+    指令.  
 
 ```C
 type __sync_add_and_fetch (type * ptr, type value, ...);
@@ -49,138 +49,130 @@ type __sync_lock_test_and_set (type * ptr, type value, ...);
 bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 ```
 
-    这类原子操作命令直接查编译手册, 写个小例子, 就知道窍门了. 我们简单解释下, 
-	__sync_add_and_fetch 等同于将 ptr指向的内存加上 value值, 并且返回最终加好的值. 
-	__sync_lock_test_and_set 的意思是把 value的值给ptr指向的内存, 并且返回 ptr原先指向
-	的内存值. __sync_bool_compare_and_swap 的意思是 ptr指向的值和原先的 oldval相等吗, 
-	相等将其设置为 newval. 并且返回 ptr指向值和oldval相等与否的 bool值. 
-	为了让大家更好认知, 不妨封装一层, 请收看注释:
+    这类原子操作特殊函数可以直接边查编译手册, 边写个小例子, 就知道窍门了. 我们简单解释下, 
+	__sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加好的值. 
+	__sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返回 ptr 原先
+    指向的内存值. __sync_bool_compare_and_swap 的意思是 ptr 指向的值和原先的 oldval 相
+    等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等与否的 bool 值. 为了让
+    大家更好认知, 不妨封装一层, 请收看注释:
 
 ```C
 // v += a ; return v;
-#define ATOM_ADD(v, a)		__sync_add_and_fetch(&(v), (a))
+#define atom_add(v, a)      __sync_add_and_fetch(&(v), (a))
 // type tmp = v ; v = a; return tmp;
-#define ATOM_SET(v, a)		__sync_lock_test_and_set(&(v), (a))
-// v &= a; return v;
-#define ATOM_AND(v, a)		__sync_and_and_fetch(&(v), (a))
-// return ++v;
-#define ATOM_INC(v) 		__sync_add_and_fetch(&(v), 1)
-// return --v;
-#define ATOM_DEC(v) 		__sync_sub_and_fetch(&(v), 1)
+#define atom_set(v, a)      __sync_lock_test_and_set(&(v), (a))
 // bool b = v == c; b ? v=a : ; return b;
-#define ATOM_CAS(v, c, a)	__sync_bool_compare_and_swap(&(v), (c), (a))
-
- // 保证代码不乱序
-#define ATOM_SYNC() 		__sync_synchronize()
-
-// 对ATOM_LOCK 解锁, 当然 直接调用相当于 v = 0;
-#define ATOM_UNLOCK(v)		__sync_lock_release(&(v))
+#define atom_cas(v, c, a)   __sync_bool_compare_and_swap(&(v), (c), (a))
 ```
 
-    以上定义了 ADD SET AND INC DEC 等原子操作. 基础库中封装最常用的就这些了. 下面展示哈全
-	貌. 更多细节可以细查 man 手册, 一切无所遁形.
+    以上定义了 amd set cas 原子操作. 随后原子基础库中会封装更多更常用常用的. 下面展示哈
+    全貌. 更多细节可以细查 man 手册, 一切无所遁形.
 
-#### 3.1.2 原子锁的跨平台实现
+### 3.1.2 原子锁跨平台实现
 
-    代码已经表述了一切好的坏的没得又得, 没有什么比代码更好明白了, 否则那就抄几遍 ~
-
-scatom.h
+    代码已经表述了一切好的坏的有得没得, 如果还不明白, 说明字帖抄写少了 ~
 
 ```C
-#ifndef _H_SIMPLEC_SCATOM
-#define _H_SIMPLEC_SCATOM
+#ifndef _H_ATOM
+#define _H_ATOM
 
-/*
- * 作者 : wz
- * 描述 : 简单的原子操作,目前只考虑 VS(CL) 和 gcc
- */
+#include "atomic.h"
 
-// 如果 是 VS 编译器
-#if defined(_MSC_VER)
+//
+// atom_t 自旋锁类型
+// [static] atom_t o = 0;
+//   atom_lock(o);
+//  - One Man RPG
+// atom_unlock(o);
+//
+typedef volatile long atom_t;
 
-#include <windows.h>
+// atom_acquire - 维护优化后读写代码不在其前
+#define atom_acquire()      atomic_fence(ATOMIC_ACQUIRE)
+// atom_release - 维护优化后读写代码不在其后
+#define atom_release()      atomic_fence(ATOMIC_RELEASE)
+// atom_seq_cst - 维护优化后读写代码前后不动
+#define atom_seq_cst()      atomic_fence(ATOMIC_SEQ_CST)
 
-#pragma warning(push)
-//忽略 warning C4047: “==”:“void *”与“LONG”的间接级别不同
-#pragma warning(disable:4047)
+#ifdef __GNUC__
+
+#define atom_trylock(o)     (!__sync_lock_test_and_set(&(o), 1))
+
+#define atom_lock(o)        while(__sync_lock_test_and_set(&(o), 1))
+
+#define atom_unlock(o)      __sync_lock_release(&(o))
+
+// 内存屏障, 维持代码顺序
+#define atom_sync()         __sync_synchronize()
+
+// v += a ; return v;
+#define atom_add(v, a)      __sync_add_and_fetch(&(v), (a))
+// type tmp = v ; v = a; return tmp;
+#define atom_set(v, a)      __sync_lock_test_and_set(&(v), (a))
+// v &= a; return v;
+#define atom_and(v, a)      __sync_and_and_fetch(&(v), (a))
+// return ++v;
+#define atom_inc(v)         __sync_add_and_fetch(&(v), 1)
+// return --v;
+#define atom_dec(v)         __sync_sub_and_fetch(&(v), 1)
+// bool b = v == c; b ? v=a : ; return b;
+#define atom_cas(v, c, a)   __sync_bool_compare_and_swap(&(v), (c), (a))
+
+#endif
+
+#ifdef _MSC_VER
+
+#include <intrin.h>
+#include <intrin0.h>
+
+/* Interlocked intrinsic mapping for _nf/_acq/_rel */
+#if defined(_M_ARM) || defined(_M_ARM64)
+#define _ACQUIRE(x) ATOMIC_CONCAT(x, _acq)
+#else /* defined(_M_ARM) || defined(_M_ARM64) */
+#define _ACQUIRE(x) x
+#endif /* defined(_M_ARM) || defined(_M_ARM64) */
+
+#define atom_trylock(o)     (!_ACQUIRE(_interlockedbittestandset)(&(o), 0))
+
+#define atom_lock(o)        while(_ACQUIRE(_interlockedbittestandset)(&(o), 0))
+
+inline void store_release(atom_t * x) {
+    /* store _Value atomically with release memory order */
+#if defined(_M_ARM) || defined(_M_ARM64)
+    __dmb(0xB /* _ARM_BARRIER_ISH or _ARM64_BARRIER_ISH*/);
+    __iso_volatile_store32((volatile int *)x, 0);
+#else
+    _ReadWriteBarrier();
+    *x = 0;
+#endif
+}
+
+#define atom_unlock(o)      store_release(&(o))
+
+// 保证代码优化后不乱序执行
+#define atom_sync()         MemoryBarrier()
 
 // v 和 a 都是 long 这样数据
-#define ATOM_ADD(v, a)		InterlockedAdd((LONG volatile *)&(v), (LONG)(a))
-#define ATOM_SET(v, a)		InterlockedExchange((LONG volatile *)&(v), (LONG)(a))
-#define ATOM_AND(v, a)		InterlockedAnd((LONG volatile *)&(v), (LONG)(a))
-#define ATOM_INC(v) 		InterlockedIncrement((LONG volatile *)&(v))
-#define ATOM_DEC(v) 		InterlockedDecrement((LONG volatile *)&(v))
+#define atom_add(v, a)      InterlockedAdd((volatile LONG *)&(v), (LONG)(a))
+#define atom_set(v, a)      InterlockedExchange((volatile LONG *)&(v), (LONG)(a))
+#define atom_and(v, a)      (InterlockedAnd((volatile LONG *)&(v), (LONG)(a)), (LONG)(v))
+#define atom_inc(v)         InterlockedIncrement((volatile LONG *)&(v))
+#define atom_dec(v)         InterlockedDecrement((volatile LONG *)&(v))
 //
 // 对于 InterlockedCompareExchange(v, c, a) 等价于下面
 // long tmp = v ; v == a ? v = c : ; return tmp;
 //
-// 咱们的 ATOM_CAS(v, c, a) 等价于下面
+// 咱们的 atom_cas(v, c, a) 等价于下面
 // long tmp = v ; v == c ? v = a : ; return tmp;
 //
-#define ATOM_CAS(v, c, a)	((LONG)(c) == InterlockedCompareExchange((LONG volatile *)&(v), (LONG)(a), (LONG)(c)))
+#define atom_cas(v, c, a)   ((LONG)(c) == InterlockedCompareExchange((volatile LONG *)&(v), (LONG)(a), (LONG)(c)))
 
-#pragma warning(pop)
+#endif
 
-// 保证代码不乱序优化后执行
-#define ATOM_SYNC() 		MemoryBarrier()
-
-#define ATOM_UNLOCK(v)		ATOM_SET(v, 0)
-
-// 否则 如果是 gcc 编译器
-#elif defined(__GNUC__)
-
-// v += a ; return v;
-#define ATOM_ADD(v, a)		__sync_add_and_fetch(&(v), (a))
-// type tmp = v ; v = a; return tmp;
-#define ATOM_SET(v, a)		__sync_lock_test_and_set(&(v), (a))
-// v &= a; return v;
-#define ATOM_AND(v, a)		__sync_and_and_fetch(&(v), (a))
-// return ++v;
-#define ATOM_INC(v) 		__sync_add_and_fetch(&(v), 1)
-// return --v;
-#define ATOM_DEC(v) 		__sync_sub_and_fetch(&(v), 1)
-// bool b = v == c; b ? v=a : ; return b;
-#define ATOM_CAS(v, c, a)	__sync_bool_compare_and_swap(&(v), (c), (a))
-
- // 保证代码不乱序
-#define ATOM_SYNC() 		__sync_synchronize()
-
-// 对ATOM_LOCK 解锁, 当然 直接调用相当于 v = 0;
-#define ATOM_UNLOCK(v)		__sync_lock_release(&(v))
-
-#endif // !_MSC_VER && !__GNUC__
-
-/*
- * 试图加锁, 用法举例
- 
-	 if(ATOM_TRYLOCK(v)) {
-		 // 已经有人加锁了, 处理返回事件
-		...
-	 }
- 
-	 // 得到锁资源, 开始处理
-	 ...
- 
-	 ATOM_UNLOCK(v);
- 
- * 返回1表示已经有人加锁了, 竞争锁失败.
- * 返回0表示得到锁资源, 竞争锁成功
- */
-#define ATOM_TRYLOCK(v)		ATOM_SET(v, 1)
-
-//
-// 使用方式:
-//  int lock = 0;
-//  ATOM_LOCK(lock);
-//  ...
-//  ATOM_UNLOCK(lock);
-//
-#define ATOM_LOCK(v)		while(ATOM_SET(v, 1))
-
-#endif // !_H_SIMPLEC_SCATOM
+#endif//_H_ATOM
 ```
 
-    这些代码很短, scatom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打是 linux平台.
+    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打是 linux平台.
 	也是当前开发届主旋律, winds辅助开发, linux在外实战. 使用起来就更简单了. 例如在上一
 	章写了个 tstr字符串. 它不是线程安全的. 可以利用上面原子锁, 简单帮它改成线程安全: 
 
