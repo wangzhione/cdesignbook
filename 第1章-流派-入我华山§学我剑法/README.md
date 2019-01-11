@@ -814,9 +814,9 @@ extern void * realloc_(void * ptr, size_t size);
 #endif//_H_STDEXIT
 ```
 
-    通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 目前采用了近
-    代软件编程中最后免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料
-    , 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果其中遇到困难, 
+    通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 目前采用了近代
+    软件编程中最后免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料, 
+    对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果其中遇到困难, 
     可以搜索和翻看作者相关博客. alloc.c 实现全在这里, 代码即注释 ~
 
 ```C
@@ -894,9 +894,10 @@ inline void * realloc_(void * ptr, size_t size) {
 }
 ```
 
-    引入 jemalloc 扛住内存方面瓶颈, 响应号召, 又给华山剑法注入了一道自信秘术 :0 
-    练习的人不知道是否感到身体中兴奋 ~ 颤抖 ~ 原来这么简单, 就可以这么强. 哈哈.
-    此刻只想说三个字, 屌 屌  屌   ~ (仔细看 alloc.h 会发现, 实现是可插拔的)
+    对于 check 函数思路, 内存不足时, 直接 abort. 非常粗暴有效, 管不了那么多了, 快上车.
+    而引入 jemalloc 库很自信扛住内存方面瓶颈, 又给华山剑法注入了一道自信秘术 :0 练习的人
+    不知道是否感到身体中兴奋 ~ 颤抖 ~ 原来这么简单, 就可以这么强. 哈哈. 此刻只想说三个字, 
+    屌 屌  屌 ~ (仔细看 alloc.h 会发现, 实现是可插拔的.)
 
 ***
 
