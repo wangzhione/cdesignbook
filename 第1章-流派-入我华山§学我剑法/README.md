@@ -106,13 +106,13 @@ else              }
 switch(type) {
 case SBase:
     ...
-    break;
-...  
+break;
+...
 default:
     ...
 }
 ```
-    C 中的标签都放在作用域最左边.
+    C 中的标签都放在作用域最左边. switch brack 垂直 case 方向形成闭区间.
 
 ## 1.3 C 中三大战神 - 函数 § 帝释天
 
@@ -371,8 +371,8 @@ typedef void (* signal_f)(int sig);
     这个偏执狂 ->
 
 ```C
-#ifndef _H_STRUCT
-#define _H_STRUCT
+#ifndef _STRUCT_H
+#define _STRUCT_H
 
 #include <math.h>
 #include "alloc.h"
@@ -413,7 +413,7 @@ typedef void (* node_f)(void * node);
 typedef void * (* start_f)(void * arg);
 
 //
-// each_f - 遍历行为, arg 外部参数, node 是内部结点
+// each_f - 遍历行为, node 是内部节点, arg 是外部参数
 // : int echo(void * node, void * arg) { return 0; }
 //
 typedef int (* each_f)(void * node, void * arg);
@@ -470,7 +470,7 @@ RETURN(NIL , fmt, ##__VA_ARGS__)
 #define RETNUL(fmt, ...)                                                \
 RETURN(NULL, fmt, ##__VA_ARGS__)
 
-#endif//_H_STRUCT
+#endif//_STRUCT_H
 ```
 
     这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式!
@@ -478,18 +478,18 @@ RETURN(NULL, fmt, ##__VA_ARGS__)
 * 克制使用, 要用就要用的最清晰
 
 ```C
-#define _H_STRUCT
-#define STR_RMRF        "rm -rf '%s'"
-#define UINT_LOG        (2048u)
-#define INT_Q           (1<<6)
-#define FLOAT_ZERO      (0.000001f)	
+#define _STRUCT_H
+#define RMRF_STR        "rm -rf '%s'"
+#define LOG_UINT        (2048u)
+#define Q_INT           (1<<6)
+#define ZERO_FLOAT      (0.000001f)
 ```
 
-    上面是常量的宏命名准则, 统一大写. 如果是 _ 开头表达'私有'的, 慎重使用. H, STR, UINT 
-    INT, FLOAT ... 一眼看过去就知道其宏常量的类型. 第一个是头文件宏, 采用 _H_[文件名称] 
-    的命名规范, 防止重复. 如果项目比较大可以加上项目名称, 工程名称等等, 这就是命名空间由来.
-    其中字符串常量宏, 为了方便字符串拼接, 不用加(). 数值常量宏防止意外拼接, 加了(). 宏中当
-    你不清楚会有什么意外的情况, 加括号是最保险的解决方案. 
+    上面是常量的宏命名好的是例, 统一大写. _ 开头表明是这是'私有'的, 慎重使用. 而后 H, STR, 
+    UINT INT, FLOAT ... 让人很清晰知道宏的类型. 展示的第一个是头文件宏, 采用 _[文件名称]_H 
+    的命名规范, 防止重复. 如果项目比较大可以在左边继续加上项目名称, 工程名称等等, 这就是命名
+    空间由来. 其中字符串常量宏, 为了方便字符串拼接不用加 (). 数值常量宏防止意外拼接加了 ().
+    宏设计过程中, 当你不清楚会有什么意外会发生, 加括号是最保险的解决方案. 
 
 * 函数宏另起一行写, 局部使用宏可以放一行写
 
@@ -527,10 +527,10 @@ typedef volatile long atom_t;
 #endif
 ```
 
-        写的人意图是希望 atom_lock 和 atom_unlock 被人当'函数'去使用, 使用了小写. 
-    对于内置宏, __GNUC__ 是标识 GCC 编译器, 表示当前用 GCC 编译项目会进入这个分支. 
-    同样 _MSC_VER 是标识 M$ 的 CL 编译器. 做为开发人员, 推荐用最新的编译器. 因为保持
-    活力和新鲜感很有趣, 一次新的尝试说不定就是一次机遇(多数就是坑...)
+        写的人意图是希望 atom_lock 和 atom_unlock 被人当'函数'去使用, 使用了小写. 对于
+    内置宏, __GNUC__ 是标识 GCC 编译器, 表示当前用 GCC 编译项目会进入这个分支. 同样 
+    _MSC_VER 是标识 M$ 的 CL 编译器. 做为开发人员, 推荐用最新的编译器. 因为保持活力和新
+    鲜感很有趣, 一次新的尝试说不定就是一次机遇(多数就是坑...)
 
 > 命名规范简单总结  
 
@@ -541,7 +541,7 @@ typedef volatile long atom_t;
 
 ```C
 //
-// TEST - 单元测试宏, 并打印执行时间
+// TEST     - 单元测试宏, 并打印执行时间
 // ftest    : 测试函数
 // ...      : 可变参数
 //
@@ -584,7 +584,7 @@ enum {
 
 //
 // start_f - pthread create func
-//  : int * run(int * arg)
+// : int * run(int * arg)
 //
 typedef void * (* start_f)(void * arg);
 
@@ -611,8 +611,7 @@ free((var)->str)
 
 #endif//TSTR_CREATE
 ```
-     -> 类型声明 [name]_[类型缩写] 例如 start_f tstr_t 等, 让区分什么类型变得
-        很简单.
+     -> 类型声明 [name]_[类型缩写] 例如 start_f tstr_t 等, 类型区分将变得很简单.
      -> 为了区分枚举和 INT 宏常量, 枚举采用首字母大写, 驼峰规则, 没有使用 _ 分割.
 
     到这基本把 C 的华山剑法的总纲讲的有小些了. 按照流派范式去写, 你会有更多的时间去学
@@ -732,15 +731,15 @@ inline void socket_init(void) {
     内存释放内存相关函数. 并且携带了少量平台通用宏. 先看接口设计
 
 ```C
-#ifndef _H_ALLOC
-#define _H_ALLOC
+#ifndef _ALLOC_H
+#define _ALLOC_H
 
 #include <stdlib.h>
 #include <string.h>
 
-// :) 高效内存分配, 莫名伤感 ~
+// :) 内存分配包装层, 莫名伤感 ~
 //
-#ifndef OFF_ALLOC
+#ifndef ALLOC_OFF
 
 #undef  free
 #define free    free_
@@ -755,7 +754,7 @@ inline void socket_init(void) {
 #undef  realloc
 #define realloc realloc_
 
-#endif//OFF_ALLOC
+#endif//ALLOC_OFF
 
 // enum 状态, >= 0 is Success 状态, < 0 is Error 状态
 //
@@ -811,7 +810,7 @@ extern void * calloc_(size_t num, size_t size);
 //
 extern void * realloc_(void * ptr, size_t size);
 
-#endif//_H_STDEXIT
+#endif//_ALLOC_H
 ```
 
     通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 目前采用了近代
@@ -822,7 +821,7 @@ extern void * realloc_(void * ptr, size_t size);
 ```C
 #include <stdio.h>
 
-#define OFF_ALLOC
+#define ALLOC_OFF
 #include "alloc.h"
 
 #define JEMALLOC_NO_DEMANGLE
