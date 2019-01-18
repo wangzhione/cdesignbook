@@ -1,30 +1,30 @@
 # 第3章-气功-原子锁线程协程
 
-	    不妨仰望星海为编程行业尝试引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ].
-	那时候在学校里或者野路子中锻炼并感受者天地间的元气, 在练气期幸福而不知睡眠. 感受着编程
-	行业斑驳交割的元气, 最终选择几股元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒
-	心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 随着
-	门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜血, 
-	一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并展开. 无数人在此
-	厮杀, 对抗域外天魔. 此时或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通过大
-	毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 此刻也是白骨功成, 为门派马
-	首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 耐一
-	世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于东方.
-	无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚
+	    不妨仰望星海为编程行业尝试引入修真体系[ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]
+	. 那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着
+	编程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 
+	一舒心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 
+	随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜
+	血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 无数人
+	在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通
+	过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨功成, 为门
+	派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 
+	耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于
+	东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
 	    各位看官, 化神难道就是编程的极限吗? 然而一切才刚刚开始, 这里先不表. 本章讲的气功, 
 	等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同
-	平台的修炼会有有大不同. 本章就是在不同平台间练就一门气功, 剑气贯双江
+	平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江
     
 ## 3.1 原子锁
 
-	    一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需要科普些
-	基本原子操作.
+	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需要
+	科普些基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
-### 3.1.1 常用的几种原子操作
+### 3.1.1 原子操作
 
-    首先举个简单例子:
+    举个简单例子:
 
 ```C
 volatile int i = 0;
@@ -37,11 +37,11 @@ volatile int i = 0;
 ++i;
 ```
 
-    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象 i 最终没有预期的大.
-    如何避免上面问题呢. 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 本质
-    利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原子性). 说
-    直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供不少像下面
-    指令.  
+    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期的
+	大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 
+	本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原子性)
+	. 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供不少像
+	下面指令.  
 
 ```C
 type __sync_add_and_fetch (type * ptr, type value, ...);
@@ -49,12 +49,12 @@ type __sync_lock_test_and_set (type * ptr, type value, ...);
 bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 ```
 
-    这类原子操作特殊函数可以直接边查编译手册, 边写个小例子, 就知道窍门了. 我们简单解释下, 
-	__sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加好的值. 
-	__sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返回 ptr 原先
-    指向的内存值. __sync_bool_compare_and_swap 的意思是 ptr 指向的值和原先的 oldval 相
-    等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等与否的 bool 值. 为了让
-    大家更好认知, 不妨封装一层, 请收看注释:
+    这类原子操作的特殊表达式可以直接边查编译手册, 边写个小例子, 就会知道窍门. 我们简单解
+	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加
+	好的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返
+	回 ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 指向的值
+	和原先的 oldval 相等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等
+	与否的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
 
 ```C
 // v += a ; return v;
@@ -65,16 +65,16 @@ bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 #define atom_cas(v, c, a)   __sync_bool_compare_and_swap(&(v), (c), (a))
 ```
 
-    以上定义了 amd set cas 原子操作. 随后原子基础库中会封装更多更常用常用的. 下面展示哈
-    全貌. 更多细节可以细查 man 手册, 一切无所遁形.
+    以上定义了 add set cas 原子操作. 随后原子基础库中会封装更多更常用的. 下面展示哈全
+	貌. 更多细节可以细查 man 手册, 一切无所遁形.
 
-### 3.1.2 原子锁跨平台实现
+### 3.1.2 原子锁封装
 
     代码已经表述了一切好的坏的有得没得, 如果还不明白, 说明字帖抄写少了 ~
 
 ```C
-#ifndef _H_ATOM
-#define _H_ATOM
+#ifndef _ATOM_H
+#define _ATOM_H
 
 #include "atomic.h"
 
@@ -86,13 +86,6 @@ bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 // atom_unlock(o);
 //
 typedef volatile long atom_t;
-
-// atom_acquire - 维护优化后读写代码不在其前
-#define atom_acquire()      atomic_fence(ATOMIC_ACQUIRE)
-// atom_release - 维护优化后读写代码不在其后
-#define atom_release()      atomic_fence(ATOMIC_RELEASE)
-// atom_seq_cst - 维护优化后读写代码前后不动
-#define atom_seq_cst()      atomic_fence(ATOMIC_SEQ_CST)
 
 #ifdef __GNUC__
 
@@ -126,25 +119,25 @@ typedef volatile long atom_t;
 #include <intrin0.h>
 
 /* Interlocked intrinsic mapping for _nf/_acq/_rel */
-#if defined(_M_ARM) || defined(_M_ARM64)
-#define _ACQUIRE(x) ATOMIC_CONCAT(x, _acq)
-#else /* defined(_M_ARM) || defined(_M_ARM64) */
-#define _ACQUIRE(x) x
-#endif /* defined(_M_ARM) || defined(_M_ARM64) */
+#  if defined(_M_ARM) || defined(_M_ARM64)
+#    define _ACQUIRE(x) ATOMIC_CONCAT(x, _acq)
+#  else  /* defined(_M_ARM) || defined(_M_ARM64) */
+#    define _ACQUIRE(x) x
+#  endif /* defined(_M_ARM) || defined(_M_ARM64) */
 
 #define atom_trylock(o)     (!_ACQUIRE(_interlockedbittestandset)(&(o), 0))
 
 #define atom_lock(o)        while(_ACQUIRE(_interlockedbittestandset)(&(o), 0))
 
-inline void store_release(atom_t * x) {
+static inline void store_release(atom_t * x) {
     /* store _Value atomically with release memory order */
-#if defined(_M_ARM) || defined(_M_ARM64)
+#  if defined(_M_ARM) || defined(_M_ARM64)
     __dmb(0xB /* _ARM_BARRIER_ISH or _ARM64_BARRIER_ISH*/);
     __iso_volatile_store32((volatile int *)x, 0);
-#else
+#  else
     _ReadWriteBarrier();
     *x = 0;
-#endif
+#  endif
 }
 
 #define atom_unlock(o)      store_release(&(o))
@@ -169,40 +162,46 @@ inline void store_release(atom_t * x) {
 
 #endif
 
-#endif//_H_ATOM
+#endif//_ATOM_H
 ```
 
-    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打是 linux平台.
-	也是当前开发届主旋律, winds辅助开发, linux在外实战. 使用起来就更简单了. 例如在上一
-	章写了个 tstr字符串. 它不是线程安全的. 可以利用上面原子锁, 简单帮它改成线程安全: 
+    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打 linux 平台.
+	也是当前开发届主旋律, winds 辅助开发, linux 在外实战. 使用起来也很容易. 例如在上
+	一章写了个 tstr 字符串. 它不是线程安全的. 可以利用原子锁, 简单改成线程安全版本: 
 
 ```C
 struct astr {
-    int lock;
-    struct tstr str;
+    atom_t lock;
+    struct tstr str[1];
 }
 
 // 初始化
-struct astr as = { 0 };
+struct astr a = { 0 };
 
 // 使用
-ATOM_LOCK(as.lock);
+atom_lock(a.lock);
 
 // 各种对于 astr.str 操作都是线程安全的
-...
+// ...
 
-ATOM_UNLOCK(as.lock);
+atom_unlock(a.lock);
 
 // 销毁
-free(as.str.str);
+TSTR_DELETE(a.str);
 ```
 
-    以上就是原子锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 很久以前别人问什么是
-	自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 更多的是想说少炒作一些概念, 
-	多一些真诚. 编程本身就那些东西, 说明白了大家都懂了. 切记编程道上多真多善否则基本无望
-	元婴. 当然高阶金丹期也都能够胜任主程了, 多数定型了. 上面原子锁仍然可以优化, 例如采用
-	阻塞替代忙等待, 降低 CPU空转. 等等优化. 总而言之在解决资源竞争问题上, 消耗最小是真无
-	锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁偏重, 这也是原子锁遗留的原因.
+    以上就是原子锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 很久以前别人问什么
+	是自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 更多的是想说少炒作一些概
+	念, 多一些真诚. 编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美否
+	则基本无望元婴. 当然高阶金丹期也都能够胜任主程了, 多数定型一生. 上面原子锁仍然可以
+	优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化. 总而言之在解决资源竞
+	争问题上, 消耗最小是真无锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁偏重, 
+	这也是原子锁一直存在的原因, 并且处于上升势头.
+
+### 3.1.3 原子操作封装
+
+	不知道有木有人好奇 atomic.h 里是什么? 恭喜你新世界的大门已经被打开. 在讲解之前希
+	望读者事先研究过 C11 stdatomic.h 原子操作.
 
 ### 3.2 POSIX 线程库
 
