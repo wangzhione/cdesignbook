@@ -378,7 +378,6 @@ typedef void (* signal_f)(int sig);
 #include "alloc.h"
 #include <ctype.h>
 #include <float.h>
-#include <stdio.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -425,11 +424,11 @@ typedef int (* each_f)(void * node, void * arg);
 // });
 //
 #ifndef DCODE
-#   ifdef _DEBUG
-#       define DCODE(code)  do code while(0)
-#   else
-#       define DCODE(code)  
-#   endif //  ! _DEBUG
+#  ifdef _DEBUG
+#    define DCODE(code)  do code while(0)
+#  else
+#    define DCODE(code)  
+#  endif //  ! _DEBUG
 #endif  //  ! DCODE
 
 //
@@ -734,29 +733,11 @@ inline void socket_init(void) {
 #ifndef _ALLOC_H
 #define _ALLOC_H
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// :) 内存分配包装层, 莫名伤感 ~
-//
-#ifndef ALLOC_OFF
-
-#undef  free
-#define free    free_
-
-#undef  strdup
-#define strdup  strdup_
-
-#undef  malloc
-#define malloc  malloc_
-#undef  calloc
-#define calloc  calloc_
-#undef  realloc
-#define realloc realloc_
-
-#endif//ALLOC_OFF
-
-// enum 状态, >= 0 is Success 状态, < 0 is Error 状态
+// enum 状态 >= 0 is Success, < 0 is Error
 //
 enum {
     SBase       =   +0, // 正确基础类型
@@ -774,25 +755,12 @@ enum {
 };
 
 //
-// free_ - free 包装函数
-// ptr      : 内存首地址
-// return   : void
+// realloc_ - realoc 包装函数
+// ptr      : 首地址, NULL 等同于 malloc
+// size     : 重新分配的内存大小
+// return   : 返回重新分配的新地址
 //
-extern void free_(void * ptr);
-
-//
-// malloc_ - malloc 包装函数
-// size     : 分配的内存字节
-// return   : 返回可使用的内存地址
-//
-extern void * malloc_(size_t size);
-
-//
-// strdup_ - strdup 包装函数
-// s        : '\0' 结尾 C 字符串
-// return   : 拷贝后新的 C 字符串
-//
-extern char * strdup_(const char * s);
+extern void * realloc_(void * ptr, size_t size);
 
 //
 // calloc_ - calloc 包装函数
@@ -803,12 +771,42 @@ extern char * strdup_(const char * s);
 extern void * calloc_(size_t num, size_t size);
 
 //
-// realloc_ - realoc 包装函数
-// ptr      : 首地址, NULL 等同于 malloc
-// size     : 重新分配的内存大小
-// return   : 返回重新分配的新地址
+// malloc_ - malloc 包装函数
+// size     : 分配的内存字节
+// return   : 返回可使用的内存地址
 //
-extern void * realloc_(void * ptr, size_t size);
+extern void * malloc_(size_t size);
+
+//
+// free_ - free 包装函数
+// ptr      : 内存首地址
+// return   : void
+//
+extern void free_(void * ptr);
+
+//
+// strdup_ - strdup 包装函数
+// s        : '\0' 结尾 C 字符串
+// return   : 拷贝后新的 C 字符串
+//
+extern char * strdup_(const char * s);
+
+// :) 内存分配包装层, 莫名伤感 ~
+//
+#  ifndef ALLOC_OFF
+#    undef  free
+#    define free      free_
+
+#    undef  strdup
+#    define strdup    strdup_
+
+#    undef  malloc
+#    define malloc    malloc_
+#    undef  calloc
+#    define calloc    calloc_
+#    undef  realloc
+#    define realloc   realloc_
+#  endif//ALLOC_OFF
 
 #endif//_ALLOC_H
 ```
@@ -819,8 +817,6 @@ extern void * realloc_(void * ptr, size_t size);
     可以搜索和翻看作者相关博客. alloc.c 实现全在这里, 代码即注释 ~
 
 ```C
-#include <stdio.h>
-
 #define ALLOC_OFF
 #include "alloc.h"
 
@@ -838,36 +834,14 @@ static inline void * check(void * ptr, size_t size) {
 }
 
 //
-// free_ - free 包装函数
-// ptr      : 内存首地址
-// return   : void
+// realloc_ - realoc 包装函数
+// ptr      : 首地址, NULL 等同于 malloc
+// size     : 重新分配的内存大小
+// return   : 返回重新分配的新地址
 //
-inline void free_(void * ptr) {
-    je_free(ptr);
-}
-
-//
-// malloc_ - malloc 包装函数
-// size     : 分配的内存字节
-// return   : 返回可使用的内存地址
-//
-inline void * malloc_(size_t size) {
-    void * ptr = je_malloc(size);
-    return check(ptr, size);
-}
-
-//
-// strdup_ - strdup 包装函数
-// s        : '\0' 结尾 C 字符串
-// return   : 拷贝后新的 C 字符串
-//
-inline char * strdup_(const char * s) {
-    if (s) {
-        size_t n = strlen(s) + 1;
-        char * ptr = malloc_(n);
-        return memcpy(ptr, s, n);
-    }
-    return NULL;
+inline void * realloc_(void * ptr, size_t size) {
+    void * ntr = je_realloc(ptr, size);
+    return check(ntr, size);
 }
 
 //
@@ -882,14 +856,36 @@ inline void * calloc_(size_t num, size_t size) {
 }
 
 //
-// realloc_ - realoc 包装函数
-// ptr      : 首地址, NULL 等同于 malloc
-// size     : 重新分配的内存大小
-// return   : 返回重新分配的新地址
+// malloc_ - malloc 包装函数
+// size     : 分配的内存字节
+// return   : 返回可使用的内存地址
 //
-inline void * realloc_(void * ptr, size_t size) {
-    void * ntr = je_realloc(ptr, size);
-    return check(ntr, size);
+inline void * malloc_(size_t size) {
+    void * ptr = je_malloc(size);
+    return check(ptr, size);
+}
+
+//
+// free_ - free 包装函数
+// ptr      : 内存首地址
+// return   : void
+//
+inline void free_(void * ptr) {
+    je_free(ptr);
+}
+
+//
+// strdup_ - strdup 包装函数
+// s        : '\0' 结尾 C 字符串
+// return   : 拷贝后新的 C 字符串
+//
+inline char * strdup_(const char * s) {
+    if (s) {
+        size_t n = strlen(s) + 1;
+        char * ptr = malloc_(n);
+        return memcpy(ptr, s, n);
+    }
+    return NULL;
 }
 ```
 
