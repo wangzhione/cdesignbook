@@ -50,11 +50,11 @@ bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
 ```
 
     这类原子操作的特殊表达式可以直接边查编译手册, 边写个小例子, 就会知道窍门. 我们简单解
-	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加
-	好的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返
-	回 ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 指向的值
-	和原先的 oldval 相等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等
-	与否的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
+	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加好
+	的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返回 
+	ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 指向的值和原
+	先的 oldval 相等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等与否
+	的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
 
 ```C
 // v += a ; return v;
@@ -165,9 +165,9 @@ static inline void store_release(atom_t * x) {
 #endif//_ATOM_H
 ```
 
-    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打 linux 平台.
-	也是当前开发届主旋律, winds 辅助开发, linux 在外实战. 使用起来也很容易. 例如在上
-	一章写了个 tstr 字符串. 它不是线程安全的. 可以利用原子锁, 简单改成线程安全版本: 
+    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打 linux 平台. 也
+	是当前开发届主旋律, winds 辅助开发, linux 在外实战. 使用起来也很容易. 例如在上一章
+	写了个 tstr 字符串. 它不是线程安全的. 可以利用原子锁, 简单改成线程安全版本: 
 
 ```C
 struct astr {
@@ -190,73 +190,528 @@ atom_unlock(a.lock);
 TSTR_DELETE(a.str);
 ```
 
-    以上就是原子锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 很久以前别人问什么
-	是自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 更多的是想说少炒作一些概
-	念, 多一些真诚. 编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美否
-	则基本无望元婴. 当然高阶金丹期也都能够胜任主程了, 多数定型一生. 上面原子锁仍然可以
-	优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化. 总而言之在解决资源竞
-	争问题上, 消耗最小是真无锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁偏重, 
-	这也是原子锁一直存在的原因, 并且处于上升势头.
+    以上就是原子锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 很久以前别人问什么是
+	自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 更多的是想说少炒作一些概念, 
+	多一些真诚. 编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美否则基本
+	无望元婴. 当然高阶金丹期也都能够胜任主程了, 多数定型一生. 上面原子锁仍然可以优化, 例
+	如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化. 总而言之在解决资源竞争问题上, 
+	消耗最小是真无锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁偏重, 这也是原子锁
+	一直存在的原因, 并且处于上升势头.
 
 ### 3.1.3 原子操作封装
 
-	不知道有木有人好奇 atomic.h 里是什么? 恭喜你新世界的大门已经被打开. 在讲解之前希
-	望读者事先研究过 C11 stdatomic.h 原子操作.
-
-### 3.2 POSIX 线程库
-
-    对于 POSIX 标准线程库, 也就是我们常在 Linux使用 pthread线程库. 首先为其举个常用
-    API 的提纲. 常用的说明手册:
+	不知道有木有人好奇 atomic.h 里是什么? 恭喜你新世界的大门已经被打开. 在讲解之前希望
+	读者事先研究过 C11 stdatomic.h 原子操作. 而我们这里将会说明 stdatomic.h 中引入的
+	六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 分别是:
 
 ```C
-/*
- * PThread Attribute Functions
- */
+/* 7.17.3 Order and consistency */
+typedef enum memory_order {
+  memory_order_relaxed = __ATOMIC_RELAXED,
+  memory_order_consume = __ATOMIC_CONSUME,
+  memory_order_acquire = __ATOMIC_ACQUIRE,
+  memory_order_release = __ATOMIC_RELEASE,
+  memory_order_acq_rel = __ATOMIC_ACQ_REL,
+  memory_order_seq_cst = __ATOMIC_SEQ_CST
+} memory_order;
+```
+
+memory_order_relaxed 宽松内存顺序 :
+
+	六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 分别是
+    没有同步或顺序制约, 仅对此操作要求原子性. 带 memory_order_relaxed 标签的原子操作不
+	考虑线程间同步操作, 其它线程可能读到新值, 也可能读到旧值. 只保证当前操作的原子性和修
+	改顺序一致性. 例如:
+
+```C
+// atomic init
+atomic_int x = 0, y = 0;
+
+// 线程 1 操作
+int a = atomic_load_explicit(&y, memory_order_relaxed); // A
+atomic_store_explicit(&x, a, memory_order_relaxed);     // B
+
+// 线程 2 操作
+int b = atomic_load_explicit(&x, memory_order_relaxed); // C
+atomic_store_explicit(&y, 28, memory_order_relaxed);    // D
+```
+
+	允许产生结果 a == 28 && b == 28. 因为即使线程 1 中 A 先序于 B 且线程 2 中 C 先序
+	于 D, 但没法保证 y 的修改顺序中 D 比 A 先执行, x 的修改顺序中 B 比 C 先执行. 这就
+	会导致 D 在 y 上的副效应, 可能可见于线程 1 中的加载 A, 同时 B 在 x 上的副效应，可
+	能可见于线程 2 中的加载 C. 宽松内存顺序的典型应用场景是计数器自增. 例如引用计数器, 
+	因为这只要求原子性保证自增 OK, 但不要求顺序或同步(注意计数器自减要求进行 
+	memory_order_acquire 获取内存顺序同步)
+
+memory_order_consume 消费内存顺序 :
+
+	有此内存顺序的加载操作, 在其影响的内存位置进行消费操作: 当前线程中依赖于当前加载的
+	该值的读或写不能被重排到此加载前. 其它释放同一原子变量的线程的对数据依赖变量的写入, 
+	为当前线程所可见. 在大多数平台上, 这只影响到编译器优化. 例如线程 1 中的原子存储带标
+	签 memory_order_release 而线程 2 中来自同一原子对象的加载带标签 
+	memory_order_consume, 则线程 1 视角中依赖先序于原子存储的所有内存写入(非原子和宽松
+	原子的), 会在线程 B 中加载操作所携带依赖进入的操作中变成可见副效应, 即一旦完成原子加
+	载, 则保证线程 2 中, 使用从该加载获得的值的运算符和函数, 能见到线程 1 写入内存的内容
+	. 同步仅在释放和消费同一原子对象的线程间建立. 其它线程能见到与被同步线程的一者或两者
+	相异的内存访问顺序.
+
+```C
+// atomic init
+int a = 0;
+atomic_int x = 0;
+
+// 线程 1 操作
+a = 1;
+// memory_order_release 释放内存顺序
+// 后面所有与这块内存有关的读写操作都无法被重排到这个操作之前
+atomic_store_explicit(&x, 1, memory_order_release);
+
+// 线程 2 操作
+while (atomic_load_explicit(&x, memory_order_consume) != 1) {
+    if (a == 1) { // a 可能是 1 也可能是 0
+        
+    }
+}
+```
+
+	更好理解的是下面这个例子, a 的值一定为 0. 但多数编译器没有跟踪依赖链, 均将消费内存顺
+	序操作提升为 memory_order_acquire 获得内存顺序操作.
+
+```C
+atomic_int x = 0;
+
+int a = atomic_load_explicit(&x, memory_order_consume);
+// a 的值一定是 0, memory_order_consume 后面与这块内存的相关代码不会重排到它前面
+x = 1;
+```
+
+memory_order_release 释放内存顺序 :
+
+	有此内存顺序的存储操作进行释放操作: 当前线程中的读或写不能被重排到此存储后. 当前线程
+	的所有写入, 可见于获得该同一原子变量的其它线程(获得内存顺序), 并且对该原子变量的带依
+	赖写入变得对于其他消费同一原子对象的线程可见. 例如一些原子对象被存储-释放, 而有数个其
+	它线程对该原子对象进行读修改写操作, 则会形成"释放序列": 所有对该原子对象读修改写的线
+	程与首个线程同步, 而且彼此同步, 即使它们没有 memory_order_release 语义. 这使得单产
+	出-多消费情况可行, 而无需在每个消费线程间强加不必要的同步. 同样 unlock 也全靠
+	memory_order_release 释放内存顺序
+
+memory_order_seq_cst 序列一致内存顺序 :
+
+	有此内存顺序的加载操作进行获得操作, 存储操作进行释放操作, 而读修改写操作进行获得操作
+	和释放操作, 再加上存在一个单独全序, 其中所有线程以同一顺序观测到所有修改. 如果是读取
+	就是 acquire 语义, 如果是写入就是 release 语义, 如果是读取写入就是 acquire-release
+	语义. 通常情况下编译器默认使用 memory_order_seq_cst. 在你不确定如何选取这些 memory 
+	order, 可以直接用此内存顺序.
+
+```C
+/* 7.17.8 Atomic flag type and operations */
+typedef struct atomic_flag { atomic_bool _Value; } atomic_flag;
+
+#define atomic_flag_test_and_set(object) __c11_atomic_exchange(     \
+	&(object)->_Value, 1, __ATOMIC_SEQ_CST)
+
+#define atomic_flag_clear(object) __c11_atomic_store(               \
+	&(object)->_Value, 0, __ATOMIC_SEQ_CST)
+```
+
+	但当 memory_order_acquire 及 memory_order_release 与 memory_order_seq_cst 混合
+	使用时, 会产生诡异的结果. 对于 memory_order_seq_cst 需要了解的注意点: 
+    1' memory_order_seq_cst 标签混合使用时, 程序的序列一致保证就会立即丧失
+    2' memory_order_seq_cst 原子操作相对于同一线程所进行的其它原子操作可重排
+
+	有了简单基础, 我们参照 C11 stdatomic.h 理念设计个跨平台的 atomic.h. 首先看 linux
+	实现部分
+
+```C
+#if !defined(_ATOMIC$C11_H) && !defined(_MSC_VER)
+#define _ATOMIC$C11_H
+
+#include <stdbool.h>
+#include <stdatomic.h>
+
+#define GENERIC_ATOMIC(type, mark, /* unused */ size)               \
+                                                                    \
+typedef _Atomic(type) atomic_##mark##_t;                            \
+                                                                    \
+static inline type                                                  \
+atomic_load_##mark(const atomic_##mark##_t * a, memory_order o) {   \
+   /*                                                               \
+    * A strict interpretation of the C standard prevents            \
+    * atomic_load from taking a const argument, but it's            \
+    * convenient for our purposes. This cast is a workaround.       \
+    */                                                              \
+    return atomic_load_explicit((atomic_##mark##_t *)a, o);         \
+}                                                                   \
+                                                                    \
+static inline void                                                  \
+atomic_store_##mark(atomic_##mark##_t * a, type v,                  \
+                    memory_order o) {                               \
+    atomic_store_explicit(a, v, o);                                 \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_exchange_##mark(atomic_##mark##_t * a, type v,               \
+                       memory_order o) {                            \
+    return atomic_exchange_explicit(a, v, o);                       \
+}                                                                   \
+                                                                    \
+static inline bool                                                  \
+atomic_compare_exchange_weak_##mark(atomic_##mark##_t * a,          \
+                                    type * c, type v,               \
+                                    memory_order o,                 \
+                                    memory_order n) {               \
+    return atomic_compare_exchange_weak_explicit(a, c, v, o, n);    \
+}                                                                   \
+                                                                    \
+static inline bool                                                  \
+atomic_compare_exchange_strong_##mark(atomic_##mark##_t * a,        \
+                                      type * c, type v,             \
+                                      memory_order o,               \
+                                      memory_order n) {             \
+    return atomic_compare_exchange_strong_explicit(a, c, v, o, n);  \
+}
 
 //
-// pthread_attr_init - 初始化一个线程环境变量
-// pthread_attr_destroy - 销毁一个线程环境变量
-// attr     : pthread_attr_t 线程环境变量
-// return   : 0 表示成功
+// Integral types have some special operations available that
+// non-integral ones lack.
+//
+#define GENERIC_INT_ATOMIC(type, mark, /* unused */ size)           \
+                                                                    \
+GENERIC_ATOMIC(type, mark, size)                                    \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_add_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return atomic_fetch_add_explicit(a, v, o);                      \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_sub_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return atomic_fetch_sub_explicit(a, v, o);                      \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_and_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return atomic_fetch_and_explicit(a, v, o);                      \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_or_##mark(atomic_##mark##_t * a, type v,               \
+                       memory_order o) {                            \
+    return atomic_fetch_or_explicit(a, v, o);                       \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_xor_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return atomic_fetch_xor_explicit(a, v, o);                      \
+}
+
+#endif//_ATOMIC$C11_H
+```
+
+	上面基于支持 C11 标准实现且没有定义 __STDC_NO_ATOMICS__ 宏为1 的编译器, 而封装的原
+	子操作宏模板. 分为两个部分. 第一部分是 GENERIC_ATOMIC 用于通用类型的原子操作宏模板. 
+	第二部分是 GENERIC_INT_ATOMIC 用于整型类型的原子操作宏模板. 核心思路参照 jemalloc 
+	源码而开发设计的. 扯一点, 要不是 winds cl 目前不支持 C11, 完全没有必要去设计这个库.
+	真是谁弱势, 谁是爷. 来看下 winds cl 平台相关模板宏设计思路.
+
+```C
+#if !defined(_ATOMIC$CL_H) && defined(_MSC_VER)
+#define _ATOMIC$CL_H
+
+#include <stdbool.h>
+#include <windows.h>
+
+typedef enum memory_order {
+    memory_order_relaxed,
+    memory_order_consume,
+    memory_order_acquire,
+    memory_order_release,
+    memory_order_acq_rel,
+    memory_order_seq_cst,
+} memory_order;
+
+#define ATOMIC_VAR_INIT(...) {__VA_ARGS__}
+
+static inline void atomic_thread_fence(memory_order o) {
+    _ReadWriteBarrier();
+#  if defined(_M_ARM) || defined(_M_ARM64)
+    // ARM needs a barrier for everything but relaxed.
+    if (o != memory_order_relaxed)
+        MemoryBarrier();
+#  elif defined(_M_IX86) || defined (_M_X64)
+    // x86 needs a barrier only for seq_cst.
+    if (o == memory_order_seq_cst)
+        MemoryBarrier();
+#  else
+#    error "Don't know how to create atomics for this platform for cl."
+#  endif
+    _ReadWriteBarrier();
+}
+
+#define INTERLOCKED_SUFFIX_1 8
+#define INTERLOCKED_SUFFIX_2 16
+#define INTERLOCKED_SUFFIX_4
+#define INTERLOCKED_SUFFIX_8 64
+
+#define CONCAT(a, b)                 CONCAT_RAW(a, b)
+#define CONCAT_RAW(a, b)             a##b
+
+typedef char    atomic_size_1_t;
+typedef short   atomic_size_2_t;
+typedef long    atomic_size_4_t;
+typedef __int64 atomic_size_8_t;
+
+#define INTERLOCKED_TYPE(size)       atomic_size_##size##_t
+
+#define INTERLOCKED_SUFFIX(size)     CONCAT(INTERLOCKED_SUFFIX_, size)
+
+#define INTERLOCKED_NAME(name, size) CONCAT(name, INTERLOCKED_SUFFIX(size))
+
+#define GENERIC_ATOMIC(type, mark, size)                            \
+                                                                    \
+typedef struct {                                                    \
+    INTERLOCKED_TYPE(size) repr;                                    \
+} atomic_##mark##_t;                                                \
+                                                                    \
+static inline type                                                  \
+atomic_load_##mark(const atomic_##mark##_t * a, memory_order o) {   \
+    INTERLOCKED_TYPE(size) ret = a->repr;                           \
+    if (o != memory_order_relaxed)                                  \
+        atomic_thread_fence(memory_order_acquire);                  \
+    return (type)ret;                                               \
+}                                                                   \
+                                                                    \
+static inline void                                                  \
+atomic_store_##mark(atomic_##mark##_t * a, type v,                  \
+                    memory_order o) {                               \
+    if (o != memory_order_relaxed)                                  \
+        atomic_thread_fence(memory_order_release);                  \
+    a->repr = (INTERLOCKED_TYPE(size))v;                            \
+    if (o == memory_order_seq_cst)                                  \
+        atomic_thread_fence(memory_order_seq_cst);                  \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_exchange_##mark(atomic_##mark##_t * a, type v,               \
+                       memory_order o) {                            \
+    return (type)INTERLOCKED_NAME(_InterlockedExchange, size)(      \
+                &a->repr, (INTERLOCKED_TYPE(size))v                 \
+           );                                                       \
+}                                                                   \
+                                                                    \
+static inline bool                                                  \
+atomic_compare_exchange_weak_##mark(atomic_##mark##_t * a,          \
+                                    type * c, type v,               \
+                                    memory_order o,                 \
+                                    memory_order n) {               \
+    INTERLOCKED_TYPE(size) d = (INTERLOCKED_TYPE(size))v;           \
+    INTERLOCKED_TYPE(size) e = (INTERLOCKED_TYPE(size))*c;          \
+    INTERLOCKED_TYPE(size) old =                                    \
+        INTERLOCKED_NAME(_InterlockedCompareExchange, size)(        \
+            &a->repr, d, e                                          \
+        );                                                          \
+    if (e != old) {                                                 \
+        *c = (type)old;                                             \
+        return false;                                               \
+    }                                                               \
+    return true;                                                    \
+}                                                                   \
+                                                                    \
+static inline bool                                                  \
+atomic_compare_exchange_strong_##mark(atomic_##mark##_t * a,        \
+                                      type * c, type v,             \
+                                      memory_order o,               \
+                                      memory_order n) {             \
+    /* We implement the weak version with strong semantics. */      \
+    return atomic_compare_exchange_weak_##mark(a, c, v, o, n);      \
+}
+
+#define GENERIC_INT_ATOMIC(type, mark, size)                        \
+                                                                    \
+GENERIC_ATOMIC(type, mark, size)                                    \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_add_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return (type)INTERLOCKED_NAME(_InterlockedExchangeAdd, size)(   \
+                &a->repr, (INTERLOCKED_TYPE(size))v                 \
+           );                                                       \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_sub_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    /*                                                              \
+     * MSVC warns on negation of unsigned operands, but for us it   \
+     * gives exactly the right semantics (MAX_TYPE + 1 - operand).  \
+     */                                                             \
+    __pragma(warning(push))                                         \
+    __pragma(warning(disable: 4146))                                \
+    return atomic_fetch_add_##mark(a, -v, o);                       \
+    __pragma(warning(pop))                                          \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_and_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return (type)INTERLOCKED_NAME(_InterlockedAnd, size)(           \
+                &a->repr, (INTERLOCKED_TYPE(size))v                 \
+           );                                                       \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_or_##mark(atomic_##mark##_t * a, type v,               \
+                       memory_order o) {                            \
+    return (type)INTERLOCKED_NAME(_InterlockedOr, size)(            \
+                &a->repr, (INTERLOCKED_TYPE(size))v                 \
+           );                                                       \
+}                                                                   \
+                                                                    \
+static inline type                                                  \
+atomic_fetch_xor_##mark(atomic_##mark##_t * a, type v,              \
+                        memory_order o) {                           \
+    return (type)INTERLOCKED_NAME(_InterlockedXor, size)(           \
+                &a->repr, (INTERLOCKED_TYPE(size))v                 \
+           );                                                       \
+}
+
+#endif//_ATOMIC$CL_H
+```
+
+	这里有个巧妙地方在于 INTERLOCKED_TYPE 和 INTERLOCKED_NAME 宏的设计, 看下面我的摘取
+	部分源码, 你应该会恍然大悟. 仙师说的是 ~
+
+```C
+typedef char                  atomic_size_1_t;
+typedef short                 atomic_size_2_t;
+typedef long                  atomic_size_4_t;
+typedef __int64               atomic_size_8_t;
+
+#define InterlockedExchange8  _InterlockedExchange8
+#define InterlockedExchange16 _InterlockedExchange16
+#define InterlockedExchange   _InterlockedExchange
+#define InterlockedExchange64 _InterlockedExchange64
+```
+
+	有了 atomic$c11.h 和 atomic$cl.h 我们开始就着手封装 atomic.h. 仔细看其中的注释部分. 
+	它就是这个库的使用 help. 此刻原子操作的封装有了结果了. 后面有兴趣的道友可以练习哈 C 宏
+	模板的技巧. 这个越级挑战杀手锏, 高性能库中总会有它的身影. 我们保持观望 ~
+
+```C
+#ifndef _ATOMIC_H
+#define _ATOMIC_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "atomic$cl.h"
+#include "atomic$c11.h"
+
+/*
+ * This header gives more or less a backport of C11 atomics. The user
+ * can write GENERIC_ATOMIC(type, tail, size) to generate
+ * counterparts of the C11 atomic functions for type, as so:
+ *   GENERIC_ATOMIC(int *, pi, PTR_SIZEOF)
+ * and then write things like:
+ *   atomic_pi_t ptr;
+ *   int * some = NULL;
+ *   atomic_store_pi(&ptr, some, memory_order_relaxed);
+ *   int * prev = atomic_exchange_pi(&ptr, NULL, memory_order_acq_rel);
+ *   assert(some == prev);
+ * and expect things to work in the obvious way.
+ *
+ * Also included (with naming differences to avoid conflicts with the
+ * standard library):
+ *   mimics C11's ATOMIC_VAR_INIT
+ *   mimics C11's atomic_thread_fence(memory_order)
+ */
+
+// sys/types.h constructor
+#ifndef __ssize_t_defined
+typedef ptrdiff_t ssize_t;
+#endif
+
+#ifndef PTR_SIZEOF
+#  if defined(_M_X64) || defined(__x86_64__) || defined(_M_ARM64)
+#    define PTR_SIZEOF 8
+#  else
+#    define PTR_SIZEOF 4
+#  endif
+#endif
+
+GENERIC_ATOMIC(bool, b, 1)
+
+GENERIC_INT_ATOMIC(unsigned, u, 4)
+
+GENERIC_INT_ATOMIC(uint32_t, u32, 4)
+
+GENERIC_ATOMIC(void *, p, PTR_SIZEOF)
+
+/*
+ * Not all platforms have 64-bit atomics. If we do, this #define
+ * exposes that fact.
+ */
+#if (PTR_SIZEOF == 8)
+GENERIC_INT_ATOMIC(uint64_t, u64, 8)
+#endif
+
+GENERIC_INT_ATOMIC(size_t, zu, PTR_SIZEOF)
+
+GENERIC_INT_ATOMIC(ssize_t, zd, PTR_SIZEOF)
+
+#endif//_ATOMIC_H
+```
+
+## 3.2 POSIX 线程库
+
+    	对于 POSIX 标准线程库, 也就是我们常在 Linux 使用 pthread 线程库. 首先为其罗列些
+	常用的 API 提纲. 先看 PThread Attribute Functions 系列
+
+```C
+//
+// pthread_attr_init    - 初始化线程环境
+// pthread_attr_destroy - 销毁线程环境
+// attr		: pthread_attr_t 线程环境
+// return	: 0 标识成功, -1 标识失败
 //
 extern int __cdecl pthread_attr_init (pthread_attr_t * attr);
 extern int __cdecl pthread_attr_destroy (pthread_attr_t * attr);
 
 //
-// pthread_attr_setdetachstate - 设置线程的运行结束的分离属性
-// attr         : pthread_attr_t 线程环境变量
-// detachstate  : 默认是 PTHREAD_CREATE_JOINABLE, 需要执行 pthread_join 销毁遗留的线程空间
-//              : PTHREAD_CREATE_DETACHED 属性等同于 pthread_detach, 结束即销毁
-// return       : 0 表示成功
+// pthread_attr_setdetachstate - 设置线程的运行结束后的分离属性
+// attr		:pthread_attr_t 线程环境
+// state	: 默认 PTHREAD_CREATE_JOINABLE, 需要 pthread_join 销毁遗留的线程空间.
+// 			: PTHREAD_CREATE_DETACHED 属性等同于 pthread_detach, 结束即销毁
+// return	: 0 表示成功
 //
-extern int __cdecl pthread_attr_setdetachstate (pthread_attr_t * attr, int detachstate);
+extern int __cdecl pthread_attr_setdetachstate (pthread_attr_t * attr, int state);
 ```
 
-    线程构建初始化如下:
+    有了线程环境相关操作, 再来看看线程构建的相关操作 PThread Functions
 
 ```C
-/*
- * PThread Functions
- */
-
 //
-// pthread_create - 创建一个线程
-// tid      : 返回创建线程的句柄 pthread_t 类型变量
-// attr     : 线程创建初始化的量, 主要看 pthread_attr_xxxx 一系列设置
-// start    : 线程创建成功运行的实体
-// arg      : start 启动后传入的额外参数
-// return   : 返回 0 表示成功, 非零表示失败例如 EAGAIN
+// pthread_create - 创建一个线程, 并自启动实体运行
+// tid			: 返回创建线程的句柄 pthread_t 类型变量
+// attr			: 线程创建初始化的量, pthread_attr_xxxx 系列设置
+// start		: 线程创建成功后运行的实体
+// arg			: start 运行时需要的额外参数
+// return		: 返回 0 表示成功, -1 表示失败 并会设置 errno
 //
 extern int __cdecl pthread_create (pthread_t * tid,
-                            const pthread_attr_t * attr,
-                            void * (__cdecl * start) (void *),
-                            void * arg);
+                                   const pthread_attr_t * attr,
+                                   void * (__cdecl * start) (void *),
+                                   void * arg);
 
 //
-// pthread_equal - 两个线程id比较
-// t1       : 线程id
-// t2       : 线程id
-// return   : 1 表示二者相同, 0 表示二者不同
+// pthread_equal - 两个线程 id 比较
+// t1			: 线程 id
+// t2			: 线程 id
+// return		: 1 表示二者相同, 0 表示二者不同
 //
 extern int __cdecl pthread_equal (pthread_t t1, pthread_t t2);
 
@@ -269,113 +724,93 @@ extern void __cdecl pthread_exit (void * value_ptr);
 
 //
 // pthread_join - 等待线程 pthread_create -> start 函数运行结束
-// thread       : 线程id
+// thread       : 线程 id
 // value_ptr    : 返回 start 返回值, 或 pthread_exit 设置的值
-// return       : 0表示成功, 其它查源码吧
+// return       : 0 表示成功, -1 标识失败
 //
 extern int __cdecl pthread_join (pthread_t thread, void ** value_ptr);
 ```
 
-    线程互斥量, 基本和 pthread_create 使用频率差不多. 加上手工注释希望大家
-    能够感性认知哈
+    线程互斥量, 基本和 pthread_create 使用频率差不多. 加上手工注释希望大家能够感性认知,
+	Mutex Attribute Functions 相关操作. 前面一致忘记说了, 展示过很多系统层的源码实现, 
+	但我们假定这些实现就应该这样, 因为它会因时而异.
 
 ```C
-/*
- * Mutex Attribute Functions
- */
-static pthread_mutex_t _mtx = PTHREAD_MUTEX_INITIALIZER;
+#define PTHREAD_MUTEX_INITIALIZER ((pthread_mutex_t)(size_t) -1)
 
-//
-// pthread_mutex_init - 初始化一个线程互斥量类型
-// pthread_mutex_destroy - 清理一个线程互斥量类型, 必须和 pthread_mutex_init成对
-//
-extern int __cdecl pthread_mutex_init (pthread_mutex_t * mutex, const pthread_mutexattr_t * attr);
+// pthread_mutex_init    - 初始化线程互斥量
+// pthread_mutex_destroy - 销毁线程互斥量, 必须和 pthread_mutex_init 成对
+extern int __cdecl pthread_mutex_init (pthread_mutex_t * mutex, 
+                                       const pthread_mutexattr_t * attr);
 extern int __cdecl pthread_mutex_destroy (pthread_mutex_t * mutex);
 
-//
-// pthread_mutex_lock - 加锁
+// pthread_mutex_lock   - 加锁
 // pthread_mutex_unlock - 解锁
-//
 extern int __cdecl pthread_mutex_lock (pthread_mutex_t * mutex);
 extern int __cdecl pthread_mutex_unlock (pthread_mutex_t * mutex);
 ```
 
-    擦, 才说了一点点. 翻译 API有点累, 不想继续扯了. 下次用到额外的 api 继续深入翻译. 
-	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 不需要调用 pthread_mutex_destroy 
-	默认跟随系统生命周期. 对于 pthread 线程, 假如你用了 xxx_init 那么最终最好都需要调用 
-	xxx_destroy . 不妨通过上面代码简单露一手了哈哈
+	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 不需要调用 pthread_mutex_destroy 默
+	认跟随系统生命周期. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么最终最好都需要调
+	用 pthread_xxx_destroy. 对于 pthread 我们包装一下
 
 ```C
-//
-// async_run - 开启一个自销毁的线程 运行 run
-// run		: 运行的主体
-// arg		: run的参数
-// return	: >= SufBase 表示成功
-//
-inline int 
-async_run_(node_f run, void * arg) {
-	pthread_t tid;
-	pthread_attr_t attr;
+#ifndef _THREAD_H
+#define _THREAD_H
 
-	// 构建pthread 线程奔跑起来
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if (pthread_create(&tid, &attr, (start_f)run, arg) < 0) {
-		pthread_attr_destroy(&attr);
-		RETURN(ErrBase, "pthread_create error run, arg = %p | %p.", run, arg);
-	}
+#include "struct.h"
+#include <pthread.h>
+#include <semaphore.h>
 
-	pthread_attr_destroy(&attr);
-	return SufBase;
+//
+// pthread_end - 等待线程运行结束
+// tid      : 线程 id
+// return   : void
+//
+inline void pthread_end(pthread_t id) {
+    pthread_join(id, NULL);
 }
+
+//
+// pthread_run - 启动线程
+// id       : 线程 id
+// frun     : 运行主体
+// arg      : 运行参数
+// return   : return 0 is success
+//
+#define pthread_run(id, frun, arg)                                  \
+pthread_run_(&(id), (node_f)(frun), (void *)(intptr_t)(arg))
+inline int pthread_run_(pthread_t * pi, node_f frun, void * arg) {
+    return pthread_create(pi, NULL, (start_f)frun, arg);
+}
+
+//
+// pthread_async - 启动无需等待的线程
+// frun     : 运行的主体
+// arg      : 运行参数
+// return   : return 0 is success
+// 
+#define pthread_async(frun, arg)                                    \
+pthread_async_((node_f)(frun), (void *)(intptr_t)(arg))
+inline int pthread_async_(node_f frun, void * arg) {
+    pthread_t id;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    int ret = pthread_create(&id, &attr, (start_f)frun, arg);
+    pthread_attr_destroy(&attr);
+    return ret;
+}
+
+#endif//_THREAD_H
 ```
 
-    使用起来就非常轻松了, async_run_((node_f) run, xxx) 异步分离线程就跑起来哈哈
+	后续可以通过 pthread_async 来启动设置好分离属性的线程. 你是否想过 winds 上使用 POSIX
+	pthread 线程库, 是不是想想就很爽. github 上 GerHobbelt 大神的 pthread-win32 项目, 
+	让我们梦想成真. 或者关注作者 github 上面 pthread static lib 的水经验的项目. 从此以后
+	, 你要的一切 pthread 都会给你! 为保护所爱的人去战斗 <*-*>    
 
-#### 3.2.1 winds 搭建 pthread 线程库
-
-    winds 上使用 POSIX 的 pthread 线程特别 cool, 很爽. 毕竟 winds自带的线程库用起来要人命, 
-	丑的无语. 采用的方案是 pthread for win32 open code project. 自行到 github 上找 
-	GerHobbelt 大神的 pthread-win32 项目. 源码结构特别清晰好懂, 异常服. 
-    随后下载我为上面大神构建一个简易的发布的 pthread for winds 32位静态库发布版项目 
-	pthread.winds.lib.2.10.0.1. 可以自行搜索使用 ~ 那开始爆料了~
-
-> 使用说明:  
-
-    sched.h
-    pthread.h
-    semaphore.h
-    pthread_lib.lib
-    
-    添加到用到的 Visual Studio  sln 项目中.( pthread.h 中已经包含了 pthread_lib.lib )
-	对原版提供的头文件进行过大面积修改, 部分摘录如下:
-
-```C
-#if !defined(_H_PTHREAD) && defined(_MSC_VER)
-#define _H_PTHREAD
-
-/*
- * See the README file for an explanation of the pthreads-win32 version
- * numbering scheme and how the DLL is named etc.
- */
-#define PTW32_VERSION 2, 10, 0, 1
-#define PTW32_VERSION_STRING "2, 10, 0, 1"
-
-#pragma comment(lib, "pthread_lib.lib")
-
-#endif
-```
-
-    为了达到和 linux上使用 #include <pthread.h> 一样效果. 还需要为项目添加一个包含的文件
-	目录. 就和下面这样, 自行下一步下一步~
-
-![库目录](./img/库目录.png)
-
-> 说明完毕
-
-    从此以后, 你要的一切 pthread 都会给你! 为所爱的人去战斗 <*-*> 
-
-#### 3.2.2 pthread 练手
+#### 3.2.1 pthread 练手
 
     利用构建好的 pthread 模块, 写个 Demo 练练手. 用的 api 是系统中关于读写锁相关操作. 为了
     解决大量消费者少量生产者的问题, 解决方案模型:
