@@ -812,84 +812,70 @@ inline int pthread_async_(node_f frun, void * arg) {
 
 #### 3.2.1 pthread 练手
 
-    利用构建好的 pthread 模块, 写个 Demo 练练手. 用的 api 是系统中关于读写锁相关操作. 为了
-    解决大量消费者少量生产者的问题, 解决方案模型:
+    运用搭建好的 pthread 模块, 写个 Demo 练练手. 使用了 pthread 读写锁相关操作. 纯属熟悉
+	api 而构造的示例.
 
 ```C
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
+#include "thread.h"
 
-#define _INT_BZ     (13)
-#define _INT_WTH    (2)
-#define _INT_RTH    (10)
+#define TH_INT    (6)
 
 struct rwarg {
     pthread_t id;
-    pthread_rwlock_t rwlock;    // 加锁用的
-    int idx;                    // 指示buf中写到那了
-    char buf[BUFSIZ];           // 存储临时数据
+    pthread_rwlock_t lock;    // 读写锁
+    char buf[BUFSIZ];         // 存储数据
+    int idx;                  // buf 索引
 };
 
-// 写线程, 主要随机写字符进去
-void twrite(struct rwarg * arg);
-// 读线程
-void treads(struct rwarg * arg);
+// write - 写线程, 随机写字符
+void write(struct rwarg * arg);
+// reads - 读线程
+void reads(struct rwarg * arg);
 
 /*
  * 主函数测试线程读写逻辑
  * 少量写线程, 大量读线程测试
  */
 int main(int argc, char * argv[]) {
-    // 初始化定义需要使用的量. C99以上写法, 避免跨平台不同实现的警告问题, 感谢好人随性徜徉
-    struct rwarg arg = { 0, .rwlock = PTHREAD_RWLOCK_INITIALIZER, 0, "" };    
-    int i;
+    // 初始化 rwarg::rwlock
+    struct rwarg arg = { .lock = PTHREAD_RWLOCK_INITIALIZER, };
 
-    // 读线程跑起来
-    for(i = 0; i < _INT_RTH; ++i) 
-        pthread_create((pthread_t *)&arg, NULL, (void * (*)(void *))treads, &arg);
-
-    // 写线程再跑起来
-    for(i = 0; i < _INT_WTH; ++i)
-        pthread_create((pthread_t *)&arg, NULL, (void * (*)(void *))twrite, &arg);
+    // 读写线程跑起来
+    for (int i = 0; i < TH_INT; ++i) {
+        pthread_async(reads, &arg);
+        pthread_async(write, &arg);
+        pthread_async(reads, &arg);
+    }
 
     // 简单等待一下
-    printf("sleep input enter:");
-    getchar();
-
-    return EXIT_SUCCESS;
+    puts("sleep input enter:");
+    return getchar();
 }
 
-// 写线程, 主要随机写字符进去
+// write - 写线程, 随机写字符
 void 
-twrite(struct rwarg * arg) {
-    pthread_detach(pthread_self());
-
-    pthread_rwlock_wrlock(&arg->rwlock);
-    while(arg->idx < _INT_BZ) {
-        arg->buf[arg->idx] = 'a' + arg->idx;
-        ++arg->idx;
-    }
-    pthread_rwlock_unlock(&arg->rwlock);
+write(struct rwarg * arg) {
+    pthread_rwlock_wrlock(&arg->lock);
+    arg->buf[arg->idx] = 'a' + arg->idx;
+    ++arg->idx;
+    printf("write idx[%-2d], buf[%-9s]\n", arg->idx, arg->buf);
+    pthread_rwlock_unlock(&arg->lock);
 }
 
-// 读线程
+// reads - 读线程
 void 
-treads(struct rwarg * arg) {
-    pthread_detach(pthread_self());
-    
-    while(arg->idx < _INT_BZ) {
-        pthread_rwlock_rdlock(&arg->rwlock);
-        puts(arg->buf);
-        pthread_rwlock_unlock(&arg->rwlock);
-    }
+reads(struct rwarg * arg) {
+    pthread_rwlock_rdlock(&arg->lock);
+    printf("reads idx[%2d], buf[%9s]\n", arg->idx, arg->buf);
+    pthread_rwlock_unlock(&arg->lock);
 }
 ```
 
-    因为手握 pthread 神器不知道写个啥, 随便写了上面点. 大量读者读加锁频繁, 少量写线程模型.
-    可以临摹一遍, 感受一下远古时期那些妖魔大能之间, 天地昏暗, 万仞无边的气息~ 
-    关于 POSIX 线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源码一切都是那
-	么自然.
+    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 相关存在一个
+	隐患就是 pthread_rwlock_unlock 这个 api 时不区分读解锁, 还是写解锁. 这就导致一个问题
+	大量写操作存在时候, 会极大降低写加锁机会的期望. 导致写操作饥渴. 后面会带大家手写个读写
+	锁, 用于感受一下那些远古时期那些妖魔大能弥留在天地之间, 万仞无边的气息 ~ . 关于 POSIX
+	线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源码一切仍然是那么自然.
 
 ### 3.3 读写锁
 
@@ -2255,7 +2241,7 @@ stu_getmstr(stime_t tstr) {
 ![白龙](./img/黑龙.jpg)
     
     以梦为马
-    海子 节选
+    海子-节选
 
     面对大河我无限惭愧
 
