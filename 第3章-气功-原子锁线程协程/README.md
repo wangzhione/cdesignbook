@@ -871,198 +871,147 @@ reads(struct rwarg * arg) {
 }
 ```
 
-    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 相关存在一个
-	隐患就是 pthread_rwlock_unlock 这个 api 时不区分读解锁, 还是写解锁. 这就导致一个问题
-	大量写操作存在时候, 会极大降低写加锁机会的期望. 导致写操作饥渴. 后面会带大家手写个读写
-	锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万仞无边的意念 ~ . 关于 POSIX 线程
-	库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源码一切仍然是那么自然.
+    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个隐患
+	就是 pthread_rwlock_unlock 这个 api. 也能看出来它不区分读解锁, 还是写解锁. 这就导致
+	一个问题当大量写操作存在时候, 会极大降低写加锁机会的期望. 使写操作饥渴. 后面会带大家手写
+	个读写锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万仞无边的意念 ~. 关于 POSIX
+	线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源码一切仍然是那么自然.
 
 ### 3.3 读写锁
 
-    pthread 已经提供了读写锁, 为什么还要没事瞎搞呢. 其实这个问题好理解. 1' 要剖析一下基
-	本原理; 2' 它有点重, 不如用原子锁构造一个. 3' pthread 读写锁存在写竞争不过读的隐患.
-    特别是3', 不妨把上面代码刷到演武场上演示演示. 会发现打印了大量空白, 说白了就是写锁被
-	大量读锁阻塞了. (问题很严重) 
-
-    下面对读写锁进行详细分析. 首先看下面有用的套话
-
-	读写锁 是为了 解决, 大量 ''读'' 和 少量 ''写'' 的业务而设计的.  
-
-	读写锁有3个特征:
-
-	1'. 当读写锁是写加锁状态时，
-	    在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
-
-	2'. 当读写锁在读加锁状态时，
-	    再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
-
-	3'. 当读写锁在读加锁状态时，
-	    如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
-
-    从上面表述可以看出, pthread的线程库对于第三个特征没有完成. 默认还是平等竞争. 
-	3' 默认写锁优先级高于读锁, 对其有遏制效果. 
+    pthread 已经提供了读写锁, 为什么还要没事瞎搞呢. 对于这个问题我是这样解释的. 
+		1' 学习价值, 写写顺便了解一下基本原理
+		2' pthread 读写锁有点重, 不如原子实现轻量
+		3' pthread 读写锁存在写操作饥渴的隐患
+    特别是 3' 问题很严重, 不妨自行构造多读少写情况自行验证. 下面对读写锁进行详细分析. 读写锁
+	主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡那用 pthrad rwlock 效
+	果更好. 我们这里写优先的读写锁满足 3 个特征:
+		1'. 当读写锁是写加锁状态时，
+			在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
+		2'. 当读写锁在读加锁状态时，
+	    	再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
+		3'. 当读写锁在读加锁状态时，
+	    	如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
+    从上面表述可以看出, pthread 的线程库对于特征 3' 没有支持. 默认还是平等竞争. 我们这里默
+	认写锁优先级高于读锁, 对其有遏制效果, 用于解决少量写饥渴问题. 
 
 #### 3.3.1 读写锁设计 interface
 
-    通过上面3大特征和已经构建好的 scatom.h原子操作接口, 不妨设计如下读写锁接口 
-	
-scrwlock.h
+    通过上面 3 大特征和已经构建好的 atom.h 原子操作接口, 设计了 rwlock.h 读写锁接口
 
 ```C
-#ifndef _H_SIMPLEC_SCRWLOCK
-#define _H_SIMPLEC_SCRWLOCK
+#ifndef _RWLOCK_H
+#define _RWLOCK_H
 
-#include "scatom.h"
+#include "atom.h"
 
-/*
- * create simple write and read lock
- * struct rwlock need zero.
- * is scatom ext
- */
-
-// init need all is 0
+// create atom write and read lock
+// struct rwlock need zero is atom interface ext
+// need var init struct rwlock rw = { 0, 0 };
 struct rwlock {
-	int rlock;
-	int wlock;
+    atom_t rlock;
+    atom_t wlock;
 };
 
-// add read lock
+// rwlock_rlock - add read lock
 extern void rwlock_rlock(struct rwlock * lock);
-// add write lock
+
+// rwlock_wlock - add write lock
 extern void rwlock_wlock(struct rwlock * lock);
 
-// add write lock
-extern void rwlock_unrlock(struct rwlock * lock);
-// unlock write
+// rwlock_unwlock - unlock write lock
 extern void rwlock_unwlock(struct rwlock * lock);
 
-#endif // !_H_SIMPLEC_SCRWLOCK
+// rwlock_unrlock - unlock read lock
+extern void rwlock_unrlock(struct rwlock * lock);
+
+#endif//_RWLOCK_H
 ```
 
-    通过 scrwlock.h可以看出来这里读写锁是分别加锁和解锁的. pthread 线程库只走一个
-    pthread_rwlock_unlock 这就是为啥读锁压制写锁的原因了, 因为它不做区分. 同等对待.
-	当大量读锁出现的时候自然遏制写锁 (其实是策略问题, 没有高低)
-    上面接口使用方法也灰常简单, 举例如下:
-
-```C
-struct rwarg {
-    pthread_t id;
-    struct rwlock rwlock;       // 加锁用的
-    int idx;                    // 指示buf中写到那了
-    char buf[BUFSIZ];           // 存储临时数据
-};
-
-// 初始化
-struct rwarg arg = { 0 };
-
-// 写线程, 主要随机写字符进去
-...
-    rwlock_wlock(&arg->rwlock);
-    while(arg->idx < _INT_BZ) {
-        arg->buf[arg->idx] = 'a' + arg->idx;
-        ++arg->idx;
-    }
-    rwlock_unwlock(&arg->rwlock);
-...
-
-// 读线程
-...
-    while(arg->idx < _INT_BZ) {
-        rwlock_rlock(&arg->rwlock);
-        puts(arg->buf);
-        rwlock_unrlock(&arg->rwlock);
-    }
-...
-```
-
-    本质就是两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 随意潇洒~
+    通过 rwlock.h 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 wlock
+	两个字段可以看出, 本质就是两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 互相打配合 ~
 
 #### 3.3.2 读写锁实现 implement
 
-    这里展示的是详细的设计部分. 按照上面3个基准特征开始 write code, 首先看读加锁
+    按照上面 3 个基准特征开始 write code, 首先看读加锁
 
 ```C
-// add read lock
-void 
+// rwlock_rlock - add read lock
+void
 rwlock_rlock(struct rwlock * lock) {
-	for (;;) {
-		// 看是否有人在试图读, 得到并防止代码位置优化
-		while (lock->wlock)
-			ATOM_SYNC();
+    for (;;) {
+        // 等待读完毕, 并防止代码位置优化
+        while (lock->wlock)
+            atom_sync();
 
-		ATOM_INC(lock->rlock);
-		// 没有写占用, 开始读了
-		if (!lock->wlock)
-			break;
+        atom_inc(lock->rlock);
+        // 没有写占用, 开始读了
+        if (!lock->wlock)
+            break;
 
-		// 还是有写, 删掉添加的读
-		ATOM_DEC(lock->rlock);
-	}
+        // 还是有写, 删掉添加的读
+        atom_dec(lock->rlock);
+    }
 }
 ```
 
-    while (lock->wlock) ... 表示读锁为写锁让道. 随后得到资源后读锁获取资源开始引用加1. 
-    再看看读解锁的实现:
+    while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再看看
+	读解锁的实现:
 
 ```C
-// unlock read lock
-inline void 
+// rwlock_unrlock - unlock read lock
+inline void
 rwlock_unrlock(struct rwlock * lock) {
-	ATOM_DEC(lock->rlock);
+    atom_dec(lock->rlock);
 }
 ```
 
-    读解锁只是将读的锁值引用减1. 方便写加锁的时候判断是否有有人读. 再看看写加锁和解锁
+    读解锁只是将读资源引用减 1. 方便写加锁的时候判断是否有有人读. 再看看写加锁和解锁
 
 ```C
-// add write lock
-void 
+// rwlock_wlock - add write lock
+void
 rwlock_wlock(struct rwlock * lock) {
-	ATOM_LOCK(lock->wlock);
-	// 等待读占用锁
-	while (lock->rlock)
-		ATOM_SYNC();
+    atom_lock(lock->wlock);
+    // 等待读占用锁
+    while (lock->rlock)
+        atom_sync();
 }
 
-// unlock write lock
-inline void 
+// rwlock_unwlock - unlock write lock
+inline void
 rwlock_unwlock(struct rwlock * lock) {
-	ATOM_UNLOCK(lock->wlock);
+    atom_unlock(lock->wlock);
 }
 ```
-
-    到这~关于读写锁的炫迈已经嚼完了. 读写锁使用常见, 能够想到就是网络IO中读写分离.
-	很酷炫, 但不推荐, 因为(恐龙强大吗, 强大, 但是灭绝了) 它不是必须的~
+	while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再看看
+    到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷
+	新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为它很容易被更高效
+	的设计所替代 ~
     
 ### 3.4 设计协程库
 
-    以上我们搞定了原子锁, 读写锁, POSIX 线程. 忘记说了有本很古老的 POSIX线程程序设计
-    一本书很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的无外乎就是
-	多线程和网络这两个方面了. 继续聊回来协程火起来的缘由(主要是我入行慢) 还是被 Lua 
-	的 coroutine.create (f) 带起来. 这里将从系统层面分析协程库的实现细节. 
+    	以上我们搞定了原子锁, 原子操作, POSIX线程, 读写锁. 忘记说了有本很古老的 POSIX 线程
+	程序设计一本书很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的无外乎就是
+	多线程和网络这两个方面了. 继续聊回来协程火起来的缘由(主要是我入行慢) 还是被 Lua 的 
+	coroutine.create (f) 带起来, 最后被 goroutine 发扬光大的. 这里将从系统层面简单感知协
+	程库的实现细节. 
 
 #### 3.4.1 协程库引言
 
-    上层语言中协程比较常见. 例如C# 中 yield retrun, lua 中 coroutine.yield 等构建同步
-	并发的程序. 本文是探讨如何从底层实现开发级别的协程库. 在说协程之前, 顺带温故一下进程和
-	线程关系. 进程拥有一个完整的虚拟地址空间，不依赖于线程而独立存在. 线程是进程的一部分，
-	没有自己的地址空间，与进程内的其他线程一起共享分配给该进程的所有资源. 进程和线程是1对
-	多关系, 协程同线程关系也是类似. 一个线程中可以有多个协程. 协程同线程相比区别再于, 线程
-	是操作系统控制调度(异步并发), 而线程是程序自身控制调度(同步串行). 
-	简单总结协程特性如下:
-
-　　  1. 相比线程具有更优的性能(假定, 程序写的没有明显失误) , 省略了操作系统的切换操作
-
-　　  2. 相比线程占用更少的内存空间, 线程是操作系统对象很耗资源, 协程是用户态资源.
-
-　　  3. 对比线程开发, 逻辑结构更复杂, 需要开发人员了解程序运行走向.
-
-    举个例子 数码宝贝例子 : 滚球兽 ->  亚古兽－>  暴龙兽－>  机械暴龙兽 －> 战斗暴龙兽
+	协程的种类很多, 实现也千奇百怪. 我们这里要讲的还是一种很原始的协程(纤程)模型. 一种高级的
+	同步串行的模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完整的虚拟地址空间，不
+	依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，与进程内的其它线程一起共享分
+	配给该进程的所有资源. 进程和线程是一对多关系, 这里要说的协程模型的协程同线程关系也是类似. 
+	一个线程中可以有多个协程. 协程同线程相比区别再于, 线程是操作系统控制调度可以做到异步并发, 
+	而协程是程序自身控制调度异步串行. 举个数码宝贝例子用于类比协程进化史: 
+	滚球兽  －>  亚古兽  －>  暴龙兽  －>  机械暴龙兽  －>  战斗暴龙兽
 
 ![进化](./img/进化.jpg)
 
-    '类比协程进化史' if .. else / switch -> goto -> setjmp / logjump -> coroutine -<
-    协程开发是串行程序开发中构建异步效果的开发模型.
+    if .. else -> switch -> goto -> setjmp / logjump -> coroutine
+    这里要说的协程开发是串行程序开发中构建异步效果的开发模型. 对于其它语言的协程模型可以针对研
+	究. 毕竟浩瀚星辰, 生生不息.  
 
 #### 3.4.2 协程库储备, winds 部分
 
