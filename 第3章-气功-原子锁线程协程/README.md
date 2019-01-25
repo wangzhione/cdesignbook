@@ -1,24 +1,24 @@
 # 第3章-气功-原子锁线程协程
 
-	    不妨仰望星海为编程行业尝试引入修真体系[ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]
-	. 那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着
-	编程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 
-	一舒心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 
-	随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜
-	血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 无数人
-	在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通
-	过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨功成, 为门
-	派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 
-	耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于
-	东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
-	    各位看官, 化神难道就是编程的极限吗? 然而一切才刚刚开始, 这里先不表. 本章讲的气功, 
-	等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同
-	平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江
+	    不妨仰望星海为编程行业引入修真体系[ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 
+    那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编
+    程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 
+    一舒心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼
+    . 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥
+    洒鲜血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 
+    无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力
+    支持, 通过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨
+    功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一
+    代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立
+    无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
+	    各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章讲
+    的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于
+    平台, 不同平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江.
     
 ## 3.1 原子锁
 
-	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需要
-	科普些基本原子操作.
+	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需
+    要科普些基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
@@ -37,11 +37,11 @@ volatile int i = 0;
 ++i;
 ```
 
-    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期的
-	大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 
-	本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原子性)
-	. 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供不少像
-	下面指令.  
+    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期
+    的大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操
+    作. 本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原
+    子性). 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供
+    不少像下面指令.
 
 ```C
 type __sync_add_and_fetch (type * ptr, type value, ...);
@@ -249,11 +249,11 @@ memory_order_consume 消费内存顺序 :
 	该值的读或写不能被重排到此加载前. 其它释放同一原子变量的线程的对数据依赖变量的写入, 
 	为当前线程所可见. 在大多数平台上, 这只影响到编译器优化. 例如线程 1 中的原子存储带标
 	签 memory_order_release 而线程 2 中来自同一原子对象的加载带标签 
-	memory_order_consume, 则线程 1 视角中依赖先序于原子存储的所有内存写入(非原子和宽松
-	原子的), 会在线程 B 中加载操作所携带依赖进入的操作中变成可见副效应, 即一旦完成原子加
-	载, 则保证线程 2 中, 使用从该加载获得的值的运算符和函数, 能见到线程 1 写入内存的内容
-	. 同步仅在释放和消费同一原子对象的线程间建立. 其它线程能见到与被同步线程的一者或两者
-	相异的内存访问顺序.
+	memory_order_consume, 则线程 1 视角中依赖先序于原子存储的所有内存写入(非原子和宽
+    松原子的), 会在线程 B 中加载操作所携带依赖进入的操作中变成可见副效应, 即一旦完成原
+    子加载, 则保证线程 2 中, 使用从该加载获得的值的运算符和函数, 能见到线程 1 写入内存
+    的内容. 同步仅在释放和消费同一原子对象的线程间建立. 其它线程能见到与被同步线程的一者
+    或两者相异的内存访问顺序.
 
 ```C
 // atomic init
@@ -274,8 +274,8 @@ while (atomic_load_explicit(&x, memory_order_consume) != 1) {
 }
 ```
 
-	更好理解的是下面这个例子, a 的值一定为 0. 但多数编译器没有跟踪依赖链, 均将消费内存顺
-	序操作提升为 memory_order_acquire 获得内存顺序操作.
+	更好理解的是下面这个例子, a 的值一定为 0. 但多数编译器没有跟踪依赖链, 均将消费内存
+    顺序操作提升为 memory_order_acquire 获得内存顺序操作.
 
 ```C
 atomic_int x = 0;
@@ -286,21 +286,21 @@ x = 1;
 ```
 
 memory_order_release 释放内存顺序 :
-
+    
 	有此内存顺序的存储操作进行释放操作: 当前线程中的读或写不能被重排到此存储后. 当前线程
 	的所有写入, 可见于获得该同一原子变量的其它线程(获得内存顺序), 并且对该原子变量的带依
-	赖写入变得对于其他消费同一原子对象的线程可见. 例如一些原子对象被存储-释放, 而有数个其
-	它线程对该原子对象进行读修改写操作, 则会形成"释放序列": 所有对该原子对象读修改写的线
-	程与首个线程同步, 而且彼此同步, 即使它们没有 memory_order_release 语义. 这使得单产
-	出-多消费情况可行, 而无需在每个消费线程间强加不必要的同步. 同样 unlock 也全靠
+	赖写入变得对于其他消费同一原子对象的线程可见. 例如一些原子对象被存储-释放, 而有数个
+    其它线程对该原子对象进行读修改写操作, 则会形成"释放序列": 所有对该原子对象读修改写的
+    线程与首个线程同步, 而且彼此同步, 即使它们没有 memory_order_release 语义. 这使得单
+    产出-多消费情况可行, 而无需在每个消费线程间强加不必要的同步. 同样 unlock 也全靠
 	memory_order_release 释放内存顺序
 
 memory_order_seq_cst 序列一致内存顺序 :
 
 	有此内存顺序的加载操作进行获得操作, 存储操作进行释放操作, 而读修改写操作进行获得操作
-	和释放操作, 再加上存在一个单独全序, 其中所有线程以同一顺序观测到所有修改. 如果是读取
-	就是 acquire 语义, 如果是写入就是 release 语义, 如果是读取写入就是 acquire-release
-	语义. 通常情况下编译器默认使用 memory_order_seq_cst. 在你不确定如何选取这些 memory 
+	和释放操作, 会加上存在一个单独全序, 其中所有线程以同一顺序观测到所有修改. 如果是读取
+	就是 acquire 语义, 如果是写入就是 release 语义, 如果是读写就是 acquire-release 语
+    义. 通常情况下编译器默认使用 memory_order_seq_cst. 在你不确定如何选取这些 memory 
 	order, 可以直接用此内存顺序.
 
 ```C
@@ -316,9 +316,8 @@ typedef struct atomic_flag { atomic_bool _Value; } atomic_flag;
 
 	但当 memory_order_acquire 及 memory_order_release 与 memory_order_seq_cst 混合
 	使用时, 会产生诡异的结果. 对于 memory_order_seq_cst 需要了解的注意点: 
-    1' memory_order_seq_cst 标签混合使用时, 程序的序列一致保证就会立即丧失
-    2' memory_order_seq_cst 原子操作相对于同一线程所进行的其它原子操作可重排
-
+        1' memory_order_seq_cst 标签混合使用时, 程序的序列一致保证就会立即丧失
+        2' memory_order_seq_cst 原子操作相对于同一线程所进行的其它原子操作可重排
 	有了简单基础, 我们参照 C11 stdatomic.h 理念设计个跨平台的 atomic.h. 首先看 linux
 	实现部分
 
@@ -582,8 +581,8 @@ atomic_fetch_xor_##mark(atomic_##mark##_t * a, type v,              \
 #endif//_ATOMIC$CL_H
 ```
 
-	这里有个巧妙地方在于 INTERLOCKED_TYPE 和 INTERLOCKED_NAME 宏的设计, 看下面我的摘取
-	部分源码, 你应该会恍然大悟. 仙师说的是 ~
+	这里有个巧妙地方在于 INTERLOCKED_TYPE 和 INTERLOCKED_NAME 宏的设计, 看下面我的摘
+    取部分源码, 你应该会恍然大悟. 仙师说的是 ~
 
 ```C
 typedef char                  atomic_size_1_t;
@@ -597,9 +596,9 @@ typedef __int64               atomic_size_8_t;
 #define InterlockedExchange64 _InterlockedExchange64
 ```
 
-	有了 atomic$c11.h 和 atomic$cl.h 我们开始就着手封装 atomic.h. 仔细看其中的注释部分. 
-	它就是这个库的使用 help. 此刻原子操作的封装有了结果了. 后面有兴趣的道友可以练习哈 C 宏
-	模板的技巧. 这个越级挑战杀手锏, 高性能库中总会有它的身影. 我们保持观望 ~
+	有了 atomic$c11.h 和 atomic$cl.h 我们开始就着手封装 atomic.h. 仔细看其中的注释部分
+    . 它就是这个库的使用 help. 此刻原子操作的封装有了结果了. 后面有兴趣的道友可以练习哈 C
+    宏模板的技巧. 这个越级挑战杀手锏, 高性能库中总会有它的身影. 我们保持观望 ~
 
 ```C
 #ifndef _ATOMIC_H
@@ -668,8 +667,8 @@ GENERIC_INT_ATOMIC(ssize_t, zd, PTR_SIZEOF)
 
 ## 3.2 POSIX 线程库
 
-    	对于 POSIX 标准线程库, 也就是我们常在 Linux 使用 pthread 线程库. 首先为其罗列些
-	常用的 API 提纲. 先看 PThread Attribute Functions 系列
+    	对于 POSIX 标准线程库, 也就是我们常在 Linux 使用 pthread 线程库. 首先为其罗列
+    些常用的 API 提纲. 先看 PThread Attribute Functions 系列
 
 ```C
 //
@@ -750,9 +749,9 @@ extern int __cdecl pthread_mutex_lock (pthread_mutex_t * mutex);
 extern int __cdecl pthread_mutex_unlock (pthread_mutex_t * mutex);
 ```
 
-	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 不需要调用 pthread_mutex_destroy 默
-	认跟随系统生命周期. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么最终最好都需要调
-	用 pthread_xxx_destroy. 对于 pthread 我们包装一下
+	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 不需要调用 pthread_mutex_destroy 
+    默认跟随系统生命周期. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么最终最好都
+    需要调用 pthread_xxx_destroy. 对于 pthread 我们包装一下
 
 ```C
 #ifndef _THREAD_H
@@ -801,15 +800,15 @@ inline static int pthread_async(void * frun, void * arg) {
 #endif//_THREAD_H
 ```
 
-	后续可以通过 pthread_async 来启动设置好分离属性的线程. 你是否想过 winds 上使用 POSIX
-	pthread 线程库, 是不是想想就很爽. github 上 GerHobbelt 大神的 pthread-win32 项目, 
-	让我们梦想成真. 或者关注作者 github 上面 pthread static lib 的水经验的项目. 从此以后
-	, 你要的一切 pthread 都会给你! 为保护所爱的人去战斗 <*-*>    
+	后续可以通过 pthread_async 来启动设置好分离属性的线程. 你是否想过 winds 上使用 
+    POSIX pthread 线程库, 是不是想想就很爽. github GerHobbelt 大神的 pthread-win32 
+    项目, 让我们梦想成真. 或者关注作者 github 上面 pthread static lib 的水经验的项目. 
+    从此以后, 你要的一切 pthread 都会给你! 为保护所爱的人去战斗 <*-*>    
 
-#### 3.2.1 pthread 练手
+### 3.2.1 pthread 练手
 
-    运用搭建好的 pthread 模块, 写个 Demo 练练手. 使用了 pthread 读写锁相关操作. 纯属熟悉
-	api 而构造的示例.
+    运用搭建好的 pthread 模块, 写个 Demo 练练手. 使用了 pthread 读写锁相关操作. 纯属
+    熟悉 api 而构造的示例.
 
 ```C
 #include "thread.h"
@@ -876,11 +875,12 @@ reads(struct rwarg * arg) {
 }
 ```
 
-    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个隐患
-	就是 pthread_rwlock_unlock 这个 api. 也能看出来它不区分读解锁, 还是写解锁. 这就导致
-	一个问题当大量写操作存在时候, 会极大降低写加锁机会的期望. 使写操作饥渴. 后面会带大家手写
-	个读写锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万仞无边的意念 ~. 关于 POSIX
-	线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源码一切仍然是那么自然.
+    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个
+    隐患就是 pthread_rwlock_unlock 这个 api. 也能看出来它不区分读解锁, 还是写解锁. 
+    这就导致一个问题当大量写操作存在时候, 会极大降低写加锁机会的期望. 使写操作饥渴. 后
+    面会带大家手写个读写锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万仞无边的
+    意念 ~. 关于 POSIX 线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源
+    码一切仍然是那么自然.
 
 ### 3.3 读写锁
 
@@ -888,19 +888,19 @@ reads(struct rwarg * arg) {
 		1' 学习价值, 写写顺便了解一下基本原理
 		2' pthread 读写锁有点重, 不如原子实现轻量
 		3' pthread 读写锁存在写操作饥渴的隐患
-    特别是 3' 问题很严重, 不妨自行构造多读少写情况自行验证. 下面对读写锁进行详细分析. 读写锁
-	主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡那用 pthrad rwlock 效
-	果更好. 我们这里写优先的读写锁满足 3 个特征:
+    特别是 3' 问题很严重, 不妨自行构造多读少写情况自行验证. 下面对读写锁进行详细分析. 
+    读写锁主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡那用 pthrad
+    rwlock 效果更好. 我们这里写优先的读写锁满足 3 个特征:
 		1'. 当读写锁是写加锁状态时，
 			在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
 		2'. 当读写锁在读加锁状态时，
 	    	再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
 		3'. 当读写锁在读加锁状态时，
 	    	如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
-    从上面表述可以看出, pthread 的线程库对于特征 3' 没有支持. 默认还是平等竞争. 我们这里默
-	认写锁优先级高于读锁, 对其有遏制效果, 用于解决少量写饥渴问题. 
+    从上面表述可以看出, pthread 的线程库对于特征 3' 没有支持. 默认还是平等竞争. 我们这
+    里默认写锁优先级高于读锁, 对其有遏制效果, 用于解决少量写饥渴问题. 
 
-#### 3.3.1 读写锁设计 interface
+### 3.3.1 读写锁设计 interface
 
     通过上面 3 大特征和已经构建好的 atom.h 原子操作接口, 设计了 rwlock.h 读写锁接口
 
@@ -933,10 +933,11 @@ extern void rwlock_unrlock(struct rwlock * lock);
 #endif//_RWLOCK_H
 ```
 
-    通过 rwlock.h 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 wlock
-	两个字段可以看出, 本质就是两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 互相打配合 ~
+    通过 rwlock.h 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 
+    wlock 两个字段可以看出, 本质就是两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 
+    互相打配合 ~
 
-#### 3.3.2 读写锁实现 implement
+### 3.3.2 读写锁实现 implement
 
     按照上面 3 个基准特征开始 write code, 首先看读加锁
 
@@ -960,8 +961,8 @@ rwlock_rlock(struct rwlock * lock) {
 }
 ```
 
-    while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再看看
-	读解锁的实现:
+    while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再
+    看看读解锁的实现:
 
 ```C
 // rwlock_unrlock - unlock read lock
@@ -989,27 +990,30 @@ rwlock_unwlock(struct rwlock * lock) {
     atom_unlock(lock->wlock);
 }
 ```
-	while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再看看
-    到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷
-	新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为它很容易被更高效
-	的设计所替代 ~
+
+	while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再
+    看看到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配
+    置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为
+    它很容易被更高效的设计所替代 ~
     
 ## 3.4 设计协程库
 
-    	以上我们捣鼓了原子锁, 原子操作, POSIX 线程, 读写锁. 忘记说了有本很古老的 POSIX 多
-	线程程序设计很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的也就是多线
-	程和网络这两个方面了. 继续聊回来, 我们说下和多线程相关的一个模型协程. 协程是被 Lua 的 
-	coroutine.create (f) 带起来, 最后被 Go 的 goroutine 发扬光大. 这里将会带大家实现一
-	个简单的协程库, 用于感知协程库的一种实现思路. 
+    	以上我们捣鼓了原子锁, 原子操作, POSIX 线程, 读写锁. 忘记说了有本很古老的 POSIX
+    多线程程序设计很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的也
+    就是多线程和网络这两个方面了. 继续聊回来, 我们说下和多线程相关的一个模型协程. 协程
+    是被 Lua 的 coroutine.create (f) 带起来, 最后被 Go 的 goroutine 发扬光大. 这里
+    将会带大家实现一个简单的协程库, 用于感知协程库的一种实现思路. 
 
 ### 3.4.1 协程库引言
 
-	协程的种类很多, 实现也千奇百怪. 我们这里要讲的协程模型, 通 winds 的纤程概念很像. 属于高
-	级的同步串行控制模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完整的虚拟地址空
-	间，不依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，与进程内的其它线程一起
-	共享分配给该进程的所有资源. 进程和线程是一对多关系, 同样我们这里要说的协程也一样. 一个线程
-	中可以有多个协程. 它同线程相比区别再于, 线程是操作系统控制调度可以做到异步并行, 此协程是程
-	序自身控制调度同步串行. 举个数码宝贝例子用于类比协程进化史: 
+    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个    
+	协程的种类很多, 实现也千奇百怪. 我们这里要讲的协程模型, 通 winds 的纤程概念很像. 
+    属于高级的同步串行控制模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完
+    整的虚拟地址空间，不依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，
+    与进程内的其它线程一起共享分配给该进程的所有资源. 进程和线程是一对多关系, 同样我们
+    这里要说的协程也一样. 一个线程中可以有多个协程. 它同线程相比区别再于, 线程是操作系
+    统控制调度可以做到异步并行, 此协程是程序自身控制调度同步串行. 举个数码宝贝例子用于
+    类比协程进化史: 
 	滚球兽  －>  亚古兽  －>  暴龙兽  －>  机械暴龙兽  －>  战斗暴龙兽
 
 ![进化](./img/进化.jpg)
@@ -1019,10 +1023,10 @@ rwlock_unwlock(struct rwlock * lock) {
 
 ### 3.4.2 协程库 winds 储备
 
-    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加了一
-	种纤程, 以便能够非常容易地将现有的 UNIX 服务器应用程序移植到 Windows 中". 这就是纤程概
-	念的由来. 这里会详细说明关于 winds fiber 常用 api 接口. 先浏览当前线程开启纤程相关接口
-	说明.
+    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加
+    了一种纤程, 以便能够非常容易地将现有的 UNIX 服务器应用程序移植到 Windows 中". 这
+    就是纤程概念的由来. 这里会详细说明关于 winds fiber 常用 api 接口. 先浏览当前线程
+    开启纤程相关接口说明.
 
 ```C
 //
@@ -1105,37 +1109,37 @@ WINBASEAPI VOID WINAPI SwitchToFiber(__in LPVOID lpFiber);
 #include <windows.h>
 
 static void WINAPI fiber_run(LPVOID fiber) {
-	puts("fiber_run begin");
-	// 切换到主纤程中
-	SwitchToFiber(fiber);
-	puts("fiber_run e n d");
+    puts("fiber_run begin");
+    // 切换到主纤程中
+    SwitchToFiber(fiber);
+    puts("fiber_run e n d");
 
-	// 主动切换到主纤程中, 子纤程不会主动切换到主纤程
-	SwitchToFiber(fiber);
+    // 主动切换到主纤程中, 子纤程不会主动切换到主纤程
+    SwitchToFiber(fiber);
 }
 
 //
 // winds fiber hello world
 //
 int main(int argc, char * argv[]) {
-	PVOID fiber, fibec;
-	// A pointer to a variable that is passed to the fiber. 
-	// The fiber can retrieve this data by using the GetFiberData macro.
+    PVOID fiber, fibec;
+    // A pointer to a variable that is passed to the fiber. 
+    // The fiber can retrieve this data by using the GetFiberData macro.
     fiber = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
-	// 创建普通纤程, 当前还是在主纤程中
-	fibec = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, fiber_run, fiber);
-	puts("main ConvertThreadToFiberEx begin");
+    // 创建普通纤程, 当前还是在主纤程中
+    fibec = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, fiber_run, fiber);
+    puts("main ConvertThreadToFiberEx begin");
 
-	SwitchToFiber(fibec);
-	puts("main ConvertThreadToFiberEx SwitchToFiber begin");
-	
-	SwitchToFiber(fibec);
-	puts("main ConvertThreadToFiberEx SwitchToFiber again begin");
+    SwitchToFiber(fibec);
+    puts("main ConvertThreadToFiberEx SwitchToFiber begin");
 
-	DeleteFiber(fibec);
-	ConvertFiberToThread();
-	puts("main ConvertThreadToFiberEx e n d");
-	return EXIT_SUCCESS;
+    SwitchToFiber(fibec);
+    puts("main ConvertThreadToFiberEx SwitchToFiber again begin");
+
+    DeleteFiber(fibec);
+    ConvertFiberToThread();
+    puts("main ConvertThreadToFiberEx e n d");
+    return EXIT_SUCCESS;
 }
 ```
 
@@ -1153,13 +1157,14 @@ int main(int argc, char * argv[]) {
 
 ![fiber](./img/fiber.png)
 
-    储备 winds fiber 部分画上句号了. 现在市场上 winds 高级工程师很少了, 因为功法少, 太邪
-    乎了. 吃亏不讨好~ (从买的书籍上看抛开米国, 韩国对 winds 研究的比较深入)
+    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加
+    储备 winds fiber 部分画上句号了. 现在市场上 winds 高级工程师很少了, 因为功法少, 
+    太邪乎了. 吃亏不讨好~ (从买的书籍上看抛开米国, 韩国对 winds 研究的比较深入)
 
 ### 3.4.3 协程 linux 储备
 
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
-    对象, 是一种上下文记录跳转机制. 翻译了些高频率用的 api 手册如下:
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文
+    ucp 对象, 是一种上下文记录跳转机制. 翻译了些高频率用的 api 手册如下:
 
 ```C
 #include <ucontext.h>
@@ -1214,10 +1219,10 @@ void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
 int swapcontext (ucontext_t * ocp, ucontext_t * ucp);
 ```
 
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
-    相比 winds fiber, linux ucontext 确实比较清爽. 其中 struct ucontext 和 
-    struct sigaltstack 加了注释地方需要关注, uc_link 设置执行顺序, uc_stack 指定当前上
-    下文堆栈信息. 有了这些知识, 我们在 linux 上演练下, 并展示输出结果.
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文
+    ucp 相比 winds fiber, linux ucontext 确实比较清爽. 其中 struct ucontext 和 
+    struct sigaltstack 加了注释地方需要关注, uc_link 设置执行顺序, uc_stack 指定当
+    前上下文堆栈信息. 有了这些知识, 我们在 linux 上演练下, 并展示输出结果.
 
 ```C
 #include <stdio.h>
@@ -1377,15 +1382,15 @@ extern int co_status(comng_t g, int id);
 
 #endif//_COROUTINE_H
 ```
-
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
-    其中 CO_READY 表示准备状态, 协程库内部维护了一个简易状态机. 方便记录当前协程是啥状况. 切换
-    可以状态大体如下
+   
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文
+    ucp 其中 CO_READY 表示准备状态, 协程库内部维护了一个简易状态机. 方便记录当前协程
+    是啥状况. 切换可以状态大体如下
 		co_create   -> CO_Ready
 		co_resume   -> CO_Running
 		co_yield    -> CO_Suspend
-    当创建的协程执行完毕后会被动变成 CO_Dead. 主协程默认一直运行不参与状态切换中. 协调控制所有子
-    协程. 而 coroutine.c implement 如下, 同样是分平台去实现. 
+    当创建的协程执行完毕后会被动变成 CO_Dead. 主协程默认一直运行不参与状态切换中. 协调
+    控制所有子协程. 而 coroutine.c implement 如下, 同样是分平台去实现. 
 
 ```C
 #include "coroutine$linux.h"
@@ -1453,14 +1458,14 @@ int main(void) {
 
     可以能通过 resume 和 yield 来回切, 分析出执行流程. 这里也不妨剧透结果.
 
-![协程测试结果](./img/协程测试结果.png)
+![协程测试结果](./img/croutine.png)
 
-    扯一点, 这里用的 (co_f)run 编译时替换运行时 struct args * <- arg 会更快些. 当然也
-    可以通过宏伪造函数. 纯当一类奇巧淫技吧!
+    扯一点, 这里用的 (co_f)run 编译时替换运行时 struct args * <- arg 会更快些. 当然
+    也可以通过宏伪造函数. 纯当一类奇巧淫技吧!
 
 ### 3.4.5 协程库实现
 
-    讲的有点琐碎, 主要还是需要通过代码布局感受作者意图. 协程库实现总思路通过 coroutine.c 
+    有点琐碎, 主要还是需要通过代码布局感受作者意图. 协程库实现总思路通过 coroutine.c 
     就可以看出来了. winds 利用 fiber 机制实现一份, liunx 通过 ucontext 机制实现一份. 
     先看 coroutine$winds.h 数据结构设计部分.
 
@@ -1510,9 +1515,9 @@ struct comng {
 #endif//_COROUTINE$WINDS_H
 ```
 
-    对于这种基础库方面设计, 懂了很好懂, 不懂看着有点难受. 但难受会是自我进步的契机. 功法修
-    炼还是循序渐进. 通过 struct comng 和 struct co 数据结构大致可以看出来通过循环队列
-    来管理所有协程对象. 此刻是时候拉开序幕了
+    对于这种基础库方面设计, 懂了很好懂, 不懂看着有点难受. 但难受会是自我进步的契机. 功
+    法修炼还是循序渐进. 通过 struct comng 和 struct co 数据结构大致可以看出来通过循环
+    队列来管理所有协程对象. 此刻是时候拉开序幕了
 
 ```C
 //
@@ -1623,9 +1628,9 @@ co_yield(comng_t g) {
 }
 ```
 
-    co_create 创建一个协程, co_yield 挂起当前协程并切换到主协程. comng::cs 中保存所有
-    的协程对象, 不够就 realloc, 够直接使用操作. 其中查询用的协程对象循环查找. 协程之间的
-    跳转采用先记录当前环境, 后跳转思路. 那开始看激活操作
+    co_create 创建一个协程, co_yield 挂起当前协程并切换到主协程. comng::cs 中保存所
+    有的协程对象, 不够就 realloc, 够直接使用操作. 其中查询用的协程对象循环查找. 协程
+    之间的跳转采用先记录当前环境, 后跳转思路. 那开始看激活操作
 
 ```C
 // comng_run - 协程管理器运行实体
@@ -1684,216 +1689,270 @@ co_resume(comng_t g, int id) {
 }
 ```
 
-    到这关于 winds 协程库实现部分基本都稿完了. 就是数据结构和系统接口的一套杂糅. 而关于 
-    linux 部分封装, 相比 winds 只是写操作细节不一样. 重点也是看围绕状态切换那些部分
+    到这关于 winds 协程库实现部分基本都稿完了. 就是数据结构和系统接口的一套杂糅. 而关
+    于 linux 部分封装, 相比 winds 只是写操作细节不一样. 重点也是看围绕状态切换那些部分
 
 ```C
-#if !defined(_H_SIMPLEC_SCOROUTINE$LINUX) && defined(__GNUC__)
-#define _H_SIMPLEC_SCOROUTINE$LINUX
+#if !defined(_COROUTINE$LINUX_H) && !defined(_WIN32)
+#define _COROUTINE$LINUX_H
 
-#include <scoroutine.h>
-#include <ucontext.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "coroutine.h"
 
-// 声明协程结构 和 协程管理器结构
-struct sco {
-	char * stack;			// 当前协程栈指针
-	ucontext_t ctx;			// 当前协程运行的上下文环境
-	ptrdiff_t cap;			// 当前栈的容量
-	ptrdiff_t cnt;			// 当前栈的大小
+#if defined(__linux__)
+#  include <ucontext.h>
+#else
+#  include <sys/ucontext.h>
+#endif
 
-	sco_f func;				// 协程体执行
-	void * arg;				// 用户输入的参数
-	int status;				// 当前协程运行状态 SCO_*
+// 声明 co - 协程结构 和 comng - 协程管理器结构
+struct co {
+    co_f func;              // 协程执行行为
+    void * arg;             // 协程执行参数
+    int status;             // 当前协程状态 CO_*
+    ucontext_t ctx;         // 当前协程运行的上下文环境
+
+    char * stack;           // 当前协程栈指针
+    ptrdiff_t cap;          // 当前栈的容量
+    ptrdiff_t size;         // 当前栈使用大小
 };
 
-// 构建 struct sco 协程对象
-static inline struct sco * _sco_new(sco_f func, void * arg) {
-	struct sco * co = malloc(sizeof(struct sco));
-	assert(co && func);
-	co->func = func;
-	co->arg = arg;
-	co->status = SCO_READY;
+// co_new - 构建 struct co 协程对象
+inline struct co * co_new(co_f func, void * arg) {
+    struct co * c = malloc(sizeof(struct co));
+    assert(c && func);
+    c->func = func;
+    c->arg = arg;
+    c->status = CO_READY;
 
-	co->stack = NULL;
-	co->cap = 0;
-	co->cnt = 0;
-
-	return co;
+    c->stack = NULL;
+    c->cap = c->size = 0;
+    return c;
 }
 
-// 销毁一个协程对象
-static inline void _sco_delete(struct sco * co) {
-	free(co->stack);
-	free(co);
+// co_die - 销毁一个协程对象
+inline void co_die(struct co * c) {
+    free(c->stack);
+    free(c);
 }
 
-struct scomng {
-	char stack[_INT_STACK];	// 当前协程中开辟的栈对象
-	ucontext_t main;		// 当前协程上下文对象
+// co_savestack 保存当前运行的栈信息
+static void co_savestack(struct co * c, char * top) {
+    // x86 CPU 栈从高位向低位增长
+    char dummy = 0;
+    ptrdiff_t size = top - &dummy;
+    assert(size <= STACK_INT);
+    if (c->cap < size) {
+        free(c->stack);
+        c->stack = malloc(c->cap = size);
+        assert(c->stack);
+    }
+    c->size = size;
+    memcpy(c->stack, &dummy, size);
+}
 
-	int running;			// 当前协程中运行的协程id
+struct comng {
+    struct co ** cs;        // 协程对象集, 循环队列
+    int cap;                // 协程对象集容量
+    int idx;                // 当前协程集中轮询到的索引
+    int len;                // 当前协程集存在的协程个数
 
-	struct sco ** cos;		// 协程对象集, 循环队列
-	int cap;				// 协程对象集容量
-	int idx;				// 当前协程集中轮询到的索引
-	int cnt;				// 当前存在的协程个数
+    int running;            // 当前协程集中运行的协程 id
+    ucontext_t ctx;         // 当前协程集上下文对象
+    char stack[STACK_INT];  // 当前协程集中用的栈
 };
 
-inline scomng_t
-sco_open(void) {
-	struct scomng * comng = malloc(sizeof(struct scomng));
-	assert(NULL != comng);
-	comng->running = -1;
-	comng->cos = calloc(_INT_COROUTINE, sizeof(struct sco *));
-	comng->cap = _INT_COROUTINE;
-	comng->idx = 0;
-	comng->cnt = 0;
-	assert(NULL != comng->cos);
-	return comng;
+// comng_run - 协程运行的主体
+static void comng_run(uint32_t l32, uint32_t h32) {
+    uintptr_t ptr = (uintptr_t)l32 | ((uintptr_t)h32 << 32);
+    struct comng * g = (struct comng *)ptr;
+    int id = g->running;
+    struct co * c = g->cs[id];
+
+    // 执行协程体
+    c->func(g, c->arg);
+
+    c->status = CO_DEAD;
+    co_die(c);
+
+    g->cs[id] = NULL;
+    --g->len;
+    g->idx = id;
+    g->running = -1;
 }
 
-void
-sco_close(scomng_t sco) {
-	int i = -1;
-	while (++i < sco->cap) {
-		struct sco * co = sco->cos[i];
-		if (co) {
-			_sco_delete(co);
-			sco->cos[i] = NULL;
-		}
-	}
-
-	free(sco->cos);
-	sco->cos = NULL;
-	free(sco);
+//
+// co_open - 开启协程系统, 返回协程管理器对象
+// return   : 创建的协程管理器对象
+//
+comng_t 
+co_open(void) {
+    struct comng * g = malloc(sizeof(struct comng));
+    assert(NULL != g);
+    g->running = -1;
+    g->cs = calloc(COROUTINE_INT, sizeof(struct co *));
+    assert(NULL != g->cs);
+    g->cap = COROUTINE_INT;
+    g->idx = g->len = 0;
+    return g;
 }
 
-int
-sco_create(scomng_t sco, sco_f func, void * arg) {
-	struct sco * co = _sco_new(func, arg);
-	struct sco ** cos = sco->cos;
-	int cap = sco->cap;
-	// 下面开始寻找, 如果数据足够的话
-	if (sco->cnt < sco->cap) {
-		// 当循环队列去查找
-		int idx = sco->idx;
-		do {
-			if (NULL == cos[idx]) {
-				cos[idx] = co;
-				++sco->cnt;
-				++sco->idx;
-				return idx;
-			}
-			idx = (idx + 1) % cap;
-		} while (idx != sco->idx);
+//
+// co_close - 关闭开启的协程系统
+// g        : 协程管理器对象
+// return   : void
+//
+void 
+co_close(comng_t g) {
+    for (int i = 0; i < g->cap; ++i) {
+        struct co * c = g->cs[i];
+        if (c) {
+            co_die(c);
+            g->cs[i] = NULL;
+        }
+    }
 
-		assert(idx == sco->idx);
-		return -1;
-	}
-
-	// 这里需要重新构建空间
-	cos = realloc(cos, sizeof(struct sco *) * cap * 2);
-	assert(NULL != cos);
-	memset(cos + cap, 0, sizeof(struct sco *) * cap);
-	sco->cos = cos;
-	sco->cap = cap << 1;
-	++sco->cnt;
-	cos[sco->idx] = co;
-	return sco->idx++;
+    free(g->cs);
+    g->cs = NULL;
+    free(g);
 }
 
-// 协程运行的主体
-static inline void _sco_main(uint32_t low32, uint32_t hig32) {
-	uintptr_t ptr = (uintptr_t)low32 | ((uintptr_t)hig32 << 32);
-	struct scomng * comng = (struct scomng *)ptr;
-	int id = comng->running;
-	struct sco * co = comng->cos[id];
-	// 执行协程体
-	co->func(comng, co->arg);
-	co = comng->cos[id];
-	co->status = SCO_DEAD;
-	_sco_delete(co);
-	comng->cos[id] = NULL;
-	--comng->cnt;
-	comng->idx = id;
-	comng->running = -1;
+//
+// co_create - 创建一个就绪态协程
+// g        : 协程管理器对象
+// func     : 协程体执行的函数体
+// arg      : 协程体中传入的参数
+// return   : 返回协程 id
+//
+int 
+co_create(comng_t g, co_f func, void * arg) {
+    int cap = g->cap;
+    struct co ** cs = g->cs;
+    struct co * c = co_new(func, arg);
+
+    // 下面开始寻找, 如果数据足够的话
+    if (g->len < g->cap) {
+        // 当循环队列去查找
+        int idx = g->idx;
+        do {
+            if (NULL == cs[idx]) {
+                cs[idx] = c;
+                ++g->len;
+                ++g->idx;
+                return idx;
+            }
+            idx = (idx + 1) % cap;
+        } while (idx != g->idx);
+
+        assert(idx == g->idx);
+        return -1;
+    }
+
+    // 这里需要重新构建空间
+    cs = realloc(cs, sizeof(struct co *) * cap<<1);
+    assert(NULL != cs);
+    memset(cs + cap, 0, sizeof(struct co *) * cap);
+    cs[g->idx] = c;
+    g->cap = cap<<1;
+    g->cs = cs;
+    ++g->len;
+    return g->idx++;
 }
 
-void
-sco_resume(scomng_t sco, int id) {
-	uintptr_t ptr;
-	struct sco * co;
-	int status;
-	int running = sco->running;
-	assert(running == -1 && id >= 0 && id < sco->cap);
+//
+// co_resume - 通过协程 id 激活协程
+// g        : 协程管理器对象
+// id       : 协程id
+// return   : void
+//
+void 
+co_resume(comng_t g, int id) {
+    int status, running = g->running;
+    assert(running == -1 && id >= 0 && id < g->cap);
 
-	// 下面是协程 SCO_READY 和 SCO_SUSPEND 处理
-	co = sco->cos[id];
-	if ((!co) || (status = co->status) == SCO_DEAD)
-		return;
+    // 下面是协程 CO_READY 和 CO_SUSPEND 处理
+    struct co * c = g->cs[id];
+    if ((!c) || (status = c->status) == CO_DEAD)
+        return;
 
-	sco->running = id;
-	co->status = SCO_RUNNING;
-	switch (status) {
-	case SCO_READY:
-		// 兼容x64指针通过makecontext传入
-		ptr = (uintptr_t)sco;
-		// 构建栈和运行链
-		getcontext(&co->ctx);
-		co->ctx.uc_stack.ss_sp = sco->stack;
-		co->ctx.uc_stack.ss_size = _INT_STACK;
-		co->ctx.uc_link = &sco->main;
-		makecontext(&co->ctx, (void(*)())_sco_main, 2, (uint32_t)ptr, (uint32_t)(ptr >> 32));
-		// 保存当前运行状态到sco->main, 然后跳转到 co->ctx运行环境中
-		swapcontext(&sco->main, &co->ctx);
-		break;
-	case SCO_SUSPEND:
-		// stack add is high -> low
-		memcpy(sco->stack + _INT_STACK - co->cnt, co->stack, co->cnt);
-		swapcontext(&sco->main, &co->ctx);
-		break;
-	default:
-		assert(co->status && 0);
-	}
+    g->running = id;
+    c->status = CO_RUNNING;
+    switch (status) {
+    case CO_READY: {
+        // 兼容 x64 指针通过2个 4 字节传入到 makecontext 中
+        uintptr_t ptr = (uintptr_t)g;
+        uint32_t l32 = (uint32_t)ptr;
+        uint32_t h32 = (uint32_t)(ptr >> 32);
+
+        // 构建栈和上下文环境运行链
+        getcontext(&c->ctx);
+        c->ctx.uc_link = &g->ctx;
+        c->ctx.uc_stack.ss_sp = g->stack;
+        c->ctx.uc_stack.ss_size = STACK_INT;
+        makecontext(&c->ctx, (void(*)())comng_run, 2, l32, h32);
+        // 保存当前运行状态到 g->ctx, 然后跳转到 co->ctx 运行环境中
+        swapcontext(&g->ctx, &c->ctx);
+    }
+    break;
+    case CO_SUSPEND:
+        // stack add is high -> low
+        memcpy(g->stack + STACK_INT - c->size, c->stack, c->size);
+        swapcontext(&g->ctx, &c->ctx);
+    break;
+    default:
+        assert(c->status && 0);
+    }
 }
 
-// 保存当前运行的堆栈信息
-static void _sco_savestack(struct sco * co, char * top) {
-	char dummy = 0;
-	ptrdiff_t size = top - &dummy;
-	assert(size <= _INT_STACK);
-	if (co->cap < size) {
-		free(co->stack);
-		co->cap = size;
-		co->stack = malloc(size);
-	}
-	co->cnt = size;
-	memcpy(co->stack, &dummy, size);
+//
+// co_yield - 挂起正在运行的协程
+// g        : 协程管理器对象
+// return   : void
+//
+void 
+co_yield(comng_t g) {
+    int id = g->running;
+    if (id < 0 || id >= g->cap || !g->cs[id])
+        return;
+
+    struct co * c = g->cs[id];
+    assert((char *)&c > g->stack);
+    co_savestack(c, g->stack + STACK_INT);
+
+    c->status = CO_SUSPEND;
+    g->running = -1;
+
+    swapcontext(&c->ctx, &g->ctx);
 }
 
-void
-sco_yield(scomng_t sco) {
-	struct sco * co;
-	int id = sco->running;
-	if ((id < 0 || id >= sco->cap) || !(co = sco->cos[id]))
-		return;
-	assert((char *)&co > sco->stack);
-	_sco_savestack(co, sco->stack + _INT_STACK);
-	co->status = SCO_SUSPEND;
-	sco->running = -1;
-	swapcontext(&co->ctx, &sco->main);
+//
+// comng_running - 获取正在运行的协程 id
+// g        : 协程系统管理器
+// retrunr  : < 0 表示没有协程在运行
+//
+inline int 
+comng_running(comng_t g) {
+    return g->running;
 }
 
-#endif // !_H_SIMPLEC_SCOROUTINE$LINUX
+//
+// co_status - 获取对应协程的状态
+// g        : 协程管理器对象
+// id       : 协程 id
+// return   : 协程状态
+//
+inline int co_status(comng_t g, int id) {
+    assert(g && id >= 0 && id < g->cap);
+    return g->cs[id] ? g->cs[id]->status : CO_DEAD;
+}
+
+#endif//_COROUTINE$LINUX_H
 ```
 
-    需要注意的几点就是 makecontext 默认可变参数全是 int 类型, 所以注意 x64指针拆分.
-    当我们要 sco_yield 的时候需要保存当前阻塞的栈状态 _sco_savestack, 方便恢复.
-    目前疯狂贴代码, 但愿下次不会了, 毕竟跨平台代码很多时候都是粗暴通过宏分支解决.
-    后面赠送个 time 时间模块的代码, 做为这个金丹功法的额外赠送. 重复一下下: 
-	程序员世界看数据结构和操作系统, 同样自然世界看得是
+    疯狂贴代码, 惨不忍睹. 目前主流的跨平台代码也多是粗暴的各自独立. 杂糅会导致性能和维
+    护性都不高. 这里需要注意的地方时 makecontext 默认的可变参数全是 int 类型, 所以只
+    能将 x64 指针分拆传入. 当我们要 co_yield 挂起当前协程时候, 需要保存当前挂起的栈信
+    息调用 co_savestack 以便下次恢复. co_savestack 隐患是假定了当前系统栈方向时向下
+    增上的. 如同在野外游历, 狭路遇大妖, 为保命不计后果决绝吃下小药丸, 疾飞而撤. 
 
 *All knowledge is, in final analysis, history.*
 
@@ -1901,304 +1960,478 @@ sco_yield(scomng_t sco) {
 
 *All judgements are, in their rationale, statistics.*
 
+    后面赠送个 time 时间模块的阅读理解, 做为这个金丹功法的额外回馈. 重复一下下, 程序员
+    的世界看数据结构和操作系统. 同样自然世界也是, 万物是数据结构, 宇宙是操作系统.
+
 ### 3.5 高效的时间业务库
 
-    底层库一定会有它, 时间业务帮助库. 简单基础必须. 例如业务常见字符串和时间戳来回转.
-    是否同一天, 同一周, 时间开始点什么鬼. 那么阅读理解开始
+        底层库一定会有它, 时间业务模块库. 基础架构中必须, 例如业务常见字符串和时间戳来
+    回转. 是否同一天, 同一周, 时间开始点什么鬼的. 那么阅读理解开始
 
 ```C
-#ifndef _H_SIMPLEC_SCTIMEUTIL
-#define _H_SIMPLEC_SCTIMEUTIL
+#ifndef _TIMES_H
+#define _TIMES_H
 
 #include <time.h>
+#include <stdio.h>
 #include <stdbool.h>
 
 //
-// 1s = 1000ms = 1000000us = 1000000000ns
-// 1秒  1000毫秒  1000000微秒  1000000000纳秒
 // ~ 力求最小时间业务单元 ~ 
+// 1s(秒) = 1000ms(毫秒) = 1000000us(微秒) = 1000000000ns(纳秒)
 //
 
-#ifdef __GNUC__
+#ifdef _WIN32
+
+#include <winsock2.h>
+
+//
+// msleep - 睡眠函数, 颗粒度是毫秒.
+// ms       : 睡眠的毫秒数
+// return   : void
+//
+inline void msleep(int ms) {
+    Sleep(ms);
+}
+
+//
+// usleep - 微秒级别等待函数
+// usec     : 等待的微秒
+// return   : 0 on success.  On error, -1 is returned.
+//
+extern int usleep(unsigned usec);
+
+//
+// gettimeofday - Linux sys/time.h 得到微秒时间实现
+// tv       : 返回秒数和微秒数
+// tz       : 返回时区, winds 上这个变量没有作用
+// return   : success is 0
+//
+extern int gettimeofday(struct timeval * tv, void * tz);
+
+//
+// localtime_r - 获取当前时间, 线程安全
+// timep    : 输入的时间戳指针
+// result   : 返回输出时间结构
+// return   : 失败 NULL, 正常返回 result
+//
+inline struct tm * localtime_r(const time_t * timep, struct tm * result) {
+    return localtime_s(result, timep) ? NULL : result;
+}
+
+#else
 
 #include <unistd.h>
 #include <sys/time.h>
 
-//
-// sh_msleep - 睡眠函数, 时间颗粒度是毫秒.
-// m		: 待睡眠的毫秒数
-// return	: void
-//
-#define sh_msleep(m) \
-		usleep(m * 1000)
+inline void msleep(int ms) {
+    usleep(ms * 1000);
+}
 
 #endif
 
-// 为Visual Studio导入一些和linux上优质思路
-#ifdef _MSC_VER
+// times_t - 时间串类型
+#define INT_TIMES (64)
+typedef char times_t[INT_TIMES];
 
-#include <windows.h>
+//
+// times_get - 解析时间串, 返回时间戳
+// ns           : 时间串内容 
+// ot           : 返回得到的时间戳
+// om           : 返回得到的时间结构体
+// return       : 返回 true 表示构造成功
+//
+extern bool times_get(times_t ns, time_t * ot, struct tm * om);
 
-#define sh_msleep(m) \
-		Sleep(m)
+//
+// time_get - 解析时间串, 返回时间戳
+// ns           : 时间串内容  
+// return       : < 0 is error
+//
+extern time_t time_get(times_t ns);
+
+//
+// time_day - 判断时间戳是否是同一天
+// n            : 第一个时间戳
+// t            : 第二个时间戳
+// return       : true 表示同一天
+//
+extern bool time_day(time_t n, time_t t);
+
+//
+// time_now - 判断时间戳是否是今天
+// t            : 待判断的时间戳
+// return       : 返回当前时间戳, < 0 is error
+//
+extern time_t time_now(time_t t);
+
+//
+// time_week - 判断时间戳是否是同一周
+// n            : 第一个时间戳
+// t            : 第二个时间戳
+// return       : true 表示同一周
+//
+extern bool time_week(time_t n, time_t t);
+
+//
+// times_day - 判断时间串是否是同一天
+// ns           : 第一个时间串
+// ts           : 第二个时间串
+// return       : true 表示同一天
+//
+extern bool times_day(times_t ns, times_t ts);
+
+//
+// times_week - 判断时间串是否是同一周
+// ns           : 第一个时间串
+// ts           : 第二个时间串
+// return       : true 表示同一周
+//
+extern bool times_week(times_t ns, times_t ts);
+
+//
+// times_fmt - 通过 fmt 格式最终拼接一个字符串
+// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// out          : 最终保存的内容
+// sz           : buf 长度
+// return       : 返回生成串长度
+//
+int times_fmt(const char * fmt, char out[], size_t sz);
+
+//
+// times_buf - 存储毫秒串 "2016-07-10 22:38:34 500"
+// ns           : 返回生成串
+// return       : 返回生成串长度
+#define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
+inline int times_buf(times_t ns) {
+    return times_fmt(TIMES_STR, ns, sizeof(times_t));
+}
+
+//
+// times_str - 得到毫秒串
+// ns           : 返回生成串
+// return       : 返回生成串
+//
+inline char * times_str(times_t ns) {
+    times_buf(ns);
+    return ns;
+}
+
+#endif//_TIMES_H
+```
+
+    后面赠送个 time 时间模块的阅读理解, 做为这个金丹功法的额外回馈. 重复一下下, 程序员
+    的世界道友是否看到 localtime_r 函数. 这种函数带着浓浓的 linux api 的设计口味. 标
+    识是可重入的. 这就扯到另一个常被误导的话题了可重入和线程安全. 可重入是基于操作系统
+    中断层面的定义, 多数是系统发生中断瞎比调用这个函数仍然没有问题, 表示此函数可重入. 
+    线程安全呢? 它是线程调度层面的定义, 希望多个线程之间瞎比调用这个函数, 程序最终运行
+    结果仍然能够符合预期思路. 二者有相关性, 例如多数可线程安全的函数可重入. 但而二者是
+    个完全不同的概念. 例如 malloc 内部通过锁来实现线程安全, 如果调用 malloc 过程中发
+    生中断, 中断程序再次调用 malloc 那么两次 lock 操作会导致死锁. 因而有些线程安全的
+    函数是不可重入. 另外一个例子就是一个函数打开文件读取内容这是可重入的, 但却不是线程
+    安全的(文件读写非线程安全), 因为可重入函数不一定线程安全. 希望到这里你能对可重入和
+    线程安全有个更清晰的认识. 那继续剖析上面的 times.h 接口设计. 推荐随后的代码可以全
+    部拔到你的项目中. 它们也算是久经考验的忠诚战士. 首先看一个飘逸的字符串解析为系统时
+    间结构的函数
+
+```C
+// times_tm - 从时间串中提取出来年月日时分秒
+bool times_tm(times_t ns, struct tm * om) {
+    int c, num, * es, * py;
+    if ((!ns) || !(c = *ns) || c < '0' || c > '9')
+        return false;
+
+    num = 0;
+    es = &om->tm_sec;
+    py = &om->tm_year;
+    do {
+        if (c >= '0' && c <= '9') {
+            num = 10 * num + c - '0';
+            c = *++ns;
+            continue;
+        }
+
+        *py-- = num;
+        if (py < es)
+            break;
+
+        // 去掉特殊字符, 重新开始
+        for (;;) {
+            if ((c = *++ns) == '\0')
+                return false;
+            if (c >= '0' && c <= '9')
+                break;
+        }
+        num = 0;
+    } while (c);
+
+    // true : py < es || c == '\0' && py == es
+    if (py < es) return true;
+    if (py == es) {
+        *es = num;
+        return true;
+    }
+    return false;
+}
+
+//
+// times_get - 解析时间串, 返回时间戳
+// ns           : 时间串内容 
+// ot           : 返回得到的时间戳
+// om           : 返回得到的时间结构体
+// return       : 返回 true 表示构造成功
+//
+bool
+times_get(times_t ns, time_t * ot, struct tm * om) {
+    time_t t;
+    struct tm m;
+
+    // 先高效解析出年月日时分秒
+    if (!times_tm(ns, &m))
+        return false;
+
+    // 得到时间戳, 失败返回false
+    m.tm_mon -= 1;
+    m.tm_year -= 1900;
+    if ((t = mktime(&m)) < 0)
+        return false;
+
+    // 返回最终结果
+    if (ot) *ot = t;
+    if (om) *om = m;
+    return true;
+}
+
+//
+// time_get - 解析时间串, 返回时间戳
+// ns           : 时间串内容  
+// return       : < 0 is error
+//
+inline time_t
+time_get(times_t ns) {
+    struct tm m;
+    // 先高效解析出年月日时分秒
+    if (!times_tm(ns, &m))
+        return -1;
+    // 得到时间戳, 失败返回false
+    m.tm_mon -= 1;
+    m.tm_year -= 1900;
+    return mktime(&m);
+}
+```
+
+    又好又快, 思路是将解析时间字符串, 分隔为一系列的数值. 再巧妙利用指针移位赋值. 继续
+    看两个时间戳是否是同一天的小学数学分析
+
+```C
+//
+// time_day - 判断时间戳是否是同一天
+// n            : 第一个时间戳
+// t            : 第二个时间戳
+// return       : true 表示同一天
+//
+inline bool
+time_day(time_t n, time_t t) {
+    // China local 适用, 得到当前天数
+    // GMT [World] + 8 * 3600 = CST [China]
+    n = (n + 8UL * 3600) / (24 * 3600);
+    t = (t + 8UL * 3600) / (24 * 3600);
+    return n == t;
+}
+
+//
+// time_now - 判断时间戳是否是今天
+// t            : 待判断的时间戳
+// return       : 返回当前时间戳, < 0 is error
+//
+inline time_t
+time_now(time_t t) {
+    time_t n = time(NULL);
+    return time_day(n, t) ? n : -1;
+}
+
+//
+// time_week - 判断时间戳是否是同一周
+// n            : 第一个时间戳
+// t            : 第二个时间戳
+// return       : true 表示同一周
+//
+bool
+time_week(time_t n, time_t t) {
+    time_t p;
+    struct tm m;
+    // 获取最大时间存在 n 中
+    if (n < t) {
+        p = n; n = t; t = p;
+    }
+
+    // 得到 n 表示的当前时间
+    localtime_r(&n, &m);
+    // 得到当前时间到周一起点的时间差
+    m.tm_wday = m.tm_wday ? m.tm_wday - 1 : 6;
+    p = m.tm_wday * 24 * 3600 + m.tm_hour * 3600 +
+        m.tm_min * 60 + m.tm_sec;
+
+    // [min, n], n = max(n, t) 表示在同一周内
+    return t >= n - p;
+}
+```
+
+    8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代
+    码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time 
+    UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说
+    道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更
+    规范. 对于 gettimeofday 还有usleep linux 上常用函数, 我们在 winds 实现如下.
+
+```C
+#ifdef _WIN32
 
 //
 // usleep - 微秒级别等待函数
-// usec		: 等待的微秒
-// return	: The usleep() function returns 0 on success.  On error, -1 is returned.
+// usec     : 等待的微秒
+// return   : 0 on success.  On error, -1 is returned.
 //
-extern int usleep(unsigned usec);
+int
+usleep(unsigned usec) {
+    int ret = -1;
+    // Convert to 100 nanosecond interval, negative value indicates relative time
+    LARGE_INTEGER t = { .QuadPart = -10ll * usec };
 
-/*
- * 返回当前得到的时间结构体, 高仿linux上调用
- * pt	: const time_t * , 输入的时间戳指针
- * ptm	: struct tm * , 输出的时间结构体
- *		: 返回 ptm 值
- */
-#define localtime_r(pt, ptm) localtime_s(ptm, pt), ptm
+    HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    if (timer) {
+        // 负数以100ns为单位等待, 正数以标准FILETIME格式时间
+        SetWaitableTimer(timer, &t, 0, NULL, NULL, FALSE);
+        WaitForSingleObject(timer, INFINITE);
+        if (GetLastError() == ERROR_SUCCESS)
+            ret = 0;
+        CloseHandle(timer);
+    }
+
+    return ret;
+}
+
+//
+// gettimeofday - Linux sys/time.h 得到微秒时间实现
+// tv       : 返回秒数和微秒数
+// tz       : 返回时区, winds 上这个变量没有作用
+// return   : success is 0
+//
+int 
+gettimeofday(struct timeval * tv, void * tz) {
+    struct tm m;
+    SYSTEMTIME se;
+
+    GetLocalTime(&se);
+    m.tm_year = se.wYear - 1900;
+    m.tm_mon = se.wMonth - 1;
+    m.tm_mday = se.wDay;
+    m.tm_hour = se.wHour;
+    m.tm_min = se.wMinute;
+    m.tm_sec = se.wSecond;
+    m.tm_isdst = -1; // 不考虑夏令时
+
+    tv->tv_sec = (long)mktime(&m);
+    tv->tv_usec = se.wMilliseconds * 1000;
+
+    return 0;
+}
 
 #endif
-
-// 定义时间串类型
-#define _INT_STULEN (64)
-typedef char stime_t[_INT_STULEN];
-
-/*
- * 将 [2016-7-10 21:22:34] 格式字符串转成时间戳
- * tstr	: 时间串分隔符只能是单字节的.
- * pt	: 返回得到的时间戳
- * otm	: 返回得到的时间结构体
- *		: 返回false表示构造失败
- */
-extern bool stu_gettime(stime_t tstr, time_t * pt, struct tm * otm);
-
-/*
- * 判断当前时间戳是否是同一天的.
- * lt : 判断时间一
- * rt : 判断时间二
- *    : 返回true表示是同一天, 返回false表示不是
- */
-extern bool stu_tisday(time_t lt, time_t rt);
-
-/*
- * 判断当前时间戳是否是同一周的.
- * lt : 判断时间一
- * rt : 判断时间二
- *    : 返回true表示是同一周, 返回false表示不是
- */
-extern bool stu_tisweek(time_t lt, time_t rt);
-
-//
-// stu_sisday - 判断当前时间串是否是同一天的.
-// ls : 判断时间一
-// rs : 判断时间二
-//    : 返回true表示是同一天, 返回false表示不是
-//
-extern bool stu_sisday(stime_t ls, stime_t rs);
-
-//
-// 判断当前时间串是否是同一周的.
-// ls : 判断时间一
-// rs : 判断时间二
-//    : 返回true表示是同一周, 返回false表示不是
-//
-extern bool stu_sisweek(stime_t ls, stime_t rs);
-
-/*
- * 将时间戳转成时间串 [2016-07-10 22:38:34]
- * nt	: 当前待转的时间戳
- * tstr	: 保存的转后时间戳位置
- *		: 返回传入tstr的首地址
- */
-extern char * stu_gettstr(time_t nt, stime_t tstr);
-
-/*
- * 得到当前时间戳 [2016-7-10 22:38:34]
- * tstr	: 保存的转后时间戳位置
- *		: 返回传入tstr的首地址
- */
-extern char * stu_getntstr(stime_t tstr);
-
-//
-// stu_getmstr - 得到加毫秒的串 [2016-07-10 22:38:34 500]
-// tstr		: 保存最终结果的串
-// return	: 返回当前串长度
-//
-#define _STR_MTIME			"%04d-%02d-%02d %02d:%02d:%02d %03ld"
-extern size_t stu_getmstr(stime_t tstr);
-
-//
-// stu_getmstrn - 得到特定包含时间串, fmt 依赖 _STR_MTIME
-// buf		: 保存最终结果的串
-// len		: 当前buf串长度
-// fmt		: 输出格式串例如 -> "simplec-%04d%02d%02d-%02d%02d%02d-%03ld.log"
-// return	: 返回当前串长度
-//
-extern size_t stu_getmstrn(char buf[], size_t len, const char * const fmt);
-
-#endif // !_H_SIMPLEC_SCTIMEUTIL
 ```
 
-    下面开始剖析它了, 推荐随后的代码可以全部拔到你的项目中. 也算是久经考验的忠诚
-	战斗士. 首先看一个飘逸的字符串解析为系统时间结构的函数
+	扩展一点, 假如有个策划需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认
+    一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏
+    移量就可以. 例如我们假如在底层支持. 可以这么写
 
 ```C
-// 从时间串中提取出来年月日时分秒
-static bool _stu_gettm(stime_t tstr, struct tm * otm) {
-	char c;
-	int sum, * py, * es;
+#define DAYNEWSTART_INT	( 5UL * 3600 + 0 * 60 + 0)
 
-	if ((!tstr) || !(c = *tstr) || c < '0' || c > '9')
-		return false;
-
-	py = &otm->tm_year;
-	es = &otm->tm_sec;
-	sum = 0;
-	while ((c = *tstr) && py >= es) {
-		if (c >= '0' && c <= '9') {
-			sum = 10 * sum + c - '0';
-			++tstr;
-			continue;
-		}
-
-		*py-- = sum;
-		sum = 0;
-
-		// 去掉特殊字符, 一直找到下一个数字
-		while ((c = *++tstr) && (c < '0' || c > '9'))
-			;
-	}
-	// 非法, 最后解析出错
-	if (py != es)
-		return false;
-
-	*es = sum; // 保存最后秒数据
-	return true;
+inline bool time_isday(time_t n, time_t t) {
+    // China local 适用, 得到当前天数
+    // GMT [World] + 8 * 3600 = CST [China]
+    n = (n + 8UL * 3600 - DAYNEWSTART_INT) / (24 * 3600);
+    t = (t + 8UL * 3600 - DAYNEWSTART_INT) / (24 * 3600);
+    return n == t;
 }
+```
 
+	可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面偏移
+    量. 后面代码不再扩展解释, 大家多写多用, 将吸星大法练习精深. 本书很多素材基本都是在
+    游戏服务器中常用业务. 扯一点题外话, 游戏相比其它互联网项目而言, 开宝箱的几率很高. 
+    技术上多数吃老本, 新技术落后. 业务上面增删改查少很多. 总体而言重客户端和重玩法. 
+
+```C
+//
+// times_day - 判断时间串是否是同一天
+// ns           : 第一个时间串
+// ts           : 第二个时间串
+// return       : true 表示同一天
+//
 bool
-stu_gettime(stime_t tstr, time_t * pt, struct tm * otm) {
-	time_t t;
-	struct tm st;
-
-	// 先高效解析出年月日时分秒
-	if (!_stu_gettm(tstr, &st))
-		return false;
-
-	st.tm_year -= 1900;
-	st.tm_mon -= 1;
-	// 得到时间戳, 失败返回false
-	if ((t = mktime(&st)) == -1)
-		return false;
-
-	// 返回最终结果
-	if (pt)
-		*pt = t;
-	if (otm)
-		*otm = st;
-
-	return true;
+times_day(times_t ns, times_t ts) {
+    time_t t, n = time_get(ns);
+    // 解析失败直接返回结果
+    if ((n < 0) || ((t = time_get(ts)) < 0))
+        return false;
+    return time_day(n, t);
 }
-```
 
-    又好又快, 思路是围绕解析时间字符串, 分隔为一系列的数值. 再巧妙利用指针移位赋值.
-    继续看两个时间戳是否是同一天的小学数学分析
-
-```C
-inline bool
-stu_tisday(time_t lt, time_t rt) {
-	// GMT [World] + 8 * 3600 = CST [China], 得到各自当前天数
-	lt = (lt + 8UL * 3600) / (24 * 3600);
-	rt = (rt + 8UL * 3600) / (24 * 3600);
-	return lt == rt;
-}
-```
-
-    8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中
-    time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 
-	因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国帝都的时间戳. 
-	说道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范.
-	对于 gettimeofday 还有 usleep linux 上常用函数, 我们在用到的时候回给出详细 winds 实现.
-
-	扩展一点, 假如有个策划需求, 我们规定一天的开始时间是 5时0分0秒. 现实世界默认一天开始时
-	间是 0时0分0秒. 那你会怎么做呢 ? 
-
-	其实有很多方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写
-
-```C
-#define _INT_DAYNEWSTART	( 0UL * 3600 + 0 * 60 + 0)
-inline bool
-stu_tisday(time_t lt, time_t rt) {
-	// GMT [World] + 8 * 3600 = CST [China], 得到各自当前天数
-	lt = (lt + 8UL * 3600 - _INT_DAYNEWSTART) / (24 * 3600);
-	rt = (rt + 8UL * 3600 - _INT_DAYNEWSTART) / (24 * 3600);
-	return lt == rt;
-}
-```
-
-	可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面
-	偏移量. 后面代码不再扩展解释, 大家多写多用就会吸星大法了. 本书很多素材基本都是
-	在游戏服务器中常用业务. 扯一点题外话, 游戏相比其它互联网项目而言, 开宝箱的几率
-	很高. 技术上多数吃老本, 新技术落后. 业务上面增删改查少很多. 总体而言轻巧些. 
-
-```C
+//
+// times_week - 判断时间串是否是同一周
+// ns           : 第一个时间串
+// ts           : 第二个时间串
+// return       : true 表示同一周
+//
 bool
-stu_tisweek(time_t lt, time_t rt) {
-	time_t mt;
-	struct tm st;
-
-	if (lt < rt) { //得到最大时间, 保存在lt中
-		mt = lt;
-		lt = rt;
-		rt = mt;
-	}
-
-	// 得到lt 表示的当前时间
-	localtime_r(&lt, &st);
-
-	// 得到当前时间到周一起点的时间差
-	st.tm_wday = st.tm_wday ? st.tm_wday - 1 : 6;
-	mt = st.tm_wday * 24 * 3600 + st.tm_hour * 3600 
-        + st.tm_min * 60 + st.tm_sec;
-
-	// [min, lt], lt = max(lt, rt) 就表示在同一周内
-	return rt >= lt - mt;
+times_week(times_t ns, times_t ts) {
+    time_t t, n = time_get(ns);
+    // 解析失败直接返回结果
+    if ((n < 0) || ((t = time_get(ts)) < 0))
+        return false;
+    return time_week(n, t);
 }
 
-size_t 
-stu_getmstr(stime_t tstr) {
-    time_t t;
-    struct tm st;
-    struct timespec tv;
+//
+// times_fmt - 通过 fmt 格式最终拼接一个字符串
+// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// out          : 最终保存的内容
+// sz           : buf 长度
+// return       : 返回生成串长度
+//
+int
+times_fmt(const char * fmt, char out[], size_t sz) {
+    struct tm m;
+    struct timespec s;
 
-    timespec_get(&tv, TIME_UTC);
-    t = tv.tv_sec;
-    localtime_r(&t, &st);
-    return snprintf(tstr, sizeof(stime_t), _STR_MTIME,
-                    st.tm_year + 1900, st.tm_mon + 1, st.tm_mday,
-                    st.tm_hour, st.tm_min, st.tm_sec,
-                    tv.tv_nsec / 1000000);
+    timespec_get(&s, TIME_UTC);
+    localtime_r(&s.tv_sec, &m);
+
+    return snprintf(out, sz, fmt,
+                    m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
+                    m.tm_hour, m.tm_min, m.tm_sec,
+                    (int)s.tv_nsec / 1000000);
 }
 ```
 
-    对于比较的问题, 用草纸花花图图就明白了. 
-    这里关于时间核心业务都搞定了. 还有什么搞不定, 下次如果用到, 再细说 ~
+    对于比较的问题, 用草纸画画涂涂就明白了. 关于时间核心业务到此终结. 还有什么搞不定, 
+    下次如果用到, 自行细细琢磨 ~
 
-### 3.6 展望
+## 3.6 展望
 
-    这章目的, 打通跨平台一些共性操作. 给大家抛砖引玉, 试了解开发中都需要的基础操作. 
-    学会一种方法, 应对不同平台的封装的策略. 也是以后步入金丹期, 漫天空气炮的一个好的开始~
-    最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响你求的道 <*-*>
+        这章目的是为了打通跨平台一些共性操作. 给大家抛砖引玉, 试图解开发中都需要的基础
+    操作奥秘. 学会一种方法, 应对不同平台的封装设计策略. 也是以后步入金丹期, 漫天空气炮
+    的一个好的开始 ~ 最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响
+    你所求的道 *-*
 
 ![白龙](./img/黑龙.jpg)
     
-    以梦为马
-    海子-节选
+以梦为马(节选)
+海子
 
-    面对大河我无限惭愧
+面对大河我无限惭愧
 
-    我年华虚度 空有一身疲倦
+我年华虚度 空有一身疲倦
 
-    和所有以梦为马的诗人一样
+和所有以梦为马的诗人一样
 
-    岁月易逝 一滴不剩
+岁月易逝 一滴不剩
