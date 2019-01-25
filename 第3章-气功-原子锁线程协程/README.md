@@ -774,30 +774,26 @@ inline void pthread_end(pthread_t id) {
 //
 // pthread_run - 启动线程
 // id       : 线程 id
-// frun     : 运行主体
+// frun     : node_f or start_f 运行主体
 // arg      : 运行参数
-// return   : return 0 is success
+// return   : 0 is success, -1 is error
 //
-#define pthread_run(id, frun, arg)                                  \
-pthread_run_(&(id), (node_f)(frun), (void *)(intptr_t)(arg))
-inline int pthread_run_(pthread_t * pi, node_f frun, void * arg) {
-    return pthread_create(pi, NULL, (start_f)frun, arg);
+inline int pthread_run(pthread_t * pi, void * frun, void * arg) {
+    return pthread_create(pi, NULL, frun, arg);
 }
 
 //
 // pthread_async - 启动无需等待的线程
-// frun     : 运行的主体
+// frun     : node_f or start_f 运行的主体
 // arg      : 运行参数
-// return   : return 0 is success
+// return   : 0 is success, -1 is error
 // 
-#define pthread_async(frun, arg)                                    \
-pthread_async_((node_f)(frun), (void *)(intptr_t)(arg))
-inline int pthread_async_(node_f frun, void * arg) {
+inline static int pthread_async(void * frun, void * arg) {
     pthread_t id;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    int ret = pthread_create(&id, &attr, (start_f)frun, arg);
+    int ret = pthread_create(&id, &attr, frun, arg);
     pthread_attr_destroy(&attr);
     return ret;
 }
@@ -818,13 +814,15 @@ inline int pthread_async_(node_f frun, void * arg) {
 ```C
 #include "thread.h"
 
-#define TH_INT    (6)
-
 struct rwarg {
-    pthread_t id;
-    pthread_rwlock_t lock;    // 读写锁
-    char buf[BUFSIZ];         // 存储数据
-    int idx;                  // buf 索引
+    pthread_rwlock_t lock;  // 读写锁
+
+    unsigned id;            // 标识
+
+    // conf 配置
+    struct {
+        char * description; // 描述
+    };
 };
 
 // write - 写线程, 随机写字符
@@ -838,14 +836,20 @@ void reads(struct rwarg * arg);
  */
 int main(int argc, char * argv[]) {
     // 初始化 rwarg::rwlock
-    struct rwarg arg = { .lock = PTHREAD_RWLOCK_INITIALIZER, };
+    struct rwarg arg = { 
+        .lock = PTHREAD_RWLOCK_INITIALIZER,
+        .description = "爱我中华",
+    };
 
-    // 读写线程跑起来
-    for (int i = 0; i < TH_INT; ++i) {
+    // 写程序跑起来
+    pthread_async(reads, &arg);
+
+    // 读线程跑起来
+    for (int i = 0; i < 10; ++i)
         pthread_async(reads, &arg);
-        pthread_async(write, &arg);
-        pthread_async(reads, &arg);
-    }
+
+    // 写程序跑起来
+    pthread_async(reads, &arg);
 
     // 简单等待一下
     puts("sleep input enter:");
@@ -856,9 +860,9 @@ int main(int argc, char * argv[]) {
 void 
 write(struct rwarg * arg) {
     pthread_rwlock_wrlock(&arg->lock);
-    arg->buf[arg->idx] = 'a' + arg->idx;
-    ++arg->idx;
-    printf("write idx[%-2d], buf[%-9s]\n", arg->idx, arg->buf);
+    ++arg->id;
+    arg->description = arg->id%2 ? "为人民服务" : "才刚刚开始";
+    printf("write id[%u][%s]\n", arg->id, arg->description);
     pthread_rwlock_unlock(&arg->lock);
 }
 
@@ -866,7 +870,8 @@ write(struct rwarg * arg) {
 void 
 reads(struct rwarg * arg) {
     pthread_rwlock_rdlock(&arg->lock);
-    printf("reads idx[%2d], buf[%9s]\n", arg->idx, arg->buf);
+    ++arg->id;
+    printf("reads id[%u][%s]\n", arg->id, arg->description);
     pthread_rwlock_unlock(&arg->lock);
 }
 ```
@@ -989,90 +994,95 @@ rwlock_unwlock(struct rwlock * lock) {
 	新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为它很容易被更高效
 	的设计所替代 ~
     
-### 3.4 设计协程库
+## 3.4 设计协程库
 
-    	以上我们搞定了原子锁, 原子操作, POSIX线程, 读写锁. 忘记说了有本很古老的 POSIX 线程
-	程序设计一本书很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的无外乎就是
-	多线程和网络这两个方面了. 继续聊回来协程火起来的缘由(主要是我入行慢) 还是被 Lua 的 
-	coroutine.create (f) 带起来, 最后被 goroutine 发扬光大的. 这里将从系统层面简单感知协
-	程库的实现细节. 
+    	以上我们捣鼓了原子锁, 原子操作, POSIX 线程, 读写锁. 忘记说了有本很古老的 POSIX 多
+	线程程序设计很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的也就是多线
+	程和网络这两个方面了. 继续聊回来, 我们说下和多线程相关的一个模型协程. 协程是被 Lua 的 
+	coroutine.create (f) 带起来, 最后被 Go 的 goroutine 发扬光大. 这里将会带大家实现一
+	个简单的协程库, 用于感知协程库的一种实现思路. 
 
-#### 3.4.1 协程库引言
+### 3.4.1 协程库引言
 
-	协程的种类很多, 实现也千奇百怪. 我们这里要讲的还是一种很原始的协程(纤程)模型. 一种高级的
-	同步串行的模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完整的虚拟地址空间，不
-	依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，与进程内的其它线程一起共享分
-	配给该进程的所有资源. 进程和线程是一对多关系, 这里要说的协程模型的协程同线程关系也是类似. 
-	一个线程中可以有多个协程. 协程同线程相比区别再于, 线程是操作系统控制调度可以做到异步并发, 
-	而协程是程序自身控制调度异步串行. 举个数码宝贝例子用于类比协程进化史: 
+	协程的种类很多, 实现也千奇百怪. 我们这里要讲的协程模型, 通 winds 的纤程概念很像. 属于高
+	级的同步串行控制模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完整的虚拟地址空
+	间，不依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，与进程内的其它线程一起
+	共享分配给该进程的所有资源. 进程和线程是一对多关系, 同样我们这里要说的协程也一样. 一个线程
+	中可以有多个协程. 它同线程相比区别再于, 线程是操作系统控制调度可以做到异步并行, 此协程是程
+	序自身控制调度同步串行. 举个数码宝贝例子用于类比协程进化史: 
 	滚球兽  －>  亚古兽  －>  暴龙兽  －>  机械暴龙兽  －>  战斗暴龙兽
 
 ![进化](./img/进化.jpg)
 
-    if .. else -> switch -> goto -> setjmp / logjump -> coroutine
-    这里要说的协程开发是串行程序开发中构建异步效果的开发模型. 对于其它语言的协程模型可以针对研
-	究. 毕竟浩瀚星辰, 生生不息.  
+    if else -> switch -> goto -> setjmp / logjump -> coroutine
+    而对于其它语言的协程模型可以自行针对性研究. 毕竟浩瀚星辰, 生生不息.  
 
-#### 3.4.2 协程库储备, winds 部分
+### 3.4.2 协程库 winds 储备
 
-    在 winds 有一种另一个东西叫做纤程 fiber.  官方说明是"Microsoft公司给Windows添加了一
-	种纤程，以便能够非常容易地将现有的UNIX服务器应用程序移植到Windows中". 这就是纤程概念的
-	由来. 在这里会详细解释其中关于 winds fiber常用 api. 
-	先浏览关于当前线程开启纤程相关接口说明.
+    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加了一
+	种纤程, 以便能够非常容易地将现有的 UNIX 服务器应用程序移植到 Windows 中". 这就是纤程概
+	念的由来. 这里会详细说明关于 winds fiber 常用 api 接口. 先浏览当前线程开启纤程相关接口
+	说明.
 
 ```C
 //
-// Fiber creation flags
+// Windows 编译特性约定
+// 1. 其参数都是从右向左通过堆栈传递的
+// 2. 函数调用在返回前要由被调用者清理堆栈(被调用函数弹出的时候销毁堆栈)
 //
-#define FIBER_FLAG_FLOAT_SWITCH 0x1     // context switch floating point
-
-/*
- * VS编译器特性约定
- * 1. 其参数都是从右向左通过堆栈传递的
- * 2. 函数调用在返回前要由被调用者清理堆栈(被调用函数弹出的时候销毁堆栈)
- */
 #define WINAPI      __stdcall
 
-/*
- * 将当前线程转成纤程, 返回转换成功的主纤程对象域
- * lpParameter    : 转换的时候传入到主线程中用户数据
- * dwFlags        : 附加参数, 默认填写 FIBER_FLAG_FLOAT_SWITCH
- *                : 返回转换成功后的主纤程对象域
- */
+//
+// Fiber creation flags
+// context switch floating point
+//
+#define FIBER_FLAG_FLOAT_SWITCH 0x1
+
+//
+// ConvertThreadToFiberEx - 将当前线程转成纤程, 返回主纤程对象域
+// lpParameter  : 转换的时候传入到主线程中用户数据
+// dwFlags      : 附加参数, 默认填写 FIBER_FLAG_FLOAT_SWITCH
+// return       : 返回转换成功后的主纤程对象域
+//
 WINBASEAPI __out_opt LPVOID WINAPI ConvertThreadToFiberEx(
     __in_opt LPVOID lpParameter,
     __in DWORD dwFlags
 );
 
-// 得到当前纤程中用户传入的数据, 就是上面 lpParameter
-__inline PVOID GetFiberData(void)    { return *(PVOID *) (ULONG_PTR) __readfsdword (0x10); }
+// GetFiberData - 得到当前纤程中用户传入的数据, 就是上面 lpParameter
+__inline PVOID GetFiberData(void) { 
+	return *(PVOID *) (ULONG_PTR) __readfsdword (0x10); 
+}
 
-// 得到当前运行纤程对象
-__inline PVOID GetCurrentFiber(void) { return (PVOID) (ULONG_PTR) __readfsdword (0x10); }
+// GetCurrentFiber - 得到当前运行纤程对象
+__inline PVOID GetCurrentFiber(void) { 
+	return (PVOID) (ULONG_PTR) __readfsdword (0x10); 
+}
                                                           
-/*
- * 将当前纤程转换成线程, 对映ConvertThreadToFiberEx操作系列函数. 返回原始环境
- *                : 返回成功状态, TRUE标识成功
- */
+//
+// ConvertFiberToThread - 将当前纤程转换成线程, 返回原始环境
+//  return      : 返回成功状态, TRUE 标识成功
+//
 WINBASEAPI BOOL WINAPI ConvertFiberToThread(VOID);
 ```
 
-    下面是关于如何创建纤程并切换(启动)官方接口说明.
+    下面是关于如何创建纤程并切换启动纤程的官方接口说明.
 
 ```C
 // 标识纤程执行体的注册函数声明, lpFiberParameter 可以通过 GetFiberData 得到
 typedef VOID (WINAPI * PFIBER_START_ROUTINE)(LPVOID lpFiberParameter);
 typedef PFIBER_START_ROUTINE LPFIBER_START_ROUTINE;
 
-/*
- * 创建一个没有启动纤程对象并返回
- * dwStackCommitSize    : 当前纤程栈大小, 0标识默认大小
- * dwStackReserveSize   : 当前纤程初始化化保留大小, 0标识默认大小
- * dwFlags              : 纤程创建状态, 默认FIBER_FLAG_FLOAT_SWITCH, 支持浮点数操作
- * lpStartAddress       : 指定纤程运行的载体.等同于纤程执行需要指明执行函数
- * lpParameter          : 纤程执行的时候, 传入的用户数据, 在纤程中GetFiberData可以得到
- *                      : 返回创建好的纤程对象 
- */                                              
+//
+// CreateFiberEx - 创建一个没有启动纤程对象并返回
+// dwStackCommitSize  : 当前纤程栈大小, 0 标识默认大小
+// dwStackReserveSize : 当前纤程初始化化保留大小, 0 标识默认大小
+// dwFlags            : 纤程创建状态,
+//                    : 默认 FIBER_FLAG_FLOAT_SWITCH 保证浮点数计算正确
+// lpStartAddress     : 指定纤程运行的载体. 等同于纤程执行需要指明执行函数
+// lpParameter        : 纤程执行的时候, 传入的用户数据, 在纤程中 GetFiberData 得到
+// return             : 返回创建好的纤程对象
+//                                              
 WINBASEAPI __out_opt LPVOID WINAPI CreateFiberEx(
     __in     SIZE_T dwStackCommitSize,
     __in     SIZE_T dwStackReserveSize,
@@ -1081,24 +1091,24 @@ WINBASEAPI __out_opt LPVOID WINAPI CreateFiberEx(
     __in_opt LPVOID lpParameter
 );
 
-// 销毁一个申请的纤程资源和CreateFiberEx成对出现
+// DeleteFiber - 销毁一个申请的纤程资源和 CreateFiberEx 成对出现
 WINBASEAPI VOID WINAPI DeleteFiber(__in LPVOID lpFiber);
 
-// 纤程跳转, 跳转到lpFiber指定的纤程
+// SwitchToFiber - 纤程跳转, 跳转到 lpFiber 指定的纤程
 WINBASEAPI VOID WINAPI SwitchToFiber(__in LPVOID lpFiber);
 ```
 
-    通过上面解释过的 api 写一个基础的演示 demo , fiber.c. 实践能补充猜想:
+    通过上面粗糙解释的 api 写一个基础的演示 fiber.c demo, 以实践能补充猜想:
 
 ```C
 #include <stdio.h>
 #include <windows.h>
 
-static void WINAPI _fiber_run(LPVOID fiber) {
-	puts("_fiber_run begin");
+static void WINAPI fiber_run(LPVOID fiber) {
+	puts("fiber_run begin");
 	// 切换到主纤程中
 	SwitchToFiber(fiber);
-	puts("_fiber_run e n d");
+	puts("fiber_run e n d");
 
 	// 主动切换到主纤程中, 子纤程不会主动切换到主纤程
 	SwitchToFiber(fiber);
@@ -1108,92 +1118,57 @@ static void WINAPI _fiber_run(LPVOID fiber) {
 // winds fiber hello world
 //
 int main(int argc, char * argv[]) {
-	PVOID fiber, fiberc;
+	PVOID fiber, fibec;
 	// A pointer to a variable that is passed to the fiber. 
 	// The fiber can retrieve this data by using the GetFiberData macro.
     fiber = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
 	// 创建普通纤程, 当前还是在主纤程中
-	fiberc = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, _fiber_run, fiber);
+	fibec = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, fiber_run, fiber);
 	puts("main ConvertThreadToFiberEx begin");
 
-	SwitchToFiber(fiberc);
+	SwitchToFiber(fibec);
 	puts("main ConvertThreadToFiberEx SwitchToFiber begin");
 	
-	SwitchToFiber(fiberc);
+	SwitchToFiber(fibec);
 	puts("main ConvertThreadToFiberEx SwitchToFiber again begin");
 
-	DeleteFiber(fiberc);
+	DeleteFiber(fibec);
 	ConvertFiberToThread();
 	puts("main ConvertThreadToFiberEx e n d");
 	return EXIT_SUCCESS;
 }
 ```
 
-    总结起来运用纤程的步骤无外乎如下, 以两个纤程举例:
-        1、使用ConverThreadToFiber(Ex)将当前线程转换到纤程，这是纤程F1
-        2、定义一个纤程函数，用于创建一个新纤程
-        3、纤程F1中调用CreateFiber(Ex)函数创建一个新的纤程F2
-        4、SwitchToFiber函数进行纤程切换，让新创建的纤程F2执行
-        5、F2纤程函数执行完毕的时候，使用SwitchToFiber转换到F1
-        6、在纤程F1中调用DeleteFiber来删除纤程F2
-        7、纤程F1中调用ConverFiberToThread，转换为线程
-        8、线程结束
+    来总结哈使用纤程的步骤, 以两个纤程切换举例:
+        1' 使用 ConverThreadToFiber(Ex) 将当前线程转换到纤程, 这是纤程 F1
+        2' 定义一个纤程函数, 用于创建一个新纤程
+        3' 纤程 F1 中调用 CreateFiber(Ex) 函数创建一个新的纤程 F2
+        4' SwitchToFiber 函数进行纤程切换, 让新创建的纤程 F2 执行
+        5' F2 纤程函数执行完毕的时候, 使用 SwitchToFiber 转换到 F1
+        6' 在纤程 F1 中调用 DeleteFiber 来删除纤程 F2
+        7' 纤程 F1 中调用 ConverFiberToThread，转换为线程
+        8' 线程结束
 
     上面的测试代码执行最终结果如下, 更加详细的, 呵呵只能靠自己, winds 深入资料不多
 
 ![fiber](./img/fiber.png)
 
-    winds fiber 储备部分画上句号了. 现在市场上 winds高级工程师很少了, 因为功法少, 
-	太邪乎了. 吃亏不讨好~ (从买的书籍上看抛开老美, 韩国棒子对 winds研究的比较深入)
+    储备 winds fiber 部分画上句号了. 现在市场上 winds 高级工程师很少了, 因为功法少, 太邪
+    乎了. 吃亏不讨好~ (从买的书籍上看抛开米国, 韩国对 winds 研究的比较深入)
 
-#### 3.4.3 协程储备, linux 部分
+### 3.4.3 协程 linux 储备
 
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux也有这类机制. 自己称之为上下
-	文 ucp 对象, 上下文记录跳转机制. 翻译了些高频率用的 api 手册如下:
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
+    对象, 是一种上下文记录跳转机制. 翻译了些高频率用的 api 手册如下:
 
 ```C
 #include <ucontext.h>
 
-/*
- * 得到当前程序运行此处上下文信息
- * ucp        : 返回当前程序上下文并保存在ucp指向的内存中
- *            : -1标识失败, 0标识成功
- */
-int getcontext(ucontext_t * ucp);
-
-/*
- * 设置到执行程序上下文对象中. 
- * ucp        : 准备跳转的上下文对象
- *            : 失败返回-1. 成功不返回
- */
-int setcontext(const ucontext_t * ucp);
-
-/*
- * 重新设置ucp上下文. 
- * ucp      : 待设置的上下文对象
- * func     : 新上下文执行函数体, 其实gcc认为声明是void * func(void)
- * argc     : func 函数参数个数
- * ...      : 传入func中的可变参数, 默认都是 int类型
- */
-void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
-
-/*
- * 保存当前上下文对象 oucp, 并且跳转到执行上下文件对象 ucp 中
- * oucp       : 保存当前上下文对象
- * ucp        : 执行的上下文对象
- *            : 失败返回-1, 成功不返回
- */
-int swapcontext (ucontext_t * ucp, ucontext_t * ucp);
-```
-
-    相比 winds fiber确实很清爽. 扩充一下 ucontext_t 一种实现结构
-
-```C
 /* Userlevel context.  */
 typedef struct ucontext {
      unsigned long int uc_flags;
-     struct ucontext * uc_link;                // 下一个执行的序列, NULL不继续执行了
-     stack_t uc_stack;                         // 当前上下文, 堆栈信息
+     struct ucontext * uc_link;     // 下一个执行的序列, NULL 不再继续执行
+     stack_t uc_stack;              // 当前上下文, 堆栈信息
      mcontext_t uc_mcontext;
      __sigset_t uc_sigmask;
     struct _libc_fpstate __fpregs_mem;
@@ -1201,14 +1176,48 @@ typedef struct ucontext {
 
 /* Alternate, preferred interface.  */
 typedef struct sigaltstack {
-    void * ss_sp;                             // 指向当前堆栈信息首地址
+    void * ss_sp;                   // 指向当前堆栈信息首地址
     int ss_flags;
-    size_t ss_size;                           // 当前堆栈大小
+    size_t ss_size;                 // 当前堆栈大小
 } stack_t;
+
+//
+// getcontext - 得到当前程序运行此处上下文信息
+// ucp      : 返回当前程序上下文并保存在ucp指向的内存中
+// return   : 0 标识成功, -1 标识失败
+//
+int getcontext(ucontext_t * ucp);
+
+//
+// setcontext - 设置当前执行程序上下文信息, 并跳转过去
+// ucp      : 准备跳转的上下文对象
+// return   : 调用成功不返回, 失败返回 -1
+//
+int setcontext(const ucontext_t * ucp);
+
+//
+// makecontext - 重新设置ucp上下文. 
+// ucp      : 待设置的上下文对象
+// func     : 新上下文执行函数体, gcc 默认声明是 void * func(void)
+// argc     : func 函数参数个数
+// ...      : 传入 func 中的可变参数, 默认都是 int 类型
+// return   : void
+//
+void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
+
+//
+// swapcontext - 保存当前上下文对象 ocp, 并且跳转到要执行上下文件对象 ucp 中
+// ocp      : 保存当前上下文对象
+// ucp      : 执行的上下文对象
+// return   : 成功不返回, 失败返回 -1
+//
+int swapcontext (ucontext_t * ocp, ucontext_t * ucp);
 ```
 
-    上面加了中文注释的部分, 就是我们开发中需要用到的几个字段. 设置执行顺序, 指定当前上下文
-    堆栈信息. 有了这些知识, 我们在 linux上练练手, 演示一下结果:
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
+    相比 winds fiber, linux ucontext 确实比较清爽. 其中 struct ucontext 和 
+    struct sigaltstack 加了注释地方需要关注, uc_link 设置执行顺序, uc_stack 指定当前上
+    下文堆栈信息. 有了这些知识, 我们在 linux 上演练下, 并展示输出结果.
 
 ```C
 #include <stdio.h>
@@ -1217,29 +1226,28 @@ typedef struct sigaltstack {
 #include <stdlib.h>
 #include <ucontext.h>
 
-#define PERROR_EXIT(msg) \
-    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define PERROR_EXIT(msg)    \
+do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-static void _func1(uint32_t low32, uint32_t hig32) {
+static void func1(uint32_t l32, uint32_t h32) {
     // 得到所传入的指针类型
-    uintptr_t ptr = (uintptr_t)low32 | ((uintptr_t)hig32 << 32);
-    ucontext_t * ucts = (ucontext_t *)ptr;
+    uintptr_t ptr = (uintptr_t)l32 | ((uintptr_t)h32 << 32);
+    ucontext_t * uts = (ucontext_t *)ptr;
 
-    // 开始操作
     puts("func1: started");
-    puts("func1: swapcontext(ucts + 1, ucts + 2)");
-    if (swapcontext(ucts + 1, ucts + 2) < 0)
+    puts("func1: swapcontext(uts + 1, uts + 2)");
+    if (swapcontext(uts + 1, uts + 2) < 0)
         PERROR_EXIT("swapcontext");
     puts("func1: returning");
 }
 
-static void _func2(uint32_t low32, uint32_t hig32) {
-    uintptr_t ptr = (uintptr_t)low32 | ((uintptr_t)hig32 << 32);
-    ucontext_t * ucts = (ucontext_t *)ptr;
+static void func2(uint32_t l32, uint32_t h32) {
+    uintptr_t ptr = (uintptr_t)l32 | ((uintptr_t)h32 << 32);
+    ucontext_t * uts = (ucontext_t *)ptr;
 
     puts("func2: started");
-    puts("func2: swapcontext(ucts + 2, ucts + 1)");
-    if (swapcontext(ucts + 2, ucts + 1) < 0)
+    puts("func2: swapcontext(uts + 2, uts + 1)");
+    if (swapcontext(uts + 2, uts + 1) < 0)
         PERROR_EXIT("swapcontext");
     puts("func2: returning");
 }
@@ -1248,32 +1256,31 @@ static void _func2(uint32_t low32, uint32_t hig32) {
 // use ucontext hello world
 //
 int main(int argc, char * argv[]) {
-    ucontext_t ucts[3];
+    ucontext_t uts[3];
     char stack1[16384];
     char stack2[16384];
-    uintptr_t ptr = (uintptr_t)ucts;
-    uint32_t low32 = (uint32_t)ptr;
-    uint32_t hig32 = (uint32_t)(ptr >> 32);
+    uintptr_t ptr = (uintptr_t)uts;
+    uint32_t l32 = (uint32_t)ptr;
+    uint32_t h32 = (uint32_t)(ptr >> 32);
 
-    if (getcontext(ucts + 1) < 0)
+    // uts[1] -> uts[0]
+    if (getcontext(uts + 1) < 0)
         PERROR_EXIT("getcontext");
-    ucts[1].uc_stack.ss_sp = stack1;
-    ucts[1].uc_stack.ss_size = sizeof stack1;
-    // ucts[1] -> ucts[0]
-    ucts[1].uc_link = ucts;
-    makecontext(ucts + 1, (void (*)())_func1, 2, low32, hig32);
+    uts[1].uc_stack.ss_sp = stack1;
+    uts[1].uc_stack.ss_size = sizeof stack1;
+    uts[1].uc_link = uts;
+    makecontext(uts + 1, (void (*)())func1, 2, l32, h32);
 
-    // 开始第二个搞
-    if (getcontext(ucts + 2) < 0)
+    // uts[2] -> uts[1]
+    if (getcontext(uts + 2) < 0)
         PERROR_EXIT("getcontext");
-    ucts[2].uc_stack.ss_sp = stack2;
-    ucts[2].uc_stack.ss_size = sizeof stack2;
-    // ucts[2] -> ucts[1]
-    ucts[2].uc_link = ucts + 1;
-    makecontext(ucts + 2, (void (*)())_func2, 2, low32, hig32);
+    uts[2].uc_stack.ss_sp = stack2;
+    uts[2].uc_stack.ss_size = sizeof stack2;
+    uts[2].uc_link = uts + 1;
+    makecontext(uts + 2, (void (*)())func2, 2, l32, h32);
 
-    puts("main: swapcontext(ucts, ucts + 2)");
-    if (swapcontext(ucts, ucts + 2) < 0)
+    puts("main: swapcontext(uts, uts + 2)");
+    if (swapcontext(uts, uts + 2) < 0)
         PERROR_EXIT("swapcontext");
 
     puts("main: exiting");
@@ -1281,408 +1288,404 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    linux 接口很自然, 执行流程很清晰. (上面也可以深入封装, 去掉重复过程) 最终结果如下
-
 ![ucontext](./img/ucontext.png)
 
-    很多时候我们写代码, 或者说在模仿代码的时候. 花点心思 也许 就是突破.
+    很多时候我们写代码, 或者说在照虎画猫的时候. 花点心思也许就是突破.
 
-#### 3.4.4 一切就绪, 那就开始协程设计吧
+### 3.4.4 协程库设计
 
-    关于协程的设计主要围绕打开关闭创建切换阻塞几个操作
-
-```C
-#ifndef _H_SIMPLEC_SCOROUTINE
-#define _H_SIMPLEC_SCOROUTINE
-
-#define SCO_DEAD		(0)		// 协程死亡状态
-#define SCO_READY		(1)		// 协程已经就绪
-#define SCO_RUNNING		(2)		// 协程正在运行
-#define SCO_SUSPEND		(3)		// 协程暂停等待
-
-// 协程管理器
-typedef struct scomng * scomng_t;
-
-//
-// 注册的协程体
-// sco		: 创建开启的协程总对象
-// arg		: 用户创建协程的时候传入的参数
-//
-typedef void (* sco_f)(scomng_t sco, void * arg);
-
-//
-// sco_open - 开启协程系统函数, 并返回创建的协程管理器
-// return	: 返回创建的协程对象
-//
-extern scomng_t sco_open(void);
-
-//
-// sco_close - 关闭已经开启的协程系统函数
-// sco		: sco_oepn 返回的当前协程中协程管理器
-//
-extern void sco_close(scomng_t sco);
-
-//
-// sco_create - 创建一个协程, 此刻是就绪态
-// sco		: 协程管理器
-// func		: 协程体执行的函数体
-// arg		: 协程体中传入的参数
-// return	: 返回创建好的协程id
-//
-extern int sco_create(scomng_t sco, sco_f func, void * arg);
-
-//
-// sco_resume - 通过协程id激活协程
-// sco		: 协程系统管理器
-// id		: 具体协程id, sco_create 返回的协程id
-//
-extern void sco_resume(scomng_t sco, int id);
-
-//
-// sco_yield - 关闭当前正在运行的协程, 让协程处理暂停状态
-// sco		: 协程系统管理器
-//
-extern void sco_yield(scomng_t sco);
-
-//
-// sco_status - 得到当前协程状态
-// sco		: 协程系统管理器
-// id		: 协程id
-// return	: 返回 _SCO_* 相关的协程状态信息
-//
-extern int sco_status(scomng_t sco, int id);
-
-//
-// sco_running - 当前协程系统中运行的协程id
-// sco		: 协程系统管理器
-// return	: 返回 < 0 表示没有协程在运行
-//
-extern int sco_running(scomng_t sco);
-
-#endif // !_H_SIMPLEC_SCOROUTINE
-```
-
-    通过上面接口设计不妨给出一段测试代码. 感受接口的用法. 测试真是个好东西
+    协程库的设计主要围绕打开关闭创建切换阻塞几个操作. 见 coroutine.h 和 coroutine.c
 
 ```C
-#include <stdio.h>
-#include <stdlib.h>
-#include "scoroutine.h"
+#ifndef _COROUTINE_H
+#define _COROUTINE_H
 
-#define _INT_TEST	(5)
-
-struct args {
-	int n;
-};
-
-static void _foo(scomng_t sco, struct args * as) {
-	int start = as->n;
-	int i = -1;
-
-	while (++i < _INT_TEST) {
-		printf("coroutine %d : %d.\n", sco_running(sco), start + i);
-		sco_yield(sco);
-	}
-}
-
-static void _test(void * sco) {
-	struct args argo = { 000 };
-	struct args argt = { 100 };
-
-	int coo = sco_create(sco, (sco_f)_foo, &argo);
-	int cot = sco_create(sco, (sco_f)_foo, &argt);
-
-	puts("********************_test start********************");
-	while (sco_status(sco, coo) && sco_status(sco, cot)) {
-		sco_resume(sco, coo);
-		sco_resume(sco, cot);
-	}
-	puts("********************_test e n d********************");
-}
-
-//
-// 测试主函数, 主要测试协程使用
-//
-int main(void) {
-	scomng_t sco = sco_open();
-
-	puts("--------------------突然想起了什么,--------------------\n");
-	_test(sco);
-
-	// 再来测试一下, 纤程切换问题
-	struct args arg = { 222 };
-	int co = sco_create(sco, (sco_f)_foo, &arg);
-	for (int i = -1; i < _INT_TEST; ++i)
-		sco_resume(sco, co);
-
-	puts("\n--------------------笑了笑, 我自己.--------------------");
-	sco_close(sco);
-}
-```
-
-    不妨提前剧透结果, 也能通过执行流程分析出来主要就是 resume 和 yield 来回切:
-
-![协程测试结果](./img/协程测试结果.png)
-
-    扯一点, 这里用了个 (sco_f)_foo 编译时替换运行时 struct args * as = arg 更快些.
-	当然也可以通过宏伪造函数
-
-#### 3.4.5 协程库的初步实现
-
-    讲的有点琐碎, 主要还是需要通过代码布局感受作者意图. 这里协程库实现总思路是 winds
-	实现一份, liunx 实现一份. 如何蹂在一起, 请看下面布局
-
-scoroutine.c
-
-```C
-// Compiler Foreplay
-#if !defined(_MSC_VER) && !defined(__GNUC__)
-#	error "error : Currently only supports the Best New CL and GCC!"
-#endif
-
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 
 // 默认协程栈大小 和 初始化协程数量
-#define _INT_STACK		(256 * 1024)
-#define _INT_COROUTINE	(16)
+#define STACK_INT       (1048576)
+#define COROUTINE_INT   (16)
 
-#include "scoroutine$winds.h"
-#include "scoroutine$linux.h"
+#define CO_DEAD         (0) // 协程死亡状态
+#define CO_READY        (1) // 协程已经就绪
+#define CO_RUNNING      (2) // 协程正在运行
+#define CO_SUSPEND      (3) // 协程暂停等待
+
+// comng_t - 协程管理器对象
+typedef struct comng * comng_t;
+
+// co_f - 协程运行函数体
+// g        : 协程管理器对象
+// arg      : 用户创建协程传入参数
+typedef void (* co_f)(comng_t g, void * arg);
 
 //
-// sco_status - 得到当前协程状态
-// sco		: 协程系统管理器
-// id		: 协程id
-// return	: 返回 SCO_* 相关的协程状态信息
+// co_open - 开启协程系统, 返回协程管理器对象
+// return   : 创建的协程管理器对象
 //
-inline int
-sco_status(scomng_t sco, int id) {
-	assert(sco && id >= 0 && id < sco->cap);
-	return sco->cos[id] ? sco->cos[id]->status : SCO_DEAD;
+extern comng_t co_open(void);
+
+//
+// co_close - 关闭开启的协程系统
+// g        : 协程管理器对象
+// return   : void
+//
+extern void co_close(comng_t g);
+
+//
+// co_create - 创建一个就绪态协程
+// g        : 协程管理器对象
+// func     : 协程体执行的函数体
+// arg      : 协程体中传入的参数
+// return   : 返回协程 id
+//
+extern int co_create(comng_t g, co_f func, void * arg);
+
+//
+// co_resume - 通过协程 id 激活协程
+// g        : 协程管理器对象
+// id       : 协程id
+// return   : void
+//
+extern void co_resume(comng_t g, int id);
+
+//
+// co_yield - 挂起正在运行的协程
+// g        : 协程管理器对象
+// return   : void
+//
+extern void co_yield(comng_t g);
+
+//
+// co_running - 获取正在运行的协程 id
+// g        : 协程系统管理器
+// retrunr  : < 0 表示没有协程在运行
+//
+extern int co_running(comng_t g);
+
+//
+// co_status - 获取对应协程的状态
+// g        : 协程管理器对象
+// id       : 协程 id
+// return   : 协程状态
+//
+extern int co_status(comng_t g, int id);
+
+#endif//_COROUTINE_H
+```
+
+    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文 ucp 
+    其中 CO_READY 表示准备状态, 协程库内部维护了一个简易状态机. 方便记录当前协程是啥状况. 切换
+    可以状态大体如下
+		co_create   -> CO_Ready
+		co_resume   -> CO_Running
+		co_yield    -> CO_Suspend
+    当创建的协程执行完毕后会被动变成 CO_Dead. 主协程默认一直运行不参与状态切换中. 协调控制所有子
+    协程. 而 coroutine.c implement 如下, 同样是分平台去实现. 
+
+```C
+#include "coroutine$linux.h"
+#include "coroutine$winds.h"
+```
+
+    有了上面的基础设计, 不妨给出一段测试代码. 通过展示接口的用法. 来了解表达的意图.
+
+```C
+#include <stdio.h>
+#include "coroutine.h"
+
+#define TEST_INT    (5)
+
+struct args { int n; };
+
+static void run(comng_t g, struct args * arg) {
+    int start = arg->n;
+    for (int i = 0; i < TEST_INT; ++i) {
+        printf("coroutine %d : %d\n", co_running(g), start + i);
+        co_yield(g);
+    }
+
+    printf("coroutine %d : %d\n", co_running(g), start);
+}
+
+static void test(comng_t g) {
+    struct args aro = {   0 };
+    struct args art = { 111 };
+
+    int coo = co_create(g, (co_f)run, &aro);
+    int cot = co_create(g, (co_f)run, &art);
+
+    puts("********************** test start **********************");
+    while (co_status(g, coo) && co_status(g, cot)) {
+        co_resume(g, coo);
+        co_resume(g, cot);
+    }
+    puts("********************** test e n d **********************");
 }
 
 //
-// sco_running - 当前协程系统中运行的协程id
-// sco		: 协程系统管理器
-// return	: 返回 < 0 表示没有协程在运行
+// main 主逻辑, 用于测试多个协程之间的纠缠
 //
-inline int
-sco_running(scomng_t sco) {
-	return sco->running;
+int main(void) {
+    comng_t g = co_open();
+
+    puts("-------------------- 突然想起了什么, --------------------\n");
+
+    test(g);
+
+    // 再来测试一下, 纤程切换问题
+    struct args arg = { 222 };
+    int id = co_create(g, (co_f)run, &arg);
+    for (int i = -1; i < TEST_INT; ++i)
+        co_resume(g, id);
+
+    puts("\n-------------------- 笑了笑, 我自己. --------------------");
+    
+    co_close(g);
+
+    return EXIT_SUCCESS;
 }
 ```
 
-    多说无益. 上面数值宏统一了每个协程栈大小, 协程数量等基础共性. 不同平台不同局部实现文件
-	对映. 使用了 $ 符号表示当前头文件是私有头文件, 局部的. 以前流传用 - 符号. 缺陷是 - 符
-	号不可以在 .h 和 .c 文件中识别出来. 为了和谐统一巧妙(or Sha bi)用 $ 替代了 - .
-    开始了, 下面逐个分析协程库的不同平台的实现部分~
+    可以能通过 resume 和 yield 来回切, 分析出执行流程. 这里也不妨剧透结果.
 
-#### 3.4.5 scoroutine$winds.h
+![协程测试结果](./img/协程测试结果.png)
 
-    对于这种框架基础库方面设计, 懂了好懂, 不懂有点难受. 难受就是进步的契机. 功法修炼还是循序
-	渐进, 先从设计结构入手
+    扯一点, 这里用的 (co_f)run 编译时替换运行时 struct args * <- arg 会更快些. 当然也
+    可以通过宏伪造函数. 纯当一类奇巧淫技吧!
+
+### 3.4.5 协程库实现
+
+    讲的有点琐碎, 主要还是需要通过代码布局感受作者意图. 协程库实现总思路通过 coroutine.c 
+    就可以看出来了. winds 利用 fiber 机制实现一份, liunx 通过 ucontext 机制实现一份. 
+    先看 coroutine$winds.h 数据结构设计部分.
 
 ```C
-#if !defined(_H_SIMPLEC_SCOROUTINE$WINDS) && defined(_MSC_VER)
-#define _H_SIMPLEC_SCOROUTINE$WINDS
+#if  !defined(_COROUTINE$WINDS_H) && defined(_WIN32)
+#define _COROUTINE$WINDS_H
 
 #include <windows.h>
-#include "scoroutine.h"
+#include "coroutine.h"
 
-// 声明协程结构 和 协程管理器结构
-struct sco {
-	PVOID ctx;			// 当前协程运行的环境
-	sco_f func;			// 协程体执行
-	void * arg;			// 用户输入的参数
-	int status;			// 当前协程运行状态 SCO_*
+// 声明 co - 协程结构 和 comng - 协程管理器结构
+struct co {
+    co_f func;              // 协程执行行为
+    void * arg;             // 协程执行参数
+    int status;             // 当前协程状态 CO_*
+    void * ctx;             // 当前协程运行的上下文环境
 };
 
-// 构建 struct sco 协程对象
-static inline struct sco * _sco_new(sco_f func, void * arg) {
-	struct sco * co = malloc(sizeof(struct sco));
-	assert(co && func);
-	co->func = func;
-	co->arg = arg;
-	co->status = SCO_READY;
-	return co;
+// co_new - 构建 struct co 协程对象
+inline struct co * co_new(co_f func, void * arg) {
+    struct co * c = malloc(sizeof(struct co));
+    assert(c && func);
+    c->func = func;
+    c->arg = arg;
+    c->status = CO_READY;
+    c->ctx = NULL;
+    return c;
 }
 
-struct scomng {
-	PVOID main;			// 当前主协程记录运行环境
-	int running;		// 当前协程中运行的协程id
+// co_delete - 销毁一个协程对象
+inline void co_die(struct co * c) {
+    if (c->ctx)
+        DeleteFiber(c->ctx);
+    free(c);
+}
 
-	struct sco ** cos;	// 协程对象集, 循环队列
-	int cap;			// 协程对象集容量
-	int idx;			// 当前协程集中轮询到的索引
-	int cnt;			// 当前存在的协程个数
+struct comng {
+    struct co ** cs;        // 协程对象集, 循环队列
+    int cap;                // 协程对象集容量
+    int idx;                // 当前协程集中轮询到的索引
+    int len;                // 当前协程集存在的协程个数
+
+    int running;            // 当前协程集中运行的协程 id
+    void * ctx;             // 当前主协程记录运行上下文环境
 };
 
-// 销毁一个协程对象
-static inline void _sco_delete(struct sco * co) {
-	DeleteFiber(co->ctx);
-	free(co);
-}
-
-#endif // !_H_SIMPLEC_SCOROUTINE$WINDS
+#endif//_COROUTINE$WINDS_H
 ```
 
-    SCO_READY 表示准备状态, 协程管理器内部维护了一个简易状态机. 方便记录当前协程是啥状况.
-	大体可以总结为这样
-		co_create   -> CS_Ready
-		co_resume   -> CS_Running
-		co_yield    -> CS_Suspend
-    协程运行完毕后就是 CS_Dead. 主协程默认一直运行不参与状态切换中. 协调控制所有子协程.
-    最后就是线程中开启协程和关闭协程操作:
+    对于这种基础库方面设计, 懂了很好懂, 不懂看着有点难受. 但难受会是自我进步的契机. 功法修
+    炼还是循序渐进. 通过 struct comng 和 struct co 数据结构大致可以看出来通过循环队列
+    来管理所有协程对象. 此刻是时候拉开序幕了
 
 ```C
-inline scomng_t
-sco_open(void) {
-	struct scomng * comng = malloc(sizeof(struct scomng));
-	assert(NULL != comng);
-	comng->running = -1;
-	comng->cos = calloc(_INT_COROUTINE, sizeof(struct sco *));
-	comng->cap = _INT_COROUTINE;
-	comng->idx = 0;
-	comng->cnt = 0;
-	assert(NULL != comng->cos);
-	// 在当前线程环境中开启Window协程
-	comng->main = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
-	return comng;
+//
+// co_open - 开启协程系统, 返回协程管理器对象
+// return   : 创建的协程管理器对象
+//
+comng_t 
+co_open(void) {
+    struct comng * g = malloc(sizeof(struct comng));
+    assert(NULL != g);
+    g->running = -1;
+    g->cs = calloc(COROUTINE_INT, sizeof(struct co *));
+    assert(NULL != g->cs);
+    g->cap = COROUTINE_INT;
+    g->idx = g->len = 0;
+
+    // 在当前线程环境中开启 winds 协程
+    g->ctx = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
+    return g;
 }
 
-void
-sco_close(scomng_t sco) {
-	int i = -1;
-	while (++i < sco->cap) {
-		struct sco * co = sco->cos[i];
-		if (co) {
-			_sco_delete(co);
-			sco->cos[i] = NULL;
-		}
-	}
+//
+// co_close - 关闭开启的协程系统
+// g        : 协程管理器对象
+// return   : void
+//
+void 
+co_close(comng_t g) {
+    for (int i = 0; i < g->cap; ++i) {
+        struct co * c = g->cs[i];
+        if (c) {
+            co_die(c);
+            g->cs[i] = NULL;
+        }
+    }
 
-	free(sco->cos);
-	sco->cos = NULL;
-	free(sco);
-	// 切换当前协程系统变回默认的主线程, 关闭协程系统
-	ConvertFiberToThread();
+    free(g->cs);
+    g->cs = NULL;
+    free(g);
+
+    // 切换当前协程系统变回默认的主线程, 关闭协程系统
+    ConvertFiberToThread();
 }
 ```
 
-    大头戏逐渐来了, 创建, 启动, 阻塞
+    大头戏逐渐来了, 创建, 挂起, 和激活.
 
 ```C
-int
-sco_create(scomng_t sco, sco_f func, void * arg) {
-	struct sco * co = _sco_new(func, arg);
-	struct sco ** cos = sco->cos;
-	int cap = sco->cap;
-	// 下面开始寻找, 如果数据足够的话
-	if (sco->cnt < sco->cap) {
-		// 当循环队列去查找
-		int idx = sco->idx;
-		do {
-			if (NULL == cos[idx]) {
-				cos[idx] = co;
-				++sco->cnt;
-				++sco->idx;
-				return idx;
-			}
-			idx = (idx + 1) % cap;
-		} while (idx != sco->idx);
+//
+// co_create - 创建一个就绪态协程
+// g        : 协程管理器对象
+// func     : 协程体执行的函数体
+// arg      : 协程体中传入的参数
+// return   : 返回协程 id
+//
+int 
+co_create(comng_t g, co_f func, void * arg) {
+    int cap = g->cap;
+    struct co ** cs = g->cs;
+    struct co * c = co_new(func, arg);
 
-		assert(idx == sco->idx);
-		return -1;
-	}
+    // 下面开始寻找, 如果数据足够的话
+    if (g->len < g->cap) {
+        // 当循环队列去查找
+        int idx = g->idx;
+        do {
+            if (NULL == cs[idx]) {
+                cs[idx] = c;
+                ++g->len;
+                ++g->idx;
+                return idx;
+            }
+            idx = (idx + 1) % cap;
+        } while (idx != g->idx);
 
-	// 这里需要重新构建空间
-	cos = realloc(cos, sizeof(struct sco *) * cap * 2);
-	assert(NULL != cos);
-	memset(cos + cap, 0, sizeof(struct sco *) * cap);
-	sco->cos = cos;
-	sco->cap = cap << 1;
-	++sco->cnt;
-	cos[sco->idx] = co;
-	return sco->idx++;
+        assert(idx == g->idx);
+        return -1;
+    }
+
+    // 这里需要重新构建空间
+    cs = realloc(cs, sizeof(struct co *) * cap<<1);
+    assert(NULL != cs);
+    memset(cs + cap, 0, sizeof(struct co *) * cap);
+    cs[g->idx] = c;
+    g->cap = cap<<1;
+    g->cs = cs;
+    ++g->len;
+    return g->idx++;
 }
 
-void
-sco_yield(scomng_t sco) {
-	struct sco * co;
-	int id = sco->running;
-	if ((id < 0 || id >= sco->cap) || !(co = sco->cos[id]))
-		return;
-	co->status = SCO_SUSPEND;
-	sco->running = -1;
-	co->ctx = GetCurrentFiber();
-	SwitchToFiber(sco->main);
+//
+// co_yield - 挂起正在运行的协程
+// g        : 协程管理器对象
+// return   : void
+//
+void 
+co_yield(comng_t g) {
+    int id = g->running;
+    if (id < 0 || id >= g->cap || !g->cs[id])
+        return;
+
+    struct co * c = g->cs[id];
+    c->status = CO_SUSPEND;
+    g->running = -1;
+
+    c->ctx = GetCurrentFiber();
+    SwitchToFiber(g->ctx);
 }
 ```
 
-    以上是创建一个协程和挂起协程将操作顺序交给主协程. 随后构建最重要的一环激活协程.
-    comng::cos 中保存所有的协程对象, 不够就 realloc, 够直接返回. 其中查询用的协程
-	对象循环查找. 协程之间的跳转采用先记录当前环境, 后跳转思路.
+    co_create 创建一个协程, co_yield 挂起当前协程并切换到主协程. comng::cs 中保存所有
+    的协程对象, 不够就 realloc, 够直接使用操作. 其中查询用的协程对象循环查找. 协程之间的
+    跳转采用先记录当前环境, 后跳转思路. 那开始看激活操作
 
 ```C
-static inline VOID WINAPI _sco_main(struct scomng * comng) {
-	int id = comng->running;
-	struct sco * co = comng->cos[id];
-	// 执行协程体
-	co->func(comng, co->arg);
-	co = comng->cos[id];
-	co->status = SCO_DEAD;
-	// 跳转到主纤程体中销毁
-	SwitchToFiber(comng->main);
+// comng_run - 协程管理器运行实体
+static void __stdcall comng_run(struct comng * g) {
+    int id = g->running;
+    struct co * c = g->cs[id];
+
+    // 执行协程体
+    c->func(g, c->arg);
+    c->status = CO_DEAD;
+
+    // 跳转到主纤程体中销毁
+    SwitchToFiber(g->ctx);
 }
 
-void
-sco_resume(scomng_t sco, int id) {
-	struct sco * co;
-	int running;
+//
+// co_resume - 通过协程 id 激活协程
+// g        : 协程管理器对象
+// id       : 协程id
+// return   : void
+//
+void 
+co_resume(comng_t g, int id) {
+    assert(g && id >= 0 && id < g->cap);
 
-	assert(sco && id >= 0 && id < sco->cap);
+    // CO_DEAD 状态协程, 完全销毁其它协程操作
+    int running = g->running;
+    if (running != -1) {
+        struct co * c = g->cs[running];
+        assert(c && c->status == CO_DEAD);
 
-	// SCO_DEAD 状态协程, 完全销毁其它协程操作
-	running = sco->running;
-	if (running != -1) {
-		co = sco->cos[running];
-		assert(co && co->status == SCO_DEAD);
-		sco->cos[running] = NULL;
-		--sco->cnt;
-		sco->idx = running;
-		sco->running = -1;
-		_sco_delete(co);
-		if (running == id)
-			return;
-	}
+        g->cs[running] = NULL;
+        --g->len;
+        g->idx = running;
+        g->running = -1;
+        co_die(c);
+        if (running == id)
+            return;
+    }
 
-	// 下面是协程 SCO_READY 和 SCO_SUSPEND 处理
-	co = sco->cos[id];
-	if ((!co) || (co->status != SCO_READY && co->status != SCO_SUSPEND))
-		return;
+    // 下面是协程 CO_READY 和 CO_SUSPEND 处理
+    struct co * c = g->cs[id];
+    if ((!c) || (c->status != CO_READY && c->status != CO_SUSPEND))
+        return;
 
-	// Window特性创建纤程, 并保存当前上下文环境, 切换到创建的纤程环境中
-	if (co->status == SCO_READY)
-		co->ctx = CreateFiberEx(_INT_STACK, 0, 
-								FIBER_FLAG_FLOAT_SWITCH, 
-								(LPFIBER_START_ROUTINE)_sco_main, sco);
+    // window 创建纤程, 并保存当前上下文环境
+    if (c->status == CO_READY)
+        c->ctx = CreateFiberEx(STACK_INT, 0, FIBER_FLAG_FLOAT_SWITCH, comng_run, g);
 
-	co->status = SCO_RUNNING;
-	sco->running = id;
-	sco->main = GetCurrentFiber();
-	// 正常逻辑切换到创建的子纤程中
-	SwitchToFiber(co->ctx);
+    c->status = CO_RUNNING;
+    g->running = id;
+
+    // 正常逻辑切换到创建的子纤程上下文环境中
+    g->ctx = GetCurrentFiber();
+    SwitchToFiber(c->ctx);
 }
 ```
 
-    关于 winds部分实现协程的功能基本都稿完了. 就是数据结构和系统接口的一套杂糅.
-	重点看围绕状态切换那些部分~
-
-#### 3.4.6 scoroutine$linux.h
-
-    关于 linux部分封装, 相比 winds只是多了写操作细节. 主要理解状态切换的那块
+    到这关于 winds 协程库实现部分基本都稿完了. 就是数据结构和系统接口的一套杂糅. 而关于 
+    linux 部分封装, 相比 winds 只是写操作细节不一样. 重点也是看围绕状态切换那些部分
 
 ```C
 #if !defined(_H_SIMPLEC_SCOROUTINE$LINUX) && defined(__GNUC__)

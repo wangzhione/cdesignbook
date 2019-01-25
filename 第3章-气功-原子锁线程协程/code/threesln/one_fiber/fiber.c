@@ -1,13 +1,13 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <windows.h>
 
-static void WINAPI _fiber_run(LPVOID fiber) {
-	puts("_fiber_run begin");
-	// ÇĞ»»µ½Ö÷ÏË³ÌÖĞ
+static void WINAPI fiber_run(LPVOID fiber) {
+	puts("fiber_run begin");
+	// åˆ‡æ¢åˆ°ä¸»çº¤ç¨‹ä¸­
 	SwitchToFiber(fiber);
-	puts("_fiber_run e n d");
+	puts("fiber_run e n d");
 
-	// Ö÷¶¯ÇĞ»»µ½Ö÷ÏË³ÌÖĞ, ×ÓÏË³Ì²»ÖªµÀÖ÷ÏË³ÌÔÚÄÄ
+	// ä¸»åŠ¨åˆ‡æ¢åˆ°ä¸»çº¤ç¨‹ä¸­, å­çº¤ç¨‹ä¸ä¼šä¸»åŠ¨åˆ‡æ¢åˆ°ä¸»çº¤ç¨‹
 	SwitchToFiber(fiber);
 }
 
@@ -15,21 +15,21 @@ static void WINAPI _fiber_run(LPVOID fiber) {
 // winds fiber hello world
 //
 int main(int argc, char * argv[]) {
-	PVOID fiber, fiberc;
+	PVOID fiber, fibec;
 	// A pointer to a variable that is passed to the fiber. 
 	// The fiber can retrieve this data by using the GetFiberData macro.
     fiber = ConvertThreadToFiberEx(NULL, FIBER_FLAG_FLOAT_SWITCH);
-	// ´´½¨ÆÕÍ¨ÏË³Ì, µ±Ç°»¹ÊÇÔÚÖ÷ÏË³ÌÖĞ
-	fiberc = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, _fiber_run, fiber);
+	// åˆ›å»ºæ™®é€šçº¤ç¨‹, å½“å‰è¿˜æ˜¯åœ¨ä¸»çº¤ç¨‹ä¸­
+	fibec = CreateFiberEx(0, 0, FIBER_FLAG_FLOAT_SWITCH, fiber_run, fiber);
 	puts("main ConvertThreadToFiberEx begin");
 
-	SwitchToFiber(fiberc);
+	SwitchToFiber(fibec);
 	puts("main ConvertThreadToFiberEx SwitchToFiber begin");
 	
-	SwitchToFiber(fiberc);
+	SwitchToFiber(fibec);
 	puts("main ConvertThreadToFiberEx SwitchToFiber again begin");
 
-	DeleteFiber(fiberc);
+	DeleteFiber(fibec);
 	ConvertFiberToThread();
 	puts("main ConvertThreadToFiberEx e n d");
 	return EXIT_SUCCESS;
