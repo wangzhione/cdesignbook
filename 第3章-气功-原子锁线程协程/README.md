@@ -2089,9 +2089,12 @@ extern bool times_day(times_t ns, times_t ts);
 //
 extern bool times_week(times_t ns, times_t ts);
 
+// TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
+#define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
+
 //
 // times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// fmt          : 推荐遵循 TIMES_STR 意图
 // out          : 最终保存的内容
 // sz           : buf 长度
 // return       : 返回生成串长度
@@ -2102,7 +2105,6 @@ int times_fmt(const char * fmt, char out[], size_t sz);
 // times_buf - 存储毫秒串 "2016-07-10 22:38:34 500"
 // ns           : 返回生成串
 // return       : 返回生成串长度
-#define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
 inline int times_buf(times_t ns) {
     return times_fmt(TIMES_STR, ns, sizeof(times_t));
 }
@@ -2393,7 +2395,7 @@ times_week(times_t ns, times_t ts) {
 
 //
 // times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// fmt          : 推荐遵循 TIMES_STR 意图
 // out          : 最终保存的内容
 // sz           : buf 长度
 // return       : 返回生成串长度
@@ -2413,15 +2415,15 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 }
 ```
 
-    对于比较的问题, 用草纸画画涂涂就明白了. 关于时间核心业务到此终结. 还有什么搞不定, 
-    下次如果用到, 自行细细琢磨 ~
+    对于比较的问题, 用草纸画画涂涂就明白了. 时间核心业务就带大家操练到这. 还有什么搞不定
+    , 下次如果用到, 自行细细琢磨推敲 ~
 
 ## 3.6 展望
 
-        这章目的是为了打通跨平台一些共性操作. 给大家抛砖引玉, 试图解开发中都需要的基础
-    操作奥秘. 学会一种方法, 应对不同平台的封装设计策略. 也是以后步入金丹期, 漫天空气炮
-    的一个好的开始 ~ 最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响
-    你所求的道 *-*
+        这章目的是为了打通跨平台一些共性桥梁. 给大家抛砖引玉, 试图解开发中基础操作奥秘. 
+    学会一种方法, 应对不同平台的封装设计策略. 也是为以后步入金丹期, 漫天空气炮筹备一个
+    好的开始 ~ 最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响你所求的
+    道 *-*
 
 ![白龙](./img/黑龙.jpg)
     
