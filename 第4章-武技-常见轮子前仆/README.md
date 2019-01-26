@@ -1,148 +1,156 @@
-## 第4章-武技-常见轮子下三路
+# 第4章-武技-常见轮子下前仆
 
-    本章是关于系统中常见轮子的介绍. 构建框架中最基础的组件. 也是参与战斗的最基层保障.
-    当前定位是筑基期的顶阶武技, 融于了那些在妖魔大战中无数前辈们英魄构建的套路. 有章法
-    的筑基, 厚积薄发, 一飞冲天. 此武技说不定让你成为战场上苟延残喘 小强 ┗|｀O′|┛ 嗷
-    那开始出招吧 ~
+    	本章是关于系统中常见轮子的介绍. 也是构建框架中最基础的组件. 可以说是咱们参与战斗
+	的生命线. 当前定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套
+	路. 最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 此武技的宗旨就是让你成为战场上
+	苟延残喘的小强 ┗|｀O′|┛ . 嗷那开始出招吧 ~
 
-### 4.1 那些年写过的日志库
+## 4.1 那些年写过的日志库
 
-    用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最后选
-    择了50行的 小小 日志库代码, 来表达所要的一切美好~ 越简单越优美越让人懂代码总会出彩.
-    不是吗? 一个高性能的日志库突破点无外乎
+    	用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
+	后展示了 50 行的极小的日志库, 来表达所要的一切美好 ~ 越简单越优美越让人懂的代码总会
+	出彩, 不是吗? 一个高性能的日志库突破点无外乎
         1. 缓存
         2. 无锁
         3. 定位
     随后会对这个日志武技轮子, 深入剖析
 
-#### 4.1.1 小小 日志库, 详细设计
+### 4.1.1 日志库小小
 
-    先看接口设计部分, 感受下三个宏解决一切幺蛾子:
-
-clog.h
+    先看接口 clog.h 设计部分, 感受下三个宏解决一切幺蛾子.
 
 ```C
-#ifndef _H_SIMPLEC_CLOG
-#define _H_SIMPLEC_CLOG
+#ifndef _LOG_H
+#define _LOG_H
 
-#include "sctime.h"
+#include "times.h"
+#include <stdlib.h>
+#include <stdarg.h>
 
 //
-// error info debug printf log  
+// LOG_PRINTF - 拼接构建输出的格式串
+// pre      : 日志前缀串必须 "" 包裹
+// fmt      : 自己要打印的串, 必须 "" 包裹
+// return   : void
 //
-#define CL_ERROR(fmt,	...)	CL_PRINTF("[ERROR]",	fmt, ##__VA_ARGS__)
-#define CL_INFOS(fmt,	...)	CL_PRINTF("[INFOS]",	fmt, ##__VA_ARGS__)
-#if defined(_DEBUG)
-#define CL_DEBUG(fmt,	...)	CL_PRINTF("[DEBUG]",	fmt, ##__VA_ARGS__)
+#define LOG_PRINTF(pre, fmt, ...)   \
+log_printf(pre"[%s:%s:%d]"fmt"\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
+
+//
+// log 有些朴实, 也许很快很安全 ~
+//
+#define LOG_ERROR(fmt, ...) LOG_PRINTF("[ERROR]", fmt, __VA_ARGS__)
+#define LOG_INFOS(fmt, ...) LOG_PRINTF("[INFOS]", fmt, __VA_ARGS__)
+#ifdef _DEBUG
+#define LOG_DEBUG(fmt, ...) LOG_PRINTF("[DEBUG]", fmt, __VA_ARGS__)
 #else
-#define CL_DEBUG(fmt,	...)	/*  (^_−)☆ */
+#define LOG_DEBUG(fmt, ...) /*  (^_−)☆ */
 #endif
 
 //
-// CLOG_PRINTF - 拼接构建输出的格式串,最后输出数据
-// fstr		: 日志标识宏
-// fmt		: 自己要打印的串,必须是双引号包裹. 
-// return	: 返回待输出的串详细内容
+// log_printf - 具体输出的日志内容
+// fmt      : 必须 "" 包裹的串
+// ...      : 对映 fmt 参数
+// return   : void
 //
-#define CL_PRINTF(fstr, fmt, ...) \
-	cl_printf(fstr "[%s:%s:%d]" fmt "\n", __FILE__, __func__, __LINE__, ##__VA_ARGS__)
+void log_printf(const char * fmt, ...);
 
-//
-// cl_start - !单例! 开启单机日志库
-// path		: 初始化日志系统文件名
-// return	: void
-//
-extern void cl_start(const char * path);
-
-//
-// cl_printf - 具体输出日志内容
-// fmt		: 必须双引号包裹起来的串
-// ...		: 对映fmt参数
-// return	: void
-//
-void cl_printf(const char * fmt, ...);
-
-#endif // !_H_SIMPLEC_CLOG
+#endif//_LOG_H
 ```
 
-    clog.h 继承自 sctime.h, 唯一使用的就是 sctime.h 中得到根据格式串得到时间串
+    clog.h 继承自 times.h 唯一使用的就是 times_fmt 接口得到特定时间格式串.
 
 ```C
-//
-// stu_getmstrn - 得到特定包含时间串, fmt 依赖 _STR_MTIME
-// buf		: 保存最终结果的串
-// len		: 当前buf串长度
-// fmt		: 输出格式串例如 -> "simplec-%04d%02d%02d-%02d%02d%02d-%03ld.log"
-// return	: 返回当前串长度
-//
-size_t 
-stu_getmstrn(char buf[], size_t len, const char * const fmt) {
-    time_t t;
-    struct tm st;
-    struct timespec tv;
+// TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
+#define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
 
-    timespec_get(&tv, TIME_UTC);
-    t = tv.tv_sec;
-    localtime_r(&t, &st);
-    return snprintf(buf, len, fmt,
-                    st.tm_year + 1900, st.tm_mon + 1, st.tm_mday,
-                    st.tm_hour, st.tm_min, st.tm_sec,
-                    tv.tv_nsec / 1000000);
+//
+// times_fmt - 通过 fmt 格式最终拼接一个字符串
+// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// out          : 最终保存的内容
+// sz           : buf 长度
+// return       : 返回生成串长度
+//
+int
+times_fmt(const char * fmt, char out[], size_t sz) {
+    struct tm m;
+    struct timespec s;
+
+    timespec_get(&s, TIME_UTC);
+    localtime_r(&s.tv_sec, &m);
+
+    return snprintf(out, sz, fmt,
+                    m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
+                    m.tm_hour, m.tm_min, m.tm_sec,
+                    (int)s.tv_nsec / 1000000);
 }
 ```
 
-    得到带毫秒的时间串, 填充到日志的头部进行标识. 小小 核心构造原理如下展开:
+    填充到日志的头部进行标识. 小小核心构造原理展开如下:
 
 ```C
-#include "clog.h"
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
+#include "log.h"
+
+static FILE * log;
 
 //
-// 急速, 清洁, 可靠配合 logrorate的 c多线程单机日志库 clog.h
-//					by simplec wz 2017年4月26日
+// log_init - !单例! 日志库初始化
+// path     : 初始化日志系统文件名
+// return   : void
 //
-
-static FILE * _log;
-
-inline void 
-cl_start(const char * path) {
-	if (NULL == _log) {
-		_log = fopen(path, "ab");
-		if (NULL == _log) {
-			fprintf(stderr, "fopen ab err path = %s!\n", path);
-			exit(EXIT_FAILURE);
-		}
-	}
+void log_init(const char * path) {
+    if (!(log = fopen(path, "ab"))) {
+        fprintf(stderr, "fopen ab path err %s\n", path);
+        exit(EXIT_FAILURE);
+    }
 }
 
+//
+// log_printf - 具体输出的日志内容
+// fmt      : 必须 "" 包裹的串
+// ...      : 对映 fmt 参数
+// return   : void
+//
 void 
-cl_printf(const char * fmt, ...) {
-	va_list ap;
-	size_t len;
-	// 每条日志的大小, 唯一值
-	char str[2048];
+log_printf(const char * fmt, ...) {
+    va_list ap;
+    // 每条日志大小, 按照系统缓冲区走
+    char str[BUFSIZ];
+    int len = times_fmt("["TIMES_STR"]", str, sizeof str);
 
-	// 串:得到时间串并返回长度 [2016-07-10 22:38:34 999]
-	len = stu_getmstrn(str, sizeof(str), "[" _STR_MTIME "]");
+    // 填入日志内容
+    va_start(ap, fmt);
+    vsnprintf(str + len, sizeof str - len, fmt, ap);
+    va_end(ap);
 
-	// 开始数据填充
-	va_start(ap, fmt);
-	vsnprintf(str + len, sizeof(str) - len, fmt, ap);
-	va_end(ap);
-	
-	// 下数据到文本中
-	fputs(str, _log);
+    // 数据刷入文件缓存
+    fputs(str, log);
 }
+```
+
+	其中 log_init 可以通过 EXTERN_RUN 在 main 中初始化注册.
+
+```C
+//
+// EXTERN_RUN - 简单的声明, 并立即使用的宏
+// ftest    : 需要执行的函数名称
+// ...      : 可变参数, 保留
+//
+#define EXTERN_RUN(ftest, ...)                                    \
+do {                                                              \
+    extern void ftest();                                          \
+    ftest (__VA_ARGS__);                                          \
+} while(0)
+
+EXTERN_RUN(log_init, LOG_PATH_STR);
 ```
 
     是不是很恐怖, 一个日志库完了. fputs 是系统内部打印函数, 默认自带缓冲机制. 缓冲说白
-    了就是批量操作, 存在非及时性. vsnprintf 属于 printf 函数簇自带文件锁. 有兴趣的可以
+    了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇自带文件锁. 有兴趣的可以
     详细研究 printf, C 入门最早的学的函数, 也是最复杂的函数之一. 那目前就差生成业务了!
-    也就是第三点定位, 这也是 小小 日志库的另一个高明之处, 借天罚来干妖魔鬼怪. 
+    也就是第三点定位, 这也是 小小日志库的另一个高明之处, 借天罚来惩戒妖魔鬼怪. 
 
-### 4.1.2 小小 日志库, VT 二连
+### 4.1.2 小小日志库 VT 二连
 
     先构建一下测试环境. 模拟一个妖魔大战的场景~ 嗖 ~ 切换到 linux 平台. 依次看下去
 
