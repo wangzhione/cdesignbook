@@ -1,13 +1,13 @@
 # 第4章-武技-常见轮子下前仆
 
-    	本章是关于系统中常见轮子的介绍. 也是构建框架中最基础的组件. 可以说是咱们参与战斗
+        本章是关于系统中常见轮子的介绍. 也是构建框架中最基础的组件. 可以说是咱们参与战斗
 	的生命线. 当前定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套
 	路. 最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 此武技的宗旨就是让你成为战场上
 	苟延残喘的小强 ┗|｀O′|┛ . 嗷那开始出招吧 ~
 
 ## 4.1 那些年写过的日志库
 
-    	用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
+        用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
 	后展示了 50 行的极小的日志库, 来表达所要的一切美好 ~ 越简单越优美越让人懂的代码总会
 	出彩, 不是吗? 一个高性能的日志库突破点无外乎
         1. 缓存
@@ -257,13 +257,13 @@ logrotate -vf /etc/logrotate.d/simplec
 	面输出接口来的直接. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一
 	环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 
 	到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
-		1. 无锁编程, 利用 fprintf IO 锁
-		2. fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
-		3. 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
+	    1. 无锁编程, 利用 fprintf IO 锁
+	    2. fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
+	    3. 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
 
 ### 4.2 开胃点心, 高效随机数库
 
-    	为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一样. 顺便嫌
+        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一样. 顺便嫌
 	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
 	类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情, 也可
 	能发生 ~". 还是有点呵呵. 数学的本源不是为了解决具体遇到问题, 多数是人内部思维的升华 
@@ -523,7 +523,7 @@ int main(int argc, char* argv[]) {
 
 ## 4.3 file 文件库封装
 
-		文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录,
+        文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录,
 	需要多级删除目录, 需要多级创建目录... 这里就是为了解决这个问题. 先展示部分设计, 再逐
 	个击破.
 
@@ -1605,512 +1605,655 @@ static const char * parse_array(json_t item, const char * str) {
 }
 ```
 
-    处理的格式 '[ ... , ... , ... ]'. 
-    同样处理 object 格式如下 ' { "str":..., "str":..., ... } '
+    parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处理的格式如下 
+    '{ "key":..., "key":..., ... }'
 
 ```C
-// 分析对象的子函数
-static const char * 
-_parse_object(cjson_t item, const char * str) {
-	cjson_t child;
+// parse_object - object 解析
+static const char * parse_object(json_t item, const char * str) {
+    json_t chid;
+    item->type = JSON_OBJECT;
+    if ('}' == *str) return str + 1;
+    // "key" check invalid
+    if ('"' != *str && *str != '`') return NULL;
 
-	if (*str != '{') {
-		RETURN(NULL, "object str error start: %s.", str);
-	}
+    // {"key":value,...} 先处理 key 
+    item->chid = chid = json_new();
+    if ('"' != *str)
+        str = parse_literal(chid, str + 1);
+    else
+        str = parse_string(chid, str + 1);
 
-	item->type = CJSON_OBJECT;
-	if (*++str == '}')
-		return str + 1;
+    if (!str || *str != ':') return NULL;
+    chid->key = chid->str;
+    chid->str = NULL;
 
-	//处理结点, 开始读取一个 key
-	item->child = child = _cjson_new();
-	str = _parse_string(child, str);
-	if (!str || *str != ':') {
-		RETURN(NULL, "_parse_string is error : %s!", str);
-	}
-	child->key = child->vs;
+    // 再处理 value
+    str = parse_value(chid, str + 1);
+    if (NULL == str) return NULL;
 
-	child->vs = NULL;
-	str = _parse_value(child, str + 1);
-	if (!str) {
-		RETURN(NULL, "_parse_value is error 2!");
-	}
+    // 开始间接递归解析
+    while (*str == ',') {
+        // 多行解析直接返回结果
+        if ('}' == *++str) return str + 1;
+        if ('"' != *str && *str != '`') return NULL;
 
-	// 递归解析
-	while (*str == ',') {
-		// 支持行尾处理多余 ','
-		if (str[1] == '}')
-			return str + 1;
+        chid->next = json_new();
+        chid = chid->next;
+        if ('"' != *str)
+            str = parse_literal(chid, str + 1);
+        else
+            str = parse_string(chid, str + 1);
 
-		child->next = _cjson_new();
-		child = child->next;
-		str = _parse_string(child, str + 1);
-		if (!str || *str != ':'){
-			RETURN(NULL, "_parse_string need name or no equal ':' %s.", str);
-		}
-		child->key = child->vs;
+        if (!str || *str != ':') return NULL;
+        chid->key = chid->str;
+        chid->str = NULL;
 
-		child->vs = NULL;
-		str = _parse_value(child, str+1);
-		if (!str) {
-			RETURN(NULL, "_parse_value need item two ':' %s.", str);
-		}
-	}
+        str = parse_value(chid, str + 1);
+        if (NULL == str) return NULL;
+    }
 
-	if (*str != '}') {
-		RETURN(NULL, "object str error e n d: %s.", str);
-	}
-	return str + 1;
+    return '}' == *str ? str + 1 : NULL;
 }
 ```
 
-    关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 一个间接递归套路.
-    通过上面的思路, 花些心思也可以构建出 json对象转 json串的思路. 或者写个小型计算
-    器等等. 有了 json 的处理库, 有没有感觉基础的业务都能轻松胜任了哈哈.
+    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带给你不一样
+    关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演示的思路
+    , 花些心思也可以构建出 json 对象转 json 串的套路. 或者写个小型计算器等等. 有了 json 的处
+    理库, 有没有感觉基础的业务配置就很轻松了. 
 
-## 4.5 奥特曼, 通用头文件构建
+## 4.5 config 配置库
 
-    在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个头文件都继承自
-	它. 同样此刻出现的就是筑基期至强奥义, 一切从头开始
-    
-schead.h
+        有了上面 json 解析库, 我们不妨运用 c json 解析库, 构建配置解析库. 这年头配置解析库有
+    不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 我最推荐是 json 和 toml. json
+    推荐原因在于当前年代通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看
+    待解析的配置文件 conf/conf.conf.
+
+```json
+/*
+ * struct c config 
+ * 
+ * 框架支持的 json 配置
+ *
+ */
+
+{
+  `description` : "我不知道风是在哪一个方向吹。",
+
+  "image"       : 
+`*--------------------------------** struct c **--------------------------------*
+| Welcome to the struct c v2.2.2                                               |
+| More detailed information need to http://www.cnblogs.com/life2refuel/        |
+| Thank you so much by wangzhi @ https://github.com/wangzhione/structc         |
+|                                                                              |
+|      _________                                                               |
+|     / ======= \                                                              |
+|    / __________\                                                             |
+|   | ___________ |                                                            |
+|   | | -       | |                                                            |
+|   | |  Hello  | |                                                            |
+|   | |_________| |________________                                            |
+|   \=____________/                )                                           |
+|   / ........... \               /    >    ->   go ->->    go   ->>   go  :)  |
+|  / ::::::::::::: \          =D-'                                             |
+| (_________________)                                                          |
+|                                                                              |
+| ---- __@                 __@        __@    -----  __@                 __@    |
+| --- _\\<,_              _\\<,_     _\\<,_  ----  _\\<,_              _\\<,_  |
+| -- (*)/ (*)            (*)/ (*)  (*)/ (*)  ---  (*)/ (*)            (*)/ (*) |
+|                                                                              |
+*--------------------------------** struct c **--------------------------------*`,
+
+  //
+  // add you config, 再在 conf.h / conf.c 中添加映射关系
+  //
+
+}
+
+```
+
+### 4.5.1 config 配置库实现
+
+    conf.h 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应. 可以
+    从 struct conf 中字段看出来.
 
 ```C
-#ifndef _H_SIMPLEC_SCHEAD
-#define _H_SIMPLEC_SCHEAD
+#ifndef _CONF_H
+#define _CONF_H
 
-#include "clog.h"
-#include "scrand.h"
-#include "struct.h"
-#include <pthread.h>
+#include "utf8.h"
+#include "json.h"
 
 //
-//  宏就是C的金字塔最底层, 所有丑陋的起源~
-//  [ __clang__ -> clang | __GNUC__ -> gcc | __MSC_VER -> cl ]
+// config 映射配置
 //
-#ifdef __GNUC__
-
-#include <termio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-/*
- * 屏幕清除宏, 依赖系统脚本
- *  return	: void
- */
-#define sh_cls() \
-		printf("\ec")
+struct conf {
+    char * description;
+    char * image;
+};
 
 //
-// getch - 立即得到用户输入的一个字符, linux实现
-// return	: 返回得到字符
+// conf_instance - 获取配置
+// return   : 返回详细配置内容
 //
-extern int getch(void);
+extern struct conf * conf_instance(void);
 
 //
-// sh_mkdir - 通用的单层目录创建宏 等同于 shell> mkdir path
-// path		: 目录路径加名称
-// return	: 0表示成功, -1表示失败, 失败原因都在 errno
-// 
-#define sh_mkdir(path) \
-	mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+// conf_init - 初始化读取配置内容
+// path     : 配置初始化路径
+// return   : true 表示解析成功
+//
+bool conf_init(const char * path);
 
-#elif _MSC_VER
+#endif//_CONF_H
 
-#include <direct.h> 
+```
+
+    实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 可以从 locals 实现中看出来.
+
+```C
+#include "conf.h"
+
+//
+// conf_instance - 获取配置
+// return   : 返回详细配置内容
+//
+inline struct conf * 
+conf_instance(void) {
+    //
+    // 配置存储信息
+    //
+    static struct conf conf;
+
+    return &conf;
+}
+
+// locals - 本地字符串特殊处理, winds 会把 utf8 转 gbk
+inline char * locals(char utf8s[]) {
+#ifdef _MSC_VER
+    if (isu8s(utf8s)) {
+        u82g(utf8s);
+    }
+#endif
+    return utf8s;
+}
+
+// CONFIG_PARSE_JSON_STR - json field -> conf field
+#define CONFIG_PARSE_JSON_STR(json, conf, field)                     \
+json_t $##field = json_object(json, #field);                         \
+if (NULL == $##field || $##field->type != JSON_STRING) {             \
+    RETURN(false, "json_object err field = "#field", %p", $##field); \
+}                                                                    \
+free(conf->##field);                                                 \
+conf->##field = json_str($##field);                                  \
+locals(conf->##field)
+
+// conf_parse - 解析内容, 并返回解析结果
+bool conf_parse(json_t json, struct conf * conf) {
+    CONFIG_PARSE_JSON_STR(json, conf, description);
+    CONFIG_PARSE_JSON_STR(json, conf, image);
+
+    return true;
+}
+
+//
+// conf_init - 初始化读取配置内容
+// path     : 配置初始化路径
+// return   : true 表示解析成功
+//
+bool 
+conf_init(const char * path) {
+    json_t json = json_file(path);
+    if (NULL == json) {
+        RETURN(false, "json_file err path is %s", path);
+    }
+
+    // 解析 json 内容, 并返回详细配置内容
+    bool ret = conf_parse(json, conf_instance());
+    json_delete(json);
+    return ret;
+}
+```
+
+    使用的时候先要在 main 中 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容. 经
+    过这些是不是觉得, 筑基也不过如此. 心随意动.
+
+## 4.6 奥特曼, 通用头文件
+
+        在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个业务头文件都继承自它. 
+    同样此刻要出现的就是筑基期至强奥义, 一切从头开始 head.h.
+
+```C
+#ifndef _HEAD_H
+#define _HEAD_H
+
+#include "log.h"
+#include "conf.h"
+#include "file.h"
+#include "check.h"
+#include "thread.h"
+
+#ifdef _MSC_VER
+
 #include <conio.h>
 
-#define sh_cls() \
-		system("cls")
+inline void cls(void) {
+    system("cls");
+}
 
-#define sh_mkdir(path) \
-	mkdir(path)
-
-#else
-#	error "error : Currently only supports the Best New CL and GCC!"
 #endif
 
-// 添加双引号的宏 
-#define _STR(v) #v
-#define CSTR(v)	_STR(v)
+#ifdef __GNUC__
 
-// 获取数组长度,只能是数组类型或""字符串常量,后者包含'\0'
-#define LEN(a) (sizeof(a) / sizeof(*(a)))
+#include <unistd.h>
+#include <termios.h>
 
-// 置空操作, v必须是个变量
-#define BZERO(v) \
-	memset(&(v), 0, sizeof(v))
+// cls - 屏幕清除宏, 依赖系统脚本
+inline void cls(void) {
+    printf("\ec");
+}
 
-/*
- * 比较两个结构体栈上内容是否相等,相等返回true,不等返回false
- * a	: 第一个结构体值
- * b	: 第二个结构体值
- *		: 相等返回true, 否则false
- */
-#define STRUCTCMP(a, b) (!memcmp(&a, &b, sizeof(a)))
+// getch - 立即得到用户输入的一个字符
+inline int getch(void) {
+    struct termios nts, ots;
+    if (tcgetattr(0, &ots)) // 得到当前终端(0表示标准输入)的设置
+        return EOF;
+
+    nts = ots;
+    // 设置终端为 Raw 原始模式，该模式下输入数据全以字节单位被处理
+    cfmakeraw(&nts);
+    if (tcsetattr(0, TCSANOW, &nts)) // 设置上更改之后的设置
+        return EOF;
+
+    int cr = getchar();
+    if (tcsetattr(0, TCSANOW, &ots)) // 设置还原成老的模式
+        return EOF;
+    return cr;
+}
+
+#endif
+
+// epause - 程序结束等待操作
+inline void epause(void) {
+    rewind(stdin);
+    fflush(stderr); fflush(stdout);
+    printf("Press any key to continue . . .");
+    getch();
+}
+
+//
+// STR - 添加双引号的宏 
+// v    : 待添加双引号的量
+//
+#define STR(v) S_R(v)
+#define S_R(v) #v
+
+//
+// LEN - 获取数组长度
+// arr : 数组名
+//
+#define LEN(a) sizeof(a)/sizeof(*(a))
+
+// hton - 本地字节序转网络字节序(大端)
+// noth - 网络字节序转本地字节序
+inline uint32_t hton(uint32_t x) {
+#ifndef ISBENIAN
+    uint8_t t;
+    union { uint32_t i; uint8_t s[sizeof(uint32_t)]; } u = { x };
+    t = u.s[0]; u.s[0] = u.s[sizeof(u)-1]; u.s[sizeof(u)-1] = t;
+    t = u.s[1]; u.s[1] = u.s[sizeof(u)-2]; u.s[sizeof(u)-2] = t;
+    return u.i;
+#else
+    return x;
+#endif
+}
+
+inline uint32_t ntoh(uint32_t x) {
+    return hton(x);
+}
 
 //
 // EXTERN_RUN - 简单的声明, 并立即使用的宏
-// test		: 需要执行的函数名称
+// ftest    : 需要执行的函数名称
+// ...      : 可变参数, 保留
 //
-#define EXTERN_RUN(test, ...) \
-	do { \
-		extern void test(); \
-		test (__VA_ARGS__); \
-	} while(0)
-
-// 简单的time时间记录宏
-#define TIME_PRINT(code) \
-	do { \
-		clock_t $s, $e; \
-		$s = clock(); \
-		code \
-		$e = clock(); \
-		printf("Now code run time:%lfs.\n", ((double)$e - $s) / CLOCKS_PER_SEC); \
-	} while (0)
+#define EXTERN_RUN(ftest, ...)                                    \
+do {                                                              \
+    extern void ftest();                                          \
+    ftest (__VA_ARGS__);                                          \
+} while(0)
 
 //
-// sh_pause - 等待的宏 是个单线程没有加锁 | "请按任意键继续. . ."
-// return	: void
+// TEST_RUN - 测试代码块, 并输出简单时间信息
+// code : { ... } 包裹的代码块
 //
-extern void sh_pause(void);
+#define TEST_RUN(code)                                            \
+do {                                                              \
+    clock_t $s = clock();                                         \
+    code                                                          \
+    double $e = (double)clock();                                  \
+    printf("test code run time:%lfs\n", ($e-$s)/CLOCKS_PER_SEC);  \
+} while (0)
 
-#ifndef SH_PAUSE
-
-#	ifdef _DEBUG
-#		define SH_PAUSE() atexit(sh_pause)
-#	else
-#		define SH_PAUSE() /* 别说了, 都重新开始吧 */
-#	endif
-
-#endif // !INIT_PAUSE
-
-//
-// sh_isbe - 判断是大端序还是小端序,大端序返回true
-// sh_hton - 将本地四字节数据转成'小端'网络字节
-// sh_ntoh - 将'小端'网络四字节数值转成本地数值
-//
-extern bool sh_isbe(void);
-extern uint32_t sh_hton(uint32_t x);
-extern uint32_t sh_ntoh(uint32_t x);
-
-//
-// async_run - 开启一个自销毁的线程 运行 run
-// run		: 运行的主体
-// arg		: run的参数
-// return	: >= SufBase 表示成功
-//
-extern int async_run_(node_f run, void * arg);
-#define async_run(run, arg) \
-        async_run_((node_f)(run), (void *)(intptr_t)arg)
-
-#endif//_H_SIMPLEC_SCHEAD
+#endif//_HEAD_H
 ```
 
-    可以看出来, 头文件包含是一种继承关系. 基本每一个包含了 schead.h 的文件, 都不用
-    再包含其它的辅助文件, 开发起来会很方便. 额外说一下 getch 这个函数: 
+    head.h 相关内容是不是看上去很熟悉, 很简单. cls -> getch -> epause 想想有了也挺好的.
+    而 check.h 主要放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只是
+    加了个 ipv4 和 email 校验操作.
 
 ```C
-#if defined(__GNUC__)
+#include "check.h"
 
-inline int 
-getch(void) {
-	int cr;
-	struct termios nts, ots;
-	if (tcgetattr(0, &ots) < 0) // 得到当前终端(0表示标准输入)的设置
-		return EOF;
-
-	nts = ots;
-	cfmakeraw(&nts); // 设置终端为Raw原始模式，该模式下所有的输入数据以字节为单位被处理
-	if (tcsetattr(0, TCSANOW, &nts) < 0) // 设置上更改之后的设置
-		return EOF;
-
-	cr = getchar();
-	if (tcsetattr(0, TCSANOW, &ots) < 0) // 设置还原成老的模式
-		return EOF;
-	return cr;
+//
+// is_ip - 判断是否是 ipv4
+// ips      : ip 串
+// return   : true 是合法 ip
+//
+bool 
+is_ip(const char * ips) {
+    //
+    // [0-9].
+    // 7       - 15
+    // 0.0.0.0 - 255.255.255.255
+    // 00 (x), > 255 (x), . . .
+    //
+    int i, c, m, d;
+    if (!ips || !*ips) return false;
+    // 处理前 16 个字符 = sizeof "255.255.255.255"
+    for (d = m = i = 0; i < sizeof "255.255.255.255"; ++i) {
+        c = ips[i];
+        if (c >= '0' && c <= '9') {
+            // 00 (x)
+            if (c == '0') {
+                if (ips[i+1] != '.' && ips[i+1] != '\0')
+                    return false;
+            }
+            m = m * 10 + c - '0';
+        } else if (c == '.' || c == '\0') {
+            // < 0 (x), > 255 (x)
+            if (m > 255 || d > 3)
+                return false;
+            if (c == '\0') {
+                // . . .
+                // sizeof "0.0.0.0" = 8
+                return d == 3 && i + 1 >= sizeof "0.0.0.0";
+            }
+            ++d;
+            m = 0;
+        } else {
+            // 不是 [0-9]. 字符非法
+            return false;
+        }
+    }
+    return false;
 }
 
-#endif
-```
+//
+// is_email - 判断是否是邮箱
+// mail     : email 串 
+// return   : true is email
+#define EMAIL_INT (255)
+bool 
+is_email(const char * mail) {
+    //
+    // A@B.xx size <= 255
+    // [0-9][a-z][A-Z] .-_ 字符构成
+    // @ . 分割处首位和末位只能是 [0-9][a-z][A-Z] 
+    // 不能出现 .. 连续
+    //
+    int c, i, b, d;
+    if (!mail) return false;
+    // check A
+    c = *mail;
+    if (!((c >= '0' && c <= '9') 
+       || (c >= 'A' && c <= 'Z') 
+       || (c >= 'a' && c <= 'z'))) return false;
+    for (i = 1; (c = *++mail) && c != '@' && i < EMAIL_INT; ++i) {
+        // 非法字符直接返回
+        if (!((c >= '0' && c <= '9') 
+        || (c >= 'A' && c <= 'Z') 
+        || (c >= 'a' && c <= 'z'))) {
+            if (c == '-' || c == '_')
+                continue;
+            return false;
+        }
+    }
 
-    很久以前一位化神期巨擘说过: 由于 linux对于 getch支持不友好, 导致了 linux错失了很多
-    游戏开发人员. 我是挺喜欢 getch的, 写个小游戏太轻松了. 就顺手补上了.
-    其它的辅助函数:
-
-```C
-inline void 
-sh_pause(void) {
-    rewind(stdin);
-	fflush(stderr); fflush(stdout);
-	printf("Press any key to continue . . .");
-	getch();
-}
-
-inline bool 
-sh_isbe(void) {
-	static union { uint16_t i; uint8_t c; } _u = { 1 };
-	return 0 == _u.c;
-}
-
-inline uint32_t 
-sh_hton(uint32_t x) {
-	if (sh_isbe()) {
-		uint8_t t;
-		union { uint32_t i; uint8_t s[sizeof(uint32_t)]; } u = { x };
-		t = u.s[0], u.s[0] = u.s[sizeof(u) - 1], u.s[sizeof(u) - 1] = t;
-		t = u.s[1], u.s[1] = u.s[sizeof(u) - 1 - 1], u.s[sizeof(u) - 1 - 1] = t;
-		return u.i;
-	}
-	return x;
-}
-
-inline uint32_t 
-sh_ntoh(uint32_t x) {
-	return sh_hton(x);
-}
-```
-
-    说一下 sh_isbe, 它是判断当前系统是否是大端系统, 是返回 true. 而多数接触的是小端
-    机器, 所以自己设计了个 sh_hton 如果是大端结构会转成小端结构. 这样减少转换频率.
-    sh_pause 相似功能在 winds上面是 system("pause"), 在 linux 是 pause(). 用起来
-    不爽, 顺带为了方便 DEBUG 测试, 搞了个 SH_PAUSE(). schead.h 接口文件定位目标是
-    所有业务层面的辅助头文件. 美好从此刻开始 ~
+    // check A end
+    if (c != '@' || i >= EMAIL_INT 
+                 || mail[-1] == '-' || mail[-1] == '_')
+        return false;
     
-    新的风暴已经出现 怎么能够停滞不前 穿越时空竭尽全力 我会来到你身边
-
-#### 4.5 阅读理解环节, csv解析库
-
-    很久以前桌面项目配置文件基本都走 csv文件配置. 采用 ',' 分隔. 同 excel表格形式.
-    维护人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己写的
-    解决方案, 灰常节约内存. 首先展示 interface:
-
-scscv.h
-
-```C
-#ifndef _H_SIMPLEC_SCCSV
-#define _H_SIMPLEC_SCCSV
-
-//
-// 这里是一个解析 csv 文件的 简单解析器.
-// 它能够帮助我们切分文件内容, 保存在字符串数组中.
-//
-typedef struct sccsv {      //内存只能在堆上
-    int rlen;               //数据行数,索引[0, rlen)
-    int clen;               //数据列数,索引[0, clen)
-    const char * data[];    //保存数据一维数组,希望他是二维的 rlen*clen
-} * sccsv_t;
-
-//
-// 从文件中构建csv对象, 最后需要调用 sccsv_delete 释放
-// path		: csv文件内容
-// return	: 返回构建好的 sccsv_t 对象
-//
-extern sccsv_t sccsv_create(const char * path);
-
-//
-// 释放由sccsv_create构建的对象
-// csv		: sccsv_create 返回对象
-//
-extern void sccsv_delete(sccsv_t csv);
-
-//
-// 获取某个位置的对象内容
-// csv		: sccsv_t 对象, new返回的
-// ri		: 查找的行索引 [0, csv->rlen)
-// ci		: 查找的列索引 [0, csv->clen)
-// return	: 返回这一项中内容,后面可以用 atoi, atof, tstr_dup 等处理了...
-//
-extern const char * sccsv_get(sccsv_t csv, int ri, int ci);
-
-#endif // !_H_SIMPLEC_SCCSV
-```
-
-    这里我们只提供了读接口, 比较有特色的思路是. sccsv_t 我们采用一整块内存构建. 非常
-    爽. 
-
-```C
-#include "sccsv.h"
-#include "tstr.h"
-
-//从文件中读取 csv文件内容, 构建一个合法串
-static bool _csv_parse(tstr_t tstr, int * prl, int * pcl) {
-	int c = -1, n = -1;
-	int cl = 0, rl = 0;
-	char * sur = tstr->str, * tar = tstr->str;
-
-	while (!!(c = *tar++)) {
-		// 小型状态机切换, 相对于csv文件内容解析
-		switch (c) {
-		case '"': // 双引号包裹的特殊字符处理
-			while (!!(c = *tar++)) {
-				if ('"' == c) {
-					if ((n = *tar) == '\0') // 判断下一个字符
-						goto _faild;
-					if (n != '"') // 有效字符再次压入栈, 顺带去掉多余 " 字符
-						break;
-					++tar;
-				}
-
-				// 添加得到的字符
-				*sur++ = c;
-			}
-			// 继续判断,只有是c == '"' 才会下来,否则都是错的
-			if ('"' != c)
-				goto _faild;
-			break;
-		case ',':
-			*sur++ = '\0';
-			++cl;
-			break;
-		case '\r':
-			break;
-		case '\n':
-			*sur++ = '\0';
-			++cl;
-			++rl;
-			break;
-		default: // 其它所有情况只添加数据就可以了
-			*sur++ = c;
-		}
-	}
-	
-	if (cl % rl) { // 检测 , 号是个数是否正常
-	_faild:
-		RETURN(false, "now csv error c = %d, n = %d, cl = %d, rl = %d.", c, n, cl, rl);
-	}
-	
-	// 返回最终内容
-	*prl = rl;
-	*pcl = cl;
-	// 构建最终处理的串内容
-	tstr->len = sur - tstr->str + 1;
-	tstr->str[tstr->len - 1] = '\0';
-	return true;
-}
-
-// 将 _csv_get 得到的数据重新构建返回, 执行这个函数认为语法检测都正确了
-static sccsv_t _csv_create(tstr_t tstr) {
-	sccsv_t csv;
-	size_t pdff;
-	char * cstr;
-	int rl, cl, i;
-	if (!_csv_parse(tstr, &rl, &cl))
-		return NULL;
-
-	// 分配最终内存
-	pdff = sizeof(struct sccsv) + sizeof(char *) * cl;
-	csv = malloc(pdff + tstr->len);
-	if (NULL == csv) {
-		RETURN(NULL, "malloc error cstr->len = %zu, rl = %d, cl = %d.", tstr->len, rl, cl);
-	}
-
-	// 这里开始拷贝内存, 构建内容了
-	cstr = (char *)csv + pdff;
-	memcpy(cstr, tstr->str, tstr->len);
-	csv->rlen = rl;
-	csv->clen = cl / rl;
-	i = 0;
-	do {
-		csv->data[i] = cstr;
-		while(*cstr++) // 找到下一个位置处
-			;
-	} while(++i < cl);
-	
-	return csv;
-}
-
-//
-// 从文件中构建csv对象, 最后需要调用 sccsv_delete 释放
-// path		: csv文件内容
-// return	: 返回构建好的 sccsv_t 对象
-//
-sccsv_t
-sccsv_create(const char * path) {
-	sccsv_t csv;
-	tstr_t tstr = tstr_freadend(path);
-	if (NULL == tstr) {
-		RETURN(NULL, "tstr_freadend path = %s is error!", path);
-	}
-
-	// 如果解析 csv 文件内容失败直接返回
-	csv = _csv_create(tstr);
-
-	tstr_delete(tstr);
-	// 返回最终结果
-	return csv;
-}
-
-//
-// 释放由sccsv_create构建的对象
-// csv		: sccsv_new 返回对象
-//
-inline void 
-sccsv_delete(sccsv_t csv) {
-	free(csv);
-}
-
-//
-// 获取某个位置的对象内容
-// csv		: sccsv_t 对象, new返回的
-// ri		: 查找的行索引 [0, csv->rlen)
-// ci		: 查找的列索引 [0, csv->clen)
-// return	: 返回这一项中内容,后面可以用 atoi, atof, tstr_dup 等处理了...
-//
-inline const char * 
-sccsv_get(sccsv_t csv, int ri, int ci) {
-	DEBUG_CODE({
-		if (!csv || ri < 0 || ri >= csv->rlen || ci < 0 || ci >= csv->clen) {
-			RETURN(NULL, "params is csv:%p, ri:%d, ci:%d.", csv, ri, ci);
-		}
-	});
-
-	// 返回最终结果
-	return csv->data[ri * csv->clen + ci];
+    // check b start
+    for (b = d = false; (c = *++mail) && i < EMAIL_INT; ++i) {
+        // 非法字符直接返回
+        if (!((c >= '0' && c <= '9') 
+        || (c >= 'A' && c <= 'Z') 
+        || (c >= 'a' && c <= 'z'))) {
+            // 首字符不能是 非数字和字母
+            if (b) {
+                if (c == '-' || c == '_') 
+                    continue;
+                else if (c == '.') {
+                    b = false;
+                    d = true;
+                    continue;
+                }
+            }
+            return false;
+        }
+        b = true;
+    }
+    // 必须存在 ., 最后 '\0' 结尾, 255 以内
+    return b && d && !c && i < EMAIL_INT 
+             && (mail[-1] < '0' || mail[-1] > '9');
 }
 ```
 
-    核心重点在 _csv_parse 和 _csv_create 上面. 前者负责预建内存布局, 后者负责构建内
-    存. 代码很短, 但却很有效不是吗~ 
-    希望上面的阅读理解你能喜欢~
+    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如果有问题
+    也可以在修真岁月中道友间互相探讨补充. getch 这个函数可以重点关注下. 很久以前一位化神期
+    巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是
+    挺喜欢 getch 的, 写立即交互就轻松了一些. 所以就顺手补上了. 继承 head.h 让你的业务轻装
+    上阵. 美好从此刻开始 ~ 新的风暴已经出现, 怎么能够停滞不前. 穿越时空竭尽全力, 我会来到
+    你身边 ~
 
-### 4.6 筑基展望
+## 4.6 阅读理解, csv 解析库
 
-    妖魔战场逐渐急促起来, 我们筑基期顶天功法也就介绍到此. 数据结构算法可能要勤学苦练,
-    这些轮子基本都是3遍过, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮子
-    开发套路. 从 clog -> scrand -> schead -> scjson -> sccsv 遇到的妖魔鬼怪也不过
-    如此. 真实开发中这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世组
-    件. 但总的而言, 如果你想把他们的精华用的更自然, 显然你也得懂行(自己会写). 
-    凡事总要瞎搞搞才能有所突破 <--:-o
+        很久以前桌面项目配置文件基本都走 csv 文件配置. 采用 ',' 分隔. 同 excel 表格形式.
+    维护人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己写的解决方
+    案, 灰常节约内存. 首先展示 interface:
+
+```C
+#ifndef _CSV_H
+#define _CSV_H
+
+//
+// csv readonly parse
+// 1. 相邻字段必须被单个逗号分隔开, CRLF 换行
+// 2. 每个被嵌入的双引号字符必须被表示为两个双引号字符
+// 3. 字段都可以被双引号包裹, 有回车换行符双引号或者逗号, 那必须包裹
+//
+
+#include "struct.h"
+#include "strext.h"
+
+typedef struct {   // struct in heap malloc
+    int    rlen;   // 数据行数, 索引 [0, rlen)
+    int    clen;   // 数据列数, 索引 [0, clen)
+    char * data[]; // 保存数据, rlen * clen '二维数组
+} * csv_t;
+
+//
+// csv_get - 获取 csv[r][c] 位置的字符串
+// csv     : csv_t 对象
+// r       : 行索引 [0, csv->rlen)
+// c       : 列索引 [0, csv->clen)
+// return  : 返回 csv[r][c], 后面可以用 atoi, atof, strdup ...
+//
+inline const char * csv_get(csv_t csv, int r, int c) {
+    DCODE({
+        if (!csv || r < 0 || r >= csv->rlen || c < 0 || c >= csv->clen) {
+            RETNUL("params is error csv:%p, r:%d, c:%d.", csv, r, c);
+        }
+    });
+
+    // 返回 csv[r][c] 索引位置字符串
+    return csv->data[r * csv->clen + c];
+}
+
+//
+// csv_delete - 释放 csv_t 对象
+// csv     : csv_t 对象
+// return  : void 
+//
+inline void csv_delete(csv_t csv) {
+    free(csv);
+}
+
+//
+// csv_create - 文件中构建 csv_t 对象
+// path    : 文件路径
+// return  : 返回 csv_t 对象, NULL is error
+//
+extern csv_t csv_create(const char * path);
+
+#endif//_CSV_H
+```
+
+    这里我们只提供了读接口, 比较有特色的思路是 csv_t 采用一整块内存构建. 非常爽. 
+
+```C
+#include "csv.h"
+
+// csv_check - 解析和检查 csv 文件内容, 返回构造的合法串
+static int csv_check(char * str, int * pr, int * pc) {
+    int c, n, rnt = 0, cnt = 0;
+    char * tar = str, * s = str;
+    while ((c = *tar++) != '\0') {
+        // csv 内容解析, 状态机切换
+        switch (c) {
+        case '"' : // 双引号包裹的特殊字符处理
+            while ((c = *tar++) != '\0') {
+                if ('"' == c) {
+                    // 有效字符再次压入栈, 顺带去掉多余 " 字符
+                    if ((n = *tar) != '"') 
+                        break;
+                    ++tar;
+                }
+                // 添加得到的字符
+                *s++ = c;
+            }
+            // 继续判断,只有是 c == '"' 才会继续, 否则都是异常
+            if (c != '"') 
+                goto err_faid;
+            break;
+        case ',' : *s++ = '\0'; ++cnt; break;
+        case '\r': break;
+        case '\n': *s++ = '\0'; ++cnt; ++rnt; break;
+        default  : *s++ = c; // 其它所有情况只添加数据就可以了
+        }
+    }
+    // CRLF 处理
+    if (str != s && tar[-2] != '\n') {
+        *s++ = '\0'; ++cnt; ++rnt;
+    }
+
+    // 检查, 行列个数是否正常
+    if (rnt == 0 || cnt % rnt) {
+err_faid:
+        RETURN(-1, "csv parse error %d, %d, %d.", c, rnt, cnt);
+    }
+
+    // 返回最终内容
+    *pr = rnt; *pc = cnt;
+    return (int)(s - str);
+}
+
+// csv_parse - 解析 csv 内容返回解析后的对象
+csv_t csv_parse(char * s) {
+    csv_t csv;
+    char * str;
+    int diff, rnt, cnt;
+    if ((diff = csv_check(s, &rnt, &cnt)) < 0)
+        return NULL;
+    
+    // 分配最终内存
+    csv = malloc(diff + sizeof *csv + sizeof(char *) * cnt);
+    str = (char *)csv + sizeof *csv + sizeof(char *) * cnt ;
+    memcpy(str, s, diff);
+    // 开始内存整理
+    csv->rlen = rnt;
+    csv->clen = cnt / rnt;
+    diff = 0;
+    do {
+        csv->data[diff] = str;
+        while (*str ++)
+            ;
+    } while (++diff < cnt);
+
+    return csv;
+}
+
+//
+// csv_create - 文件中构建 csv_t 对象
+// path    : 文件路径
+// return  : 返回 csv_t 对象, NULL is error
+//
+csv_t 
+csv_create(const char * path) {
+    char * str = str_freads(path);
+    if (NULL == str) {
+        RETNUL("str_freads path = %s is error!", path);
+    }
+
+    // 开始解析 csv 文件内容
+    csv_t csv = csv_parse(str);
+    free(str);
+    // 返回最终结果
+    return csv;
+}
+```
+
+    核心重点在 csv_parse 和 csv_create 上面. 前者负责预建和填充内存布局, 后者负责平滑过渡
+    . 代码很短, 但却很有效不是吗? 希望上面的阅读理解你能喜欢 ~
+
+## 4.6 筑基展望
+
+        妖魔战场逐渐急促起来, 筑基期顶天功法也就介绍到此. 数据结构算法可能要勤学苦练, 而这些
+    轮子多数只需 3 遍后, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮子开发套路.
+    从 clog -> rand -> json -> conf -> head -> csv 遇到的妖魔鬼怪也不过如此. 真实开发中
+    这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世组件. 但总的而言, 如果你
+    想把前辈英魂用的更自然, 显然你也得懂行(自己会写). 凡事总要瞎搞搞才能有所突破 <--:-o
 
 ***
 
-    西门吹雪忽然道：“你学剑?”
+西门吹雪忽然道: "你学剑?"
 
-    叶孤城道：“我就是剑。”
+叶孤城道: "我就是剑."
 
-    西门吹雪道：“你知不知道剑的精义何在?”
+西门吹雪道: "你知不知道剑的精义何在?"
 
-    叶孤城道：“你说。”
+叶孤城道: "你说."
 
-    西门吹雪道：“在于诚。”
+西门吹雪道: "在于诚."
 
-    叶孤城道：“诚?”
+叶孤城道: "诚?"
 
-    西门吹雪道：“唯有诚心正义，才能到达剑术的颠峰，不诚的人，根本不足论剑。”
+西门吹雪道: "唯有诚心正义, 才能到达剑术的颠峰, 不诚的人, 根本不足论剑."
 
-    叶孤城的瞳孔突又收缩。
+叶孤城的瞳孔突又收缩.
 
-    西门吹雪盯着他，道：“你不诚。”
+西门吹雪盯着他, 道: "你不诚."
 
-    叶孤城沉默了很久，忽然也问道：“你学剑?”
+叶孤城沉默了很久, 忽然也问道: "你学剑?"
 
-    西门吹雪道：“学无止境，剑更无止境。”
+西门吹雪道: "学无止境, 剑更无止境."
 
-    叶孤城道：“你既学剑，就该知道学剑的人只在诚于剑，并不必诚于人。”  
+叶孤城道: "你既学剑, 就该知道学剑的人只在诚于剑, 并不必诚于人."  
 
 ***
 
-    思绪有些乱, 突然想起飞升真仙 ~ 我们仨 ~ 或许是她(他)们撑起种族底蕴 ~
+思绪有些乱, 梦幻间想起 ~ 我们仨 ~ 飞升真仙 ~ 或许是她(他)们撑起种族底蕴 ~
 
 ![我们仨](./img/我们仨.png)
