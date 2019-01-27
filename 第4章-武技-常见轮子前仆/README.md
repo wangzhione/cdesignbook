@@ -824,7 +824,7 @@ typedef void (* file_f)(FILE * c, void * arg);
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : file update -> func(path -> FILE, arg), func is NULL 标记清除
+// func     : NULL 是标记清除, 否则 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
@@ -857,7 +857,7 @@ struct file {
 
 static struct files {
     atom_t lock;            // 当前对象原子锁
-    struct file * head;     // 当前文件对象集
+    struct file * list;     // 当前文件对象集
 } f_s;
 
 // files add 
@@ -876,14 +876,14 @@ static void f_s_add(const char * p, unsigned h, file_f func, void * arg) {
 
     // 直接插入到头节点部分
     atom_lock(f_s.lock);
-    fu->next = f_s.head;
-    f_s.head = fu;
+    fu->next = f_s.list;
+    f_s.list = fu;
     atom_unlock(f_s.lock);
 }
 
 // files get 
 static struct file * f_s_get(const char * p, unsigned * r) {
-    struct file * fu = f_s.head;
+    struct file * fu = f_s.list;
     unsigned h = *r = str_hash(p);
 
     while (fu) {
@@ -905,7 +905,7 @@ static struct file * f_s_get(const char * p, unsigned * r) {
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : file update -> func(path -> FILE, arg), func is NULL 标记清除
+// func     : NULL 是标记清除, 否则 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
@@ -936,14 +936,14 @@ file_set(const char * path, file_f func, void * arg) {
 void 
 file_update(void) {
     atom_lock(f_s.lock);
-    struct file * fu = f_s.head;
+    struct file * fu = f_s.list;
     while (fu) {
         struct file * next = fu->next;
 
         if (NULL == fu->func) {
             // 删除的是头节点
-            if (f_s.head == fu)
-                f_s.head = next;
+            if (f_s.list == fu)
+                f_s.list = next;
 
             free(fu->path);
             free(fu);
@@ -978,431 +978,630 @@ file_update(void) {
     用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行, 就琢磨写了个简单的 c json. 这小节, 就带大
     家写写这个 c json 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON 好学习.
 
-### 4.4.1 c json 设计布局
+### 4.4.1 c json 设计布局 
 
-    首先大概分析 scjson 的实现部分. 最关心的是 scjson的内存布局, 这里引入了 tstr 布局.
-    设计结构图如下 :
+    首先大概分析 c json 的实现部分. 最关心的是 c json 的内存布局, 这里引入了 tstr 布局. 设计
+    结构图如下 :
 
-![scjson内存布局](./img/scjson内存布局.png)
+![c json 内存布局](./img/json内存布局.png)
 
-    str 指向内存常变, tstr指向内存不怎么变. 所以采用两块内存保存. tstr 存在目的是个中转
-    站. 因为读取文件内容, 中间 json 内容去注释, 压缩需要一块内存. 这就是引入 tstr目的.
-
-    再看看 scjson 结构代码设计:
+    str 指向内存常量, tstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个中转站. 
+    因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 这就是引入目的.
+    再看看 c json 结构代码设计:
 
 ```C
-struct cjson {
-    struct cjson * next;    // 采用链表结构处理, 放弃二叉树结构, 优化内存
-    struct cjson * child;   // type == ( CJSON_ARRAY or CJSON_OBJECT ) 那么 child 就不为空
+struct json {
+    unsigned char type;     // CJSON_NULL - JSON_ARRAY and JSON_CONST
+    struct json * next;     // type & OBJECT or ARRAY -> 下个节点链表
+    struct json * chid;     // type & OBJECT or ARRAY -> 对象节点数据
 
-    unsigned char type;     // 数据类型 CJSON_XXXX, 一个美好的意愿
-    char * key;             // json内容那块的 key名称 	
+    char * key;             // json 节点的 key
     union {
-        char * vs;          // type == CJSON_STRING, 是一个字符串 	
-        double vd;          // type == CJSON_NUMBER, 是一个num值, ((int)c->vd) 转成int 或 bool
+        char * str;         // type & STRING -> 字符串
+        double num;         // type & NUMBER -> number
     };
 };
 
-//定义cjson_t json类型
-typedef struct cjson * cjson_t;
+// 定义 json 对象类型
+//
+typedef struct json * json_t;
 ```
 
-    使用 c99的匿名结构体挺爽的, 整个内存详细布局如下:
+    使用 c99 的匿名结构体挺爽的, 整个 struct json 内存详细布局如下:
 
-![scjson内存结构](./img/scjson内存结构.png)
+![c json内存结构](./img/json内存结构.png)
 
-    scjson 中处理的类型类型无外乎:
+    c json 中处理的类型类型无外乎:
 
 ```C
-// json中几种数据结构和方式定义, 对于程序开发而言最难的还是理解思路(思想 or 业务)
-#define CJSON_NULL      (0u << 0)
-#define CJSON_FALSE     (1u << 0)
-#define CJSON_TRUE      (1u << 1)
-#define CJSON_NUMBER    (1u << 2)
-#define CJSON_STRING    (1u << 3)
-#define CJSON_ARRAY     (1u << 4)
-#define CJSON_OBJECT    (1u << 5)
+#define JSON_NULL           (0u << 0)
+#define JSON_BOOL           (1u << 1)
+#define JSON_NUMBER         (1u << 2)
+#define JSON_STRING         (1u << 3)
+#define JSON_OBJECT         (1u << 4)
+#define JSON_ARRAY          (1u << 5)
+#define JSON_CONST          (1u << 6)
 
 //
-// cjson_getint - 这个宏, 协助我们得到 int 值
-// item		: 待处理的目标cjson_t结点
-// return	: int
+// json_int - 得到节点的 int 值
+// item     : json 节点
+//          : 返回 number int 值
 //
-#define cjson_getvi(item) ((int)((item)->vd))
+#define json_int(item) ((int)(item)->num)
+
+#endif//JSON_NULL
+
+// json_str - json 字符串分离, 需要自行 free
+inline char * json_str(json_t item) {
+    item->type &= JSON_CONST;
+    return item->str;
+}
+
 ```
 
-    以上就是解析之后的具体结构类型. 下面简单分析一下文本解析规则.
+    以上就是解析之后的具体结构类型. 下面简单分析一下文本解析规则. 思路是递归下降分析. 到这里基
+    本关于 c json 详细设计图介绍完毕了. 后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
 
-![scjson递归下降分析](./img/scjson递归下降分析.png)
+![c json递归下降分析](./img/json递归下降分析.png)
 
-    思路是递归下降分析. 到这里基本关于 scjson详细设计图介绍完毕了.
-    后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
+### 4.4.2 c json 详细设计
 
-#### 4.4.1 scjson 详细设计
-
-    当初写这类东西, 就是对着协议文档开撸 ~
-    这类代码是协议文档和作者思路的杂糅体, 推荐最好手敲一遍, 自行加注释, 琢磨后吸收.
-    来看看删除函数
+    当初写这类东西, 就是对着协议文档开撸 ~ 这类代码是协议文档和作者思路的杂糅体, 推荐最好手敲一
+    遍, 自行加注释, 琢磨后吸收. 来看看 c json 的删除函数
 
 ```C
 //
-// cjson_delete - 删除json串内容  
-// c		: 待释放json_t串内容
-// return	: void
+// json_delete - json 对象销毁
+// c        : json 对象
+// return   : void
 //
 void 
-cjson_delete(cjson_t c) {
-	while (c) {
-		cjson_t next = c->next;
-		// 放弃引用和常量的优化选项
-		free(c->key);
-		if (c->type & CJSON_STRING)
-			free(c->vs);
-		// 递归删除子节点
-		if (c->child)
-			cjson_delete(c->child);
-		free(c);
-		c = next;
-	}
+json_delete(json_t c) {
+    while (c) {
+        json_t next = c->next;
+        unsigned char t = c->type;
+
+        free(c->key);
+        if ((t & JSON_STRING) && !(t & JSON_CONST))
+            free(c->str);
+
+        // 子节点 继续递归删除
+        if (c->chid)
+            json_delete(c->chid);
+
+        c = next;
+    }
 }
 ```
 
-    一直到此刻我们一直直接使用 malloc 和 free. 没有提供自定义分配器接口. 其实这个很好
-    扩展, 后期自己可以内嵌个 jemalloc 传说中最屌的内存分配器. 全局宏替换, 或者直接包
-    装层再全局搞. 
-    上面操作无外乎就是递归找到最下面的儿子结点, 期间删除自己挂载的结点. 然后依次按照 
-    next 链表顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json串, 
-    这个串中可能存在多余的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的
-    json 字符串 :
+    上面操作无外乎就是递归找到最下面的儿子节点, 期间删除自己挂载的节点. 然后依次按照 next 链表
+    顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json 串, 这个串中可能存在多余
+    的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的 json 字符串.
 
 ```C
-//  将 jstr中 不需要解析的字符串都去掉, 返回压缩后串的长度. 并且纪念mini 比男的还平
-static size_t _cjson_mini(char * jstr) {
-	char c, * in = jstr, * to = jstr;
+// json_mini - 清洗 str 中冗余的串并返回最终串的长度. 纪念 mini 比男的还平 :)
+// EF BB BF     = UTF-8                 (可选标记, 因为 Unicode 标准未有建议)
+// FE FF        = UTF-16, big-endian    (大尾字节序标记)
+// FF FE        = UTF-16, little-endian (小尾字节序标记, windows 中的 Unicode 编码默认标记)
+// 00 00 FE FF  = UTF-32, big-endian    (大尾字节序标记)
+// FF FE 00 00  = UTF-32, little-endian (小尾字节序标记)
+//
+size_t json_mini(char * str) {
+    char c, * in = str;
+    unsigned char * to = (unsigned char *)str;
+    
+    // 跳过 UTF-8 With BOM 前三个字节
+    if (to[0] == 0xEF && to[1] == 0xBB && to[2] == 0xBF)
+        to += 3;
 
-	while ((c = *to)) {
-		// step 1 : 处理字符串
-		if (c == '"') {
-			*in++ = c;
-			while ((c = *++to) && (c != '"' || to[-1] == '\\'))
-				*in++ = c;
-			if (c) {
-				*in++ = c;
-				++to;
-			}
-			continue;
-		}
-		// step 2 : 处理不可见特殊字符
-		if (c < '!') {
-			++to;
-			continue;
-		}
-		if (c == '/') {
-			// step 3 : 处理 // 解析到行末尾
-			if (to[1] == '/') {
-				while ((c = *++to) && c != '\n')
-					;
-				continue;
-			}
+    while ((c = *to)) {
+        // step 0 : 处理字面串
+        if (c == '`') {
+            *in++ = c;
+            while ((c = *++to) && c != '`')
+                *in++ = c;
+            if (c) {
+                *in++ = c;
+                ++to;
+            }
+            continue;
+        }
 
-			// step 4 : 处理 /*
-			if (to[1] == '*') {
-				while ((c = *++to) && (c != '*' || to[1] != '/'))
-					;
-				if (c)
-					to += 2;
-				continue;
-			}
-		}
-		// step 5 : 合法数据直接保存
-		*in++ = *to++;
-	}
+        // step 1 : 处理字符串
+        if (c == '"') {
+            *in++ = c;
+            while ((c = *++to) && (c != '"' || to[-1] == '\\'))
+                *in++ = c;
+            if (c) {
+                *in++ = c;
+                ++to;
+            }
+            continue;
+        }
+        // step 2 : 处理不可见特殊字符
+        if (c < '!') {
+            ++to;
+            continue;
+        }
+        if (c == '/') {
+            // step 3 : 处理 // 解析到行末尾
+            if (to[1] == '/') {
+                while ((c = *++to) && c != '\n')
+                    ;
+                continue;
+            }
+            // step 4 : 处理 /*
+            if (to[1] == '*') {
+                while ((c = *++to) && (c != '*' || to[1] != '/'))
+                    ;
+                if (c)
+                    to += 2;
+                continue;
+            }
+        }
+        // step 5 : 合法数据直接保存
+        *in++ = *to++;
+    }
 
-	*in = '\0';
-	return in - jstr;
+    *in = '\0';
+    return in - str;
 }
 ```
 
-    上面操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符.
-    开始上真正的解析器入口函数 :
+    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上真正的解
+    析器入口函数:
 
 ```C
-// 递归下降分析 需要声明这些函数
-static const char * _parse_value(cjson_t item, const char * str);
-static const char * _parse_array(cjson_t item, const char * str);
-static const char * _parse_object(cjson_t item, const char * str);
+//
+// parse_value - 递归下降解析
+// item     : json 节点
+// str      : 语句源串
+// return   : 解析后剩下的串
+//
+static const char * parse_value(json_t item, const char * str);
 
-//构造一个空 cjson 对象
-static inline cjson_t _cjson_new(void) {
-	cjson_t node = malloc(sizeof(struct cjson));
-	if (NULL == node)
-		CERR_EXIT("malloc struct cjson is null!");
-	return memset(node, 0, sizeof(struct cjson));
-}
-
-// jstr 必须是 _cjson_mini 解析好的串
-static cjson_t _cjson_parse(const char * jstr) {
-	const char * end;
-	cjson_t json = _cjson_new();
-
-	if (!(end = _parse_value(json, jstr))) {
-		cjson_delete(json);
-		RETURN(NULL, "_parse_value params end = %s!", end);
-	}
-
-	return json;
+//
+// json_parse - json 解析函数
+// str      : json 字符串串
+// return   : json 对象, NULL 表示解析失败
+//
+json_t json_parse(const char * str) {
+    json_t c = json_new();
+    if (!parse_value(c, str)) {
+        json_delete(c);
+        return NULL;
+    }
+    return c;
 }
 
 //
-// cjson_newxxx - 通过特定源, 得到内存中json对象
-// str		: 普通格式的串
-// tstr		: tstr_t 字符串, 成功后会压缩 tstr_t
-// path		: json 文件路径
-// return	: 解析好的 json_t对象, 失败为NULL
+// json_file - 通过文件构造 json 对象
+// json_create  - 通过字符串构造 json 对象
+// str      : 字符串
+// path     : 文件路径
+// return   : json_t 对象
 //
-inline cjson_t 
-cjson_newstr(const char * str) {
-	cjson_t json;
-	TSTR_CREATE(tstr);
-	tstr_appends(tstr, str);
+json_t 
+json_file(const char * path) {
+    // 读取文件中内容, 并检查
+    if (!path || !*path) return NULL;
+    char * str = str_freads(path);
+    if (!str) return NULL;
 
-	_cjson_mini(tstr->str);
-	json = _cjson_parse(tstr->str);
+    // 返回解析结果
+    json_t c = json_create(str);
+    free(str);
+    return c;
+}
 
-	TSTR_DELETE(tstr);
-	return json;
+json_t 
+json_create(const char * str) {
+    json_t c = NULL;
+    if (str && *str) {
+        TSTR_CREATE(tsr);
+        tstr_appends(tsr, str);
+
+        // 清洗 + 解析
+        json_mini(tsr->str);
+        c = json_parse(tsr->str);
+
+        TSTR_DELETE(tsr);
+    }
+    return c;
 }
 ```
 
-    从 cjson_newstr看起, 声明了栈上字符串 tstr填充 str, 随后进行 _cjson_mini洗词, 然后
-    通过 _cjson_parse 解析最终结果返回. 随后可以看哈 _cjson_parse 实现, 非常好理解, 本
-    质就是走分支. 不同分支走不同的解析函数:
+    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上真正的解
+    从 json_create 看起, 声明了栈上字符串 tsr 填充 str, 随后进行 json_mini 洗词, 然后通过 
+    json_parse 解析出最终结果并返回. 随后可以看哈 json_parse 实现非常好理解, 核心调用的是
+    parse_value. 而 parse_value 就是我们的重头戏, 本质就是走分支. 不同分支走不同的解析操作.
 
 ```C
-// 将 value 转换塞入 item json 值中一部分
 static const char * 
-_parse_value(cjson_t item, const char * str) {
-	char c = '\0'; 
-	if ((str) && (c = *str)) {
-		switch (c) {
-		// n = null, f = false, t = true ... 
-		case 'n' : return item->type = CJSON_NULL, str + 4;
-		case 'f' : return item->type = CJSON_FALSE, str + 5;
-		case 't' : return item->type = CJSON_TRUE, item->vd = 1.0, str + 4;
-		case '\"': return _parse_string(item, str);
-		case '0' : case '1' : case '2' : case '3' : case '4' : case '5' :
-		case '6' : case '7' : case '8' : case '9' :
-		case '+' : case '-' : case '.' : return _parse_number(item, str);
-		case '[' : return _parse_array(item, str);
-		case '{' : return _parse_object(item, str);
-		}
-	}
-	// 循环到这里是意外 数据
-	RETURN(NULL, "params value = %c, %s!", c, str);
+parse_value(json_t item, const char * str) {
+    if (!str) return NULL;
+    switch (*str) {
+    // n or N = null, f or F = false, t or T = true ...
+    case 'n': case 'N':
+        if (str_cmpin(str + 1, "ull", sizeof "ull" - 1)) return NULL;
+        item->type = JSON_NULL;
+        return str + sizeof "ull"; // exists invalid is you!
+    case 't': case 'T':
+        if (str_cmpin(str + 1, "rue", sizeof "rue" - 1)) return NULL;
+        item->type = JSON_BOOL; item->num = true;
+        return str + sizeof "rue";
+    case 'f': case 'F':
+        if (str_cmpin(str + 1, "alse", sizeof "alse"-1)) return NULL;
+        item->type = JSON_BOOL;
+        return str + sizeof "alse";
+    case '+': case '-': case '.':
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+        return parse_number(item, str);
+    case '`': return parse_literal(item, str + 1);
+    case '"': return parse_string (item, str + 1);
+    case '{': return parse_object (item, str + 1);
+    case '[': return parse_array  (item, str + 1);
+    }
+    return NULL;
 }
 ```
 
-    肉眼层面的协议处理了, 像 MSGPACK 就是对上面 n f ... { 扩展成1字节内数值. 核心原理
-    还是一样. 看下 _parse_string 处理, 内嵌了 utf8 字符处理会感觉套路长一点点
+    由 parse_value 引出了 parse_number, parse_literal, parse_string, parse_object, 
+    parse_array. 是不是后面五个写好了 parse_value 就写好了. 那随后开始逐个击破, 
+    parse_number 走起.
 
 ```C
-// parse 4 digit hexadecimal number
-static unsigned _parse_hex4(const char str[]) {
-	unsigned c, h = 0, i = 0;
-	// 开始转换16进制
-	for(;;) {
-		c = *str;
-		if (c >= '0' && c <= '9')
-			h += c - '0';
-		else if (c >= 'A' && c <= 'F')
-			h += 10 + c - 'A';
-		else if (c >= 'a' && c <= 'z')
-			h += 10 + c - 'a';
-		else
-			return 0;
-		// shift left to make place for the next nibble
-		if (4 == ++i)
-			break;
-		h <<= 4;
-		++str;
-	}
+// parse_number - number 解析
+static const char * parse_number(json_t item, const char * str) {
+    char c;
+    double n = 0;
+    int e, eign, sign = 1;
 
-	return h;
-}
+    // 正负号处理判断
+    if ((c = *str) == '-' || c == '+') {
+        sign = c == '-' ? -1 : 1;
+        c = *++str;
+    }
 
-// 分析字符串的子函数,
-static const char * _parse_string(cjson_t item, const char * str) {
-	static unsigned char _marks[] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
-	const char * ptr;
-	char c, * nptr, * out;
-	unsigned len = 1, uc, nuc;
+    // 整数处理部分
+    while (c >= '0' && c <= '9') {
+        n = n * 10 + c - '0';
+        c = *++str;
+    }
+    // 处理小数部分
+    if (c == '.') {
+        int d = 0;
+        double s = 1;
+        while ((c = *++str) && c >= '0' && c <= '9') {
+            d = d * 10 + c - '0';
+            s *= 0.1;
+        }
+        // 得到整数和小数部分
+        n += s * d;
+    }
 
-	// 检查是否是字符串内容, 并记录字符串大小
-	if (*str != '\"')
-		RETURN(NULL, "need \\\" str => %s error!", str);
-	for (ptr = str + 1; (c = *ptr++) != '\"' && c; ++len)
-		if (c == '\\') {
-			//跳过转义字符
-			if (*ptr == '\0')
-				RETURN(NULL, "ptr is end len = %d.", len);
-			++ptr;
-		}
-	if (c != '\"')
-		RETURN(NULL, "need string \\\" end there c = %d, %c!", c, c);
+    // 添加正负号
+    n *= sign;
 
-	// 这里开始复制拷贝内容
-	if (!(nptr = out = malloc(len)))
-		CERR_EXIT("calloc size = %d is error!", len);
-	for (ptr = str + 1; (c = *ptr) != '\"' && c; ++ptr) {
-		if (c != '\\') {
-			*nptr++ = c;
-			continue;
-		}
-		// 处理转义字符
-		switch ((c = *++ptr)) {
-		case 'b': *nptr++ = '\b'; break;
-		case 'f': *nptr++ = '\f'; break;
-		case 'n': *nptr++ = '\n'; break;
-		case 'r': *nptr++ = '\r'; break;
-		case 't': *nptr++ = '\t'; break;
-		case 'u': // 将utf16 => utf8, 专门的utf处理代码
-			uc = _parse_hex4(ptr + 1);
-			ptr += 4; //跳过后面四个字符, unicode
-			if (0 == uc || (uc >= 0xDC00 && uc <= 0xDFFF))
-				break;	/* check for invalid. */
+    // 不是科学计数内容直接返回
+    item->type = JSON_NUMBER;
+    if (c != 'e' && c != 'E') {
+        item->num = n;
+        return str;
+    }
 
-			if (uc >= 0xD800 && uc <= 0xDBFF) { /* UTF16 surrogate pairs. */
-				if (ptr[1] != '\\' || ptr[2] != 'u')	
-					break;	/* missing second-half of surrogate. */
-				nuc = _parse_hex4(ptr + 3);
-				ptr += 6;
-				if (nuc < 0xDC00 || nuc>0xDFFF)		
-					break;	/* invalid second-half of surrogate.	*/
-				uc = 0x10000 + (((uc & 0x3FF) << 10) | (nuc & 0x3FF));
-			}
+    // 处理科学计数法
+    if ((c = *++str) == '-' || c == '+')
+        ++str;
+    eign = c == '-' ? -1 : 1;
 
-			if (uc < 0x80)
-				len = 1;
-			else if (uc < 0x800)
-				len = 2;
-			else if (uc < 0x10000)
-				len = 3;
-			else
-				len = 4;
-			nptr += len;
+    e = 0;
+    while ((c = *str) >= '0' && c <= '9') {
+        e = e * 10 + c - '0';
+        ++str;
+    }
 
-			switch (len) {
-			case 4: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
-			case 3: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
-			case 2: *--nptr = ((uc | 0x80) & 0xBF); uc >>= 6;
-			case 1: *--nptr = (uc | _marks[len]);
-			}
-			nptr += len;
-			break;
-		default: *nptr++ = c;
-		}
-	}
-	*nptr = '\0';
-	item->vs = out;
-	item->type = CJSON_STRING;
-	return ++ptr;
+    // number = +/- number.fraction * 10^+/- exponent
+    item->num = n * pow(10, eign * e);
+    return str;
 }
 ```
 
-    编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 
-    方案, 将其移植到 winds上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际
-    标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好~
+    parse_number 特别像下面两兄弟. 大体功能相似, 用于将字符串解析成浮点数.
 
-> 引述一丁点维基百科 UTF-8 编码字节含义:  
+```C
+extern double __cdecl strtod(char const * _String, char ** _EndPtr);
+
+inline double __cdecl atof(char const * _String) {
+    return strtod(_String, NULL);
+}
+```
+
+    parse_literal 用于解析 `` 包裹的字符常量. 输入额外添加的私货. 
+
+```C
+// parse_literal - 字面串解析
+static const char * parse_literal(json_t item, const char * str) {
+    char c, * ntr;
+    const char * ptr, * etr = str;
+
+    // 获取到 '`' 字符结尾处
+    while ((c = *etr) != '`' && c)
+        ++etr;
+    if (c != '`') return NULL;
+
+    // 开始构造 json string 节点
+    item->type = JSON_STRING;
+    item->str = ntr = malloc(etr - str + 1);
+    for (ptr = str; ptr < etr; ++ptr) 
+        *ntr++ = *ptr;
+    *ntr = '\0';
+
+    return ptr + 1;
+}
+```
+
+    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字符的处理. 
+    我们了原先 cJSON 的代码. 作为程序员, 有些地方还是得低头 ~  
+
+```C
+// parse_hex4 - parse 4 digit hexadecimal number
+static unsigned parse_hex4(const char str[]) {
+    unsigned h = 0;
+    for (unsigned i = 0; ; ++str) {
+        unsigned char c = *str;
+        if (c >= '0' && c <= '9')
+            h += c - '0';
+        else if (c >= 'a' && c <= 'f')
+            h += c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F')
+            h += c - 'A' + 10;
+        else return 0; // invalid
+
+        // shift left to make place for the next nibble
+        if (4 == ++i) break;
+        h <<= 4;
+    }
+
+    return h;
+}
+
+// parse_string - string 解析
+static const char * parse_string(json_t item, const char * str) {
+    unsigned len = 1;
+    char c, * ntr, * out;
+    const char * ptr, * etr = str;
+
+    while ((c = *etr) != '"' && c) {
+        ++etr;
+        // 转义字符特殊处理
+        if (c == '\\') {
+            if (*etr == '\0') 
+                return NULL;
+            ++etr;
+        }
+        ++len;
+    }
+    if (c != '"') return NULL;
+
+    // 开始复制拷贝内容
+    ntr = out = malloc(len);
+    for (ptr = str; ptr < etr; ++ptr) {
+        // 普通字符直接添加处理
+        if ((c = *ptr) != '\\') {
+            *ntr++ = c;
+            continue;
+        }
+        // 转义字符处理
+        switch ((c = *++ptr)) {
+        case 'b': *ntr++ = '\b'; break;
+        case 'f': *ntr++ = '\f'; break;
+        case 'n': *ntr++ = '\n'; break;
+        case 'r': *ntr++ = '\r'; break;
+        case 't': *ntr++ = '\t'; break;
+        // transcode UTF16 to UTF8. See RFC2781 and RFC3629
+        case 'u': {
+            // first bytes of UTF8 encoding for a given length in bytes
+            static const unsigned char marks[] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+            unsigned oc, uc = parse_hex4(ptr + 1);
+            // check for invalid
+            if ((ptr += 4) >= etr) goto err_free;
+            if ((uc >= 0xDC00 && uc <= 0xDFFF) || uc == 0)
+                goto err_free;
+
+            // UTF16 surrogate pairs
+            if (uc >= 0xD800 && uc <= 0xDBFF) {
+                if ((ptr + 6) >= etr) goto err_free;
+                // missing second-half of surrogate
+                if ((ptr[1] != '\\') || (ptr[2] != 'u' && ptr[2] != 'U')) 
+                    goto err_free;
+
+                oc = parse_hex4(ptr + 3);
+                ptr += 6; // parse \uXXXX
+                // invalid second-half of surrogate
+                if (oc < 0xDC00 || oc > 0xDFFF) goto err_free;
+                // calculate unicode codepoint from the surrogate pair
+                uc = 0x10000 + (((uc & 0x3FF) << 10) | (oc & 0x3FF));
+            }
+
+            // encode as UTF8
+            // takes at maximum 4 bytes to encode:
+
+            // normal ascii, encoding 0xxxxxxx
+            if (uc < 0x80) len = 1;
+            // two bytes, encoding 110xxxxx 10xxxxxx
+            else if (uc < 0x800) len = 2;
+            // three bytes, encoding 1110xxxx 10xxxxxx 10xxxxxx
+            else if (uc < 0x10000) len = 3;
+            // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+            else len = 4;
+            ntr += len;
+
+            switch (len) {
+            // 10xxxxxx
+            case 4: *--ntr = ((uc | 0x80) & 0xBF); uc >>= 6;
+            // 10xxxxxx
+            case 3: *--ntr = ((uc | 0x80) & 0xBF); uc >>= 6;
+            // 10xxxxxx
+            case 2: *--ntr = ((uc | 0x80) & 0xBF); uc >>= 6;
+            // depending on the length in bytes this determines the 
+            // encoding ofthe first UTF8 byte
+            case 1: *--ntr = ((uc | marks[len]));
+            }
+            ntr += len;
+        }
+        break;
+        default : *ntr++ = c;
+        }
+    }
+    *ntr = '\0';
+    item->str = out;
+    item->type = JSON_STRING;
+    return ptr + 1;
+
+err_free:
+    free(out);
+    return NULL;
+}
+```
+
+    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字符的处理. 
+    编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 方案
+    , 将其移植到 winds 上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际标准的
+    来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面抄录了一份 utf8.h. 有兴趣
+    同学可以去作者主页找下来看看, 这里只带大家看看接口设计.
+
+```C
+#ifndef _UTF8_H
+#define _UTF8_H
+
+#include "struct.h"
+
+//
+// utf8 和 gbk 基础处理能力的库
+//
+// g = gbk 是 ascii 扩展码, u8 = utf8
+// 2 * LEN(g) >= LEN(u8) >= LEN(g)
+//
+
+//
+// u82g - utf8 to gbk save d mem
+// g2u8 - gbk to utf8 save d mem by size n
+// d        : mem
+// n        : size
+// return   : void
+//
+extern void u82g(char d[]);
+extern void g2u8(char d[], size_t n);
+
+//
+// isu8s - 判断字符串是否是utf8编码
+// s        : 输入的串
+// return   : true 表示 utf8 编码
+//
+extern bool isu8s(const char * s);
+
+//
+// isu8 - check is utf8
+// d        : mem
+// n        : size
+// return   : true 表示 utf8 编码
+//
+extern bool isu8(const char d[], size_t n);
+
+#endif//_UTF8_H
+```
+
+> 引述一丁点维基百科上 UTF-8 编码字节含义:
 >  
-> 对于UTF-8编码中的任意字节B，如果B的第一位为0，则B独立的表示一个字符(ASCII码)；  
-> 如果B的第一位为1，第二位为0，则B为一个多字节字符中的一个字节(非ASCII字符)；  
-> 如果B的前两位为1，第三位为0，则B为两个字节表示的字符中的第一个字节；  
-> 如果B的前三位为1，第四位为0，则B为三个字节表示的字符中的第一个字节；  
-> 如果B的前四位为1，第五位为0，则B为四个字节表示的字符中的第一个字节；  
+> 对于 UTF-8 编码中的任意字节 B, 如果 B 的第一位为 0，则 B 独立的表示一个字符(是 ASCII 码);  
+> 如果 B 的第一位为 1, 第二位为 0, 则 B 为一个多字节字符中的一个字节(非 ASCII 字符);  
+> 如果 B 的前两位为 1, 第三位为 0, 则 B 为两个字节表示的字符中的第一个字节;  
+> 如果 B 的前三位为 1, 第四位为 0, 则 B 为三个字节表示的字符中的第一个字节;  
+> 如果 B 的前四位为 1, 第五位为 0, 则 B 为四个字节表示的字符中的第一个字节;  
 >  
-> 因此，对UTF-8编码中的任意字节，根据第一位，可判断是否为ASCII字符；根据前二位，  
-> 可判断该字节是否为一个字符编码的第一个字节；根据前四位（如果前两位均为1），  
-> 可确定该字节为字符编码的第一个字节，并且可判断对应的字符由几个字节表示；  
-> 根据前五位（如果前四位为1），可判断编码是否有错误或数据传输过程中是否有错误。 
+> 因此, 对 UTF-8 编码中的任意字节, 根据第一位, 可判断是否为 ASCII 字符; 根据前二位,  
+> 可判断该字节是否为一个字符编码的第一个字节; 根据前四位(如果前两位均为 1),  
+> 可确定该字节为字符编码的第一个字节, 并且可判断对应的字符由几个字节表示;  
+> 根据前五位(如果前四位为 1), 可判断编码是否有错误或数据传输过程中是否有错误.
 
-    最后一个前戏呼之欲出了, 字符串转 number
+    有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 有所帮助.
 
 ```C
-// 分析数值的子函数,写的可以
-static const char * _parse_number(cjson_t item, const char * str) {
-	double n = .0, ns = 1.0, nd = .0; // ns表示开始正负, 负为-1, nd表示小数后面位数
-	int e = 0, es = 1; // e表示后面指数, es表示 指数的正负, 负为-1
-	char c;
+//
+// isu8 - check is utf8
+// d        : mem
+// n        : size
+// return   : true 表示 utf8 编码
+//
+bool 
+isu8(const char d[], size_t n) {
+    size_t i = 0;
+    bool ascii = true;
+    // byts 表示编码字节数, utf8 [1, 6]字节编码
+    unsigned char c, byts = 0;
 
-	if ((c = *str) == '-' || c == '+') {
-		ns = c == '-' ? -1.0 : 1.0; // 正负号检测, 1表示负数
-		++str;
-	}
-	// 处理整数部分
-	for (c = *str; c >= '0' && c <= '9'; c = *++str)
-		n = n * 10 + c - '0';
-	if (c == '.')
-		for (; (c = *++str) >= '0' && c <= '9'; --nd)
-			n = n * 10 + c - '0';
+    while (i < n) {
+        c = d[i++];
+        // ascii 码最高位为 0, 0xxx xxxx
+        if ((c & 0x80)) ascii = false;
 
-	// 处理科学计数法
-	if (c == 'e' || c == 'E') {
-		if ((c = *++str) == '+') //处理指数部分
-			++str;
-		else if (c == '-')
-			es = -1, ++str;
-		for (; (c = *str) >= '0' && c <= '9'; ++str)
-			e = e * 10 + c - '0';
-	}
+        // 计算字节数
+        if (0 == byts) {
+            if (c >= 0x80) {
+                if (c >= 0xFC && c <= 0xFD) byts = 6;
+                else if (c >= 0xF8) byts = 5;
+                else if (c >= 0xF0) byts = 4;
+                else if (c >= 0xE0) byts = 3;
+                else if (c >= 0xC0) byts = 2;
+                else return false; // 异常编码直接返回
+                --byts;
+            }
+        } else {
+            // 多字节的非首位字节, 应为 10xx xxxx
+            if ((c & 0xC0) != 0x80) return false;
+            // byts 来回变化, 最终必须为 0
+            --byts;
+        }
+    }
 
-	//返回最终结果 number = +/- number.fraction * 10^+/- exponent
-	item->vd = ns * n * pow(10.0, nd + es * e);
-	item->type = CJSON_NUMBER;
-	return str;
+    return !ascii && byts == 0;
 }
 ```
 
-    最后就到了重头戏, 递归下降分析的两位主角了 _parse_array 和 _parse_object 
+### 4.4.3 parse array value
+
+    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带给你不一样
+    的体验.
 
 ```C
-// 分析数组的子函数, 采用递归下降分析
-static const char * 
-_parse_array(cjson_t item, const char * str) {
-	cjson_t child;
+// parse_array - array 解析
+static const char * parse_array(json_t item, const char * str) {
+    json_t chid;
+    item->type = JSON_ARRAY;
+    // 空数组直接解析完毕退出
+    if (']' == *str) return str + 1;
 
-	if (*str != '[') {
-		RETURN(NULL, "array str error start: %s.", str);
-	}
+    // 开始解析数组中数据
+    item->chid = chid = json_new();
+    str = parse_value(chid, str);
+    if (NULL == str) return NULL;
 
-	item->type = CJSON_ARRAY;
-	if (*++str == ']') // 低估提前结束, 跳过']'
-		return str + 1;
+    // array ',' cut
+    while (',' == *str) {
+        // 支持行尾多一个 ','
+        if (']' == *++str)
+            return str + 1;
 
-	item->child = child = _cjson_new();
-	str = _parse_value(child, str);
-	if (NULL == str) {
-		RETURN(NULL, "array str error e n d one: %s.", str);
-	}
+        chid->next = json_new();
+        chid = chid->next;
+        // 继续间接递归处理值
+        str = parse_value(chid, str);
+        if (NULL == str) return NULL;
+    }
 
-	while (*str == ',') {
-		// 支持行尾处理多余 ','
-		if (str[1] == ']')
-			return str + 1;
-
-		// 写代码是一件很爽的事
-		child->next = _cjson_new();
-		child = child->next;
-		str = _parse_value(child, str + 1);
-		if (NULL == str) {
-			RETURN(NULL, "array str error e n d two: %s.", str);
-		}
-	}
-
-	if (*str != ']') {
-		RETURN(NULL, "array str error e n d: %s.", str);
-	}
-	return str + 1;
+    return ']' == *str ? str + 1 : NULL;
 }
 ```
 
