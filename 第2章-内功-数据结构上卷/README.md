@@ -1492,8 +1492,8 @@ void array_test(void) {
 	思路来自云风大佬的 skynet c gate server 上设计
 
 ```C
-#ifndef _H_HAID
-#define _H_HAID
+#ifndef _HAID_H
+#define _HAID_H
 
 #include <assert.h>
 #include <stdlib.h>
@@ -1600,7 +1600,7 @@ static inline int haid_full(struct haid * h) {
     return h->len >= h->cap;
 }
 
-#endif//_H_HAID
+#endif//_HAID_H
 ```
 
 	代码比注释值钱. 一般书中也许会有习题, 我们这里将有阅读理解. 哈哈. 来一同感受设计的细

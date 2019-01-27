@@ -159,31 +159,27 @@ EXTERN_RUN(log_init, LOG_PATH_STR);
 #include <stdlib.h>
 #include <unistd.h>
 
-#define _TXT_PATH   "simplec.log"
+#define PATH_STR   "simplec.log"
 
 // 
 // logrotate hello world
 //
 int main(int argc, char * argv[]) {
-    int id = 0;
-    FILE * log = fopen(_TXT_PATH, "ab");
+    FILE * log = fopen(PATH_STR, "ab");
     if (NULL == log) {
-        fputs("fopen ab err path = " _TXT_PATH  "!\n", stderr);
+        fputs("fopen ab err path = "PATH_STR "!\n", stderr);
         exit(EXIT_FAILURE);
     }   
     
     // Ctrl + C 中断结束
-    for (;;) {
-        printf(_TXT_PATH " id = %d\n", id);
-        fprintf(log, _TXT_PATH " id = %d\n", id);
+    for (int id = 0; ; ++id) {
+        printf(PATH_STR" id = %d\n", id);
+        fprintf(log, PATH_STR" id = %d\n", id);
         fflush(log);
-        ++id;
         sleep(1);
-    }   
+    }
 
-    
-    fclose(log);
-    return EXIT_SUCCESS;    
+    return fclose(log);
 }
 ```
 
@@ -197,41 +193,37 @@ all : simplec.exe
 clean :
     -rm -rf *~
     -rm -rf simplec.exe
-    -rm -rf simplec.log simplec.log.* simplec.log-*
+    -rm -rf simplec.log simplec.log-*
 
 simplec.exe : simplec.c
     gcc -g -Wall -O2 -o $@ $^
 ```
 
-    make
-    ./simplec.exe
-
-    按照上面操作开始持续输出日志. 有关试炼场的环境已经搭建成功. 那么是时候主角 T 
-    logrotate  出来了. 我当前用的测试机是 centos, 那就以它举例, 看图:
+    通过 make 得到 simplec.exe 运行起来, 就开始在日志文件中持续输出. 有关试炼场的环境
+	已经搭建成功. 那么是时候主角 T logrotate 出场了. 很久前在 centos 测试构建过看图:
 
 ![logrotate](./img/logrotate.png)
 
-    安装好上面工具, 那么 logrotate 日志轮询器就能够开始使用了. 推荐自己查相关手册,
-    我这里只是简单弄个 Demo. Ok开始搞起来, 看下面所做的 shell 批处理:
+    安装好 logrotate 和 crontabs 工具, 那么日志轮询器就能够开始使用了. 推荐自己查相关
+	手册, 我这里只带大家简单弄个 Demo. Ok 开始搞起来, 看下面所做的 shell 批处理:
 
 ```Bash
 su root
 
 cd /etc/logrotate.d
 vi simplec
+i
 
 #
 # 添加 logrotate 规则
 # daily : 日志文件将按天轮循
-# rotate 7 : 存档7次, 时间最久的删除
+# rotate 7 : 存档7次, 时间最久的删除, LRU
 # dateext : 日志添加日期后缀名
 # copytruncate : 复制截断, (懒得写 SIGHUP 信号处理解决方案)
-# create 644 root root : 截断日志文件权限
+# create 644 root root : 创建的日志文件权限
 #
-# size = 100 : 测试用的, 超过100B就生成日志备份文件, 单位 K, M 默认B
+# size = 100 : 测试用的, 超过 100B 就生成日志备份文件, 单位 K, M 默认 B
 #
-
-i
 /home/ceshi/wangzhi/logrote/simplec.log {
         daily
         rotate 7
@@ -245,100 +237,59 @@ Esc
 :wq!
 
 logrotate -vf /etc/logrotate.d/simplec
-
 ```
 
-    最终所构建的结果如下:
+	copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失那一
+	瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识. 最
+	终所搭建的环境:
 
 ![logrotate log](./img/createlog.png)
 
-    如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己的双脚. 
-    如果没有那么是时候 -> 冲冲冲, 四驱兄弟在心中 ~
-    当然了 小小 VT二连之后, 可以再A一下. 那就利用自带的定时器了, cron 等等. 
-    以后的事情那就留给以后自己做吧 ~
-    这里教了最精简的优质日志库实战架构. 对于普通选手可能难以吹NB(说服别人), 因而这里
-    会再来分析一波其它几种日志库的套路, 知彼知己才能又说又吃 ~
-
-* 多用户日志库   
-
-        这类日志库在上层语言构建的业务框架中有所出现. 最大特点是每条日志有个唯一标识码.
-        通过唯一标识码能够分析出一条请求所经过的所有流程, 时间消耗等. 实现的核心思路: 
-        消息来到网关服务器, 生成唯一的日志索引id, 保存在线程的私有变量中, 调到那个服务
-        器发到那个服务器. 一套优秀的多用户日志库, 可以做到, 日志就能分析玩家所进行的一
-        切操作. 当然后备还有一系列自动化运维的脚本工具支持. 总结就是业务能力最强, 
-        性能最弱 ~
-
-* 消息轮询日志库  
-
-        这类日志库在游戏服务器中极其常见, 开个线程跑个日志消息队列. 它的一个应用场景,
-        例如端游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死. 所以消息队列就
-        出来缓存日志. 此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争,
-        对象池, 日志构建所有的业务都需要有. 个人看法它很俗外加太重. 哪有摘叶伤人来的快
-        速呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层面输出接口来的直接. 而
-        且启动了个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一环, 收益很普通~ 
-        业务设计的时候一条准则是 能不用线程就别用. 因为我们没钱~ 
-        线程不便宜 且 小脾气可大了. 
-
-        到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
-            1. 无锁编程, 利用 fprintf IO锁
-            2. fputs 最大限度的利用系统 IO缓冲层, 没必要 fflush, 从消息队列角度分析
-            3. 万剑一, 小小 日志库只负责写, 其它交给系统层面最屌的工具搞. 定位专业
-            ... 
+    如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双脚的主场. 如果没有那么是时候 -> 
+	冲冲冲, 四驱兄弟在心中 ~ 当然了小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时
+	器了, crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库实战
+	架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路
+	, 知彼知己才能又吃又喝 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类
+	日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业
+	务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀
+	一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看
+	法它很重. 哪有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层
+	面输出接口来的直接. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一
+	环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 
+	到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
+		1. 无锁编程, 利用 fprintf IO 锁
+		2. fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
+		3. 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
 
 ### 4.2 开胃点心, 高效随机数库
 
-    为什么来个随机数库呢, 因为不同平台的随机数实现不一样, 导致期望结果不一样. 顺便给系统
-    函数提提速. 随机函数对于计算机行业真不得了, 奠定了人类模拟未知的一种可能. 顺带扯一点
-    概率分析学上一种神奇的事情是: "概率为0的事情, 也可能发生~". 还是有点哈哈. 数学的本源
-    不是为了解决具体遇到问题, 多数是人内部思维的升华 -> 自己爽就行了. 就如同这个时代最强
-    数学家俄罗斯的[格里戈里·佩雷尔曼]渡劫真君, 嗨了一发就影响来了整个人类思维的跳跃. 
-
-    我们的随机函数算法是从 redis源码上拔下来的, redis是从 pysam源码上拔下来. 也只能说是
-    薪火相传, 生生不息 哭~ 首先看接口设计
-
-scrand.h
+    	为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一样. 顺便嫌
+	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
+	类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情, 也可
+	能发生 ~". 还是有点呵呵. 数学的本源不是为了解决具体遇到问题, 多数是人内部思维的升华 
+	-> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷尔曼]渡劫真君, 嗨了一发
+	就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码上拔下来的, redis 是从 
+	pysam 源码上拔下来. 也只能说是薪火相传, 生生不息. 哭 ~ 首先看接口设计
 
 ```C
-#ifndef _H_SIMPLEC_SCRAND
-#define _H_SIMPLEC_SCRAND
+#ifndef _RAND_H
+#define _RAND_H
 
+//
+// 线程安全的 rand 库, by redis
+//
+
+#include <time.h>
 #include <stdint.h>
-
-//
-// sh_srand - 初始化随机数种子, (int32_t)time(NULL)
-// seed		: 种子数
-// return	: void
-//
-extern void sh_srand(int32_t seed);
-
-//
-// sh_rand  - 得到[0, INT32_MAX]随机数
-// sh_rands - 得到[min, max] 范围内随机数
-// sh_randk - 得到一个64位的key
-//
-extern int32_t sh_rand(void);
-extern int32_t sh_rands(int32_t min, int32_t max);
-extern int64_t sh_randk(void);
-
-#endif//_H_SIMPLEC_SCRAND
-```
-
-    最核心是 sh_rand 函数实现, 阅读理解来了, 感受下离散数学的魅力
-
-scrand.c
-
-```C
-#include "scrand.h"
 #include <assert.h>
 
-#define N               (16)
-#define MASK            ((1 << N) - 1)
-#define LOW(x)          ((x) & MASK)
-#define HIGH(x)         LOW((x) >> N)
-#define CARRY(x, y)     ((x + y) > MASK) // 二者相加是否进位, 基于16位
-#define ADDEQU(x, y, z)	z = CARRY(x, y); x = LOW(x + y)
+struct rand {
+    uint32_t x[3];
+    uint32_t a[3];
+    uint32_t c;
+};
 
-#define MUL(x, y, z)	l = (x) * (y); (z)[0] = LOW(l); (z)[1] = HIGH(l)
+typedef struct rand rand_t[1];
 
 #define X0              (0x330E)
 #define X1              (0xABCD)
@@ -348,85 +299,134 @@ scrand.c
 #define A2              (0x0005)
 #define C               (0x000B)
 
-static uint32_t _x[] = { X0, X1, X2 }, _a[] = { A0, A1, A2 }, _c = C;
+#define N               (16)
+#define MASK            ((1 << N) - 1)
+#define LOW(x)          ((unsigned)(x) & MASK)
+#define HIGH(x)         LOW((x) >> N)
 
-static void _sh_next(void) {
-	uint32_t p[2], q[2], r[2], c0, c1, l;
-
-	MUL(_a[0], _x[0], p);
-	ADDEQU(p[0], _c, c0);
-	ADDEQU(p[1], c0, c1);
-	MUL(_a[0], _x[1], q);
-	ADDEQU(p[1], q[0], c0);
-	MUL(_a[1], _x[0], r);
-	
-	l = c0 + c1 + CARRY(p[1], r[0]) + q[1] + r[1]
-		+ _a[0] * _x[2] + _a[1] * _x[1] + _a[2] * _x[0];
-	_x[2] = LOW(l);
-	_x[1] = LOW(p[1] + r[0]);
-	_x[0] = LOW(p[0]);
+//
+// rand_init - 随机函数初始化种子方法
+// r        : 随机函数对象
+// seed     : 种子数
+// return   : void
+//
+inline void rand_init(rand_t r, int64_t seed) {
+    r->x[0] = X0; r->x[1] = LOW(seed); r->x[2] = HIGH(seed);
+    r->a[0] = A0; r->a[1] = A1; r->a[2] = A2;
+    r->c = C;
 }
 
 //
-// sh_srand - 初始化随机数种子, (int32_t)time(NULL)
-// seed		: 种子数
-// return	: void
+// rand_rand - 获取一个随机值
+// r        : 随机函数对象
+// return   : 返回 [0, INT32_MAX] 随机数
 //
-inline void 
-sh_srand(int32_t seed) {
-	_x[0] = X0; _x[1] = LOW(seed); _x[2] = HIGH(seed);
-	_a[0] = A0; _a[1] = A1; _a[2] = A2;
-	_c = C;
+extern int32_t rand_rand(rand_t r);
+
+//
+// r_rand  - 得到 [0, INT32_MAX] 随机数
+// r_randk - 得到一个 64 位的 key
+// r_rands - 得到 [min, max] 范围内随机数
+//
+extern int32_t r_rand(void);
+
+inline int64_t r_randk(void) {
+    uint64_t x = ((r_rand() << N) ^ r_rand()) & INT32_MAX;
+    uint64_t y = ((r_rand() << N) ^ r_rand()) & INT32_MAX;
+    return ((x << 2 * N) | y) & INT64_MAX;
+}
+
+inline int32_t r_rands(int32_t min, int32_t max) {
+    assert(max > min);
+    return r_rand() % (max - min + 1) + min;
+}
+
+#endif//_RAND_H
+```
+
+    最核心是 rand_rand 函数实现, 阅读理解来了, 感受下离散数学的魅力
+
+scrand.c
+
+```C
+#include "rand.h"
+
+#define CARRY(x, y)     ((x + y) > MASK) // 基于 16位判断二者和是否进位
+#define ADDRQ(x, y, z)  (z = CARRY(x, y), x = LOW(x + y))
+
+#define MUL(l, x, y, z) l = (x) * (y); z[0] = LOW(l); z[1] = HIGH(l)
+
+inline void rand_next(rand_t r) {
+    uint32_t l, p[2], q[2], s[2], c[2];
+
+    MUL(l, r->a[0], r->x[0], p);
+    ADDRQ(p[0], r->c, c[0]);
+    ADDRQ(p[1], c[0], c[1]);
+    MUL(l, r->a[0], r->x[1], q);
+    ADDRQ(p[1], q[0], c[0]);
+    MUL(l, r->a[1], r->x[0], s);
+
+    l = c[0] + c[1] + CARRY(p[1], s[0]) + q[1] + s[1] + 
+        r->a[0] * r->x[2] + r->a[1] * r->x[1] + r->a[2] * r->x[0];
+    r->x[2] = LOW(l);
+    r->x[1] = LOW(p[1] + s[0]);
+    r->x[0] = LOW(p[0]);
 }
 
 //
-// sh_rand  - 得到[0, INT32_MAX]随机数
-// sh_rands - 得到[min, max] 范围内随机数
-// sh_randk - 得到一个64位的key
+// rand_rand - 获取一个随机值
+// r        : 随机函数对象
+// return   : 返回 [0, INT32_MAX] 随机数
 //
 inline int32_t 
-sh_rand(void) {
-	_sh_next();
-	return (_x[2] << (N - 1)) + (_x[1] >> 1);
+rand_rand(rand_t r) {
+    rand_next(r);
+    return (r->x[2] << (N - 1)) + (r->x[1] >> 1);
 }
 
+//
+// 我 - 想云, 因为不甘心 :0
+//
+static rand_t r_r = { { { X0, X1, X2 }, { A0, A1, A2 }, C } };
+
+// EXTERN_RUN(r_init) 启动初始化
+extern inline void r_init(void) {
+    rand_init(r_r, time(NULL));
+}
+
+//
+// r_rand  - 得到 [0, INT32_MAX] 随机数
+// r_randk - 得到一个 64 位的 key
+// r_rands - 得到 [min, max] 范围内随机数
+//
 inline int32_t 
-sh_rands(int32_t min, int32_t max) {
-	assert(max > min);
-	return sh_rand() % (max - min + 1) + min;
-}
-
-inline int64_t 
-sh_randk(void) {
-	uint64_t x = ((sh_rand() << N) ^ sh_rand()) & INT32_MAX;
-	uint64_t y = ((sh_rand() << N) ^ sh_rand()) & INT32_MAX;
-	return ((x << 2 * N) | y) & INT64_MAX;
+r_rand(void) {
+    return rand_rand(r_r);
 }
 ```
 
-    (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~)
-    代码都懂, _sh_next 计算复杂点. 之后就看自己悟了, 毕竟世界也是咱们的. sh_rands, 
-    sh_randk 思路很浅显分别根据范围和位随机. 从上面可以看出来随机函数并不是线程安全的.
-    在多线程环境中就会出现未知行为了(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机
-    才有点随机吗? 
-    
-    不怕折腾可以把上面代码直接刷到你的项目中, 解决随机数的平台无关性 ~
-    目前 winds 和 linux 测试结果如下:
+	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
+    (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~) 代码都
+	懂, rand_next 计算复杂点. 之后就看自己悟了, 毕竟世界也是咱们的. r_randk, r_rands
+    思路很浅显分别根据位随机和区间范围. 从上面 r_r 可以看出来随机函数并不是线程安全的. 
+	在多线程环境中就会出现未知行为了(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机才
+	会有点随机吗? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数. 不怕折腾可以把上
+	面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前 winds 和 linux 测试良好.
 
 ```C
 /*
  describe:
 	1亿的数据量, 测试随机生成函数
-	front system rand, back sh_rand rand
+	front system rand, back r_rand rand
  
  test code
 
- // 1亿的数据测试
- #define _INT_TEST	(100000000)
+ // 1 亿的数据测试
+ #define TEST_INT	(100000000)
  
- static int _test_rand(int (* trand)(void)) {
+ static int test_rand(int (* trand)(void)) {
  	 int rd = 0;
- 	 for (int i = 0; i < _INT_TEST; ++i)
+ 	 for (int i = 0; i < TEST_INT; ++i)
  	 	rd = trand();
  	 return rd;
  }
@@ -450,226 +450,535 @@ sh_randk(void) {
  */
 ``` 
 
-    到这基本前戏做的够足了. 当然对于 scrand.h 统一随机数模块也好改成线程安全, 但
-	还是觉得没有必要, 数值的错位对未知正好. 此刻, 奥特曼要出现了 ~
-
-### 4.3 奥特曼, 通用头文件构建
-
-    在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个头文件都继承自
-	它. 同样此刻出现的就是筑基期至强奥义, 一切从头开始
-    
-schead.h
+	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人	
+    到这基本前戏做的够足了. 这里不妨带大家去武当山抓个宝宝.
 
 ```C
-#ifndef _H_SIMPLEC_SCHEAD
-#define _H_SIMPLEC_SCHEAD
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "clog.h"
-#include "scrand.h"
+#define R_INT         (128)
+#define F_INT         (100000000)
+
+// getr - 得到 rand() 返回值, 并写入到文件中
+static int getr(long long *pnt) {
+    static int cnt;
+
+    int r = rand();
+    long long t = *pnt + 1;
+    
+    // 每次到万再提醒一下
+    if(t % F_INT == 0)
+        fprintf(stdout, "%d 个数据跑完了[%d, %lld]\n", F_INT, cnt, t);
+
+    if(t < 0) { // 数据超标了
+        ++cnt;
+
+        fprintf(stderr, "Now %d T > %lld\n", cnt, t - 1);
+        *pnt = 0; // 重新开始一轮
+    }
+    *pnt = t;
+    return r;
+}
+
+// main - 验证 rand 函数的周期
+int main(int argc, char* argv[]) {
+    int base[R_INT];
+    int r, i = -1;
+    long long cnt = 0;
+
+
+    // 先产生随机函数
+    while(++i < R_INT)
+        base[i] = getr(&cnt);
+
+    // 这里开始随机了
+    for(;;) {
+        r = getr(&cnt);
+        if (r != base[0])
+            continue;
+
+        // 继续匹配查找
+        for(i = 1; i < R_INT; ++i) {
+            r = getr(&cnt);
+            if(r != base[i]) 
+                break;
+        }
+
+        // 找见了数据
+        if(i == R_INT) {
+            printf("Now T = %lld\n", cnt);
+            break;
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+```
+
+	可以将 R_INT 修改为 (1024) 最终得到结果也是一样. 因为抓到了 window 平台上面 rand()
+	伪随机函数的周期 G 点. 希望大家玩的开心.
+
+![rand T](./img/rand.png)
+
+## 4.3 file 文件库封装
+
+		文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录,
+	需要多级删除目录, 需要多级创建目录... 这里就是为了解决这个问题. 先展示部分设计, 再逐
+	个击破.
+
+```C
+#ifndef _FILE_H
+#define _FILE_H
+
+#include "atom.h"
 #include "struct.h"
-#include <pthread.h>
+#include "strext.h"
 
-//
-//  宏就是C的金字塔最底层, 所有丑陋的起源~
-//  [ __clang__ -> clang | __GNUC__ -> gcc | __MSC_VER -> cl ]
-//
 #ifdef __GNUC__
 
-#include <termio.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-/*
- * 屏幕清除宏, 依赖系统脚本
- *  return	: void
- */
-#define sh_cls() \
-		printf("\ec")
-
 //
-// getch - 立即得到用户输入的一个字符, linux实现
-// return	: 返回得到字符
-//
-extern int getch(void);
-
-//
-// sh_mkdir - 通用的单层目录创建宏 等同于 shell> mkdir path
-// path		: 目录路径加名称
-// return	: 0表示成功, -1表示失败, 失败原因都在 errno
+// mkdir - 单层目录创建函数宏, 类比 mkdir path
+// path     : 目录路径
+// return   : 0 表示成功, -1 表示失败, 失败原因见 errno
 // 
-#define sh_mkdir(path) \
-	mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
-
-#elif _MSC_VER
-
-#include <direct.h> 
-#include <conio.h>
-
-#define sh_cls() \
-		system("cls")
-
-#define sh_mkdir(path) \
-	mkdir(path)
-
-#else
-#	error "error : Currently only supports the Best New CL and GCC!"
-#endif
-
-// 添加双引号的宏 
-#define _STR(v) #v
-#define CSTR(v)	_STR(v)
-
-// 获取数组长度,只能是数组类型或""字符串常量,后者包含'\0'
-#define LEN(a) (sizeof(a) / sizeof(*(a)))
-
-// 置空操作, v必须是个变量
-#define BZERO(v) \
-	memset(&(v), 0, sizeof(v))
-
-/*
- * 比较两个结构体栈上内容是否相等,相等返回true,不等返回false
- * a	: 第一个结构体值
- * b	: 第二个结构体值
- *		: 相等返回true, 否则false
- */
-#define STRUCTCMP(a, b) (!memcmp(&a, &b, sizeof(a)))
+#undef  mkdir
+#define mkdir(path)                                 \
+mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 
 //
-// EXTERN_RUN - 简单的声明, 并立即使用的宏
-// test		: 需要执行的函数名称
+// mtime - 得到文件最后修改时间
+// path     : 文件路径
+// return   : 返回时间戳, -1 表示失败
 //
-#define EXTERN_RUN(test, ...) \
-	do { \
-		extern void test(); \
-		test (__VA_ARGS__); \
-	} while(0)
-
-// 简单的time时间记录宏
-#define TIME_PRINT(code) \
-	do { \
-		clock_t $s, $e; \
-		$s = clock(); \
-		code \
-		$e = clock(); \
-		printf("Now code run time:%lfs.\n", ((double)$e - $s) / CLOCKS_PER_SEC); \
-	} while (0)
-
-//
-// sh_pause - 等待的宏 是个单线程没有加锁 | "请按任意键继续. . ."
-// return	: void
-//
-extern void sh_pause(void);
-
-#ifndef SH_PAUSE
-
-#	ifdef _DEBUG
-#		define SH_PAUSE() atexit(sh_pause)
-#	else
-#		define SH_PAUSE() /* 别说了, 都重新开始吧 */
-#	endif
-
-#endif // !INIT_PAUSE
-
-//
-// sh_isbe - 判断是大端序还是小端序,大端序返回true
-// sh_hton - 将本地四字节数据转成'小端'网络字节
-// sh_ntoh - 将'小端'网络四字节数值转成本地数值
-//
-extern bool sh_isbe(void);
-extern uint32_t sh_hton(uint32_t x);
-extern uint32_t sh_ntoh(uint32_t x);
-
-//
-// async_run - 开启一个自销毁的线程 运行 run
-// run		: 运行的主体
-// arg		: run的参数
-// return	: >= SufBase 表示成功
-//
-extern int async_run_(node_f run, void * arg);
-#define async_run(run, arg) \
-        async_run_((node_f)(run), (void *)(intptr_t)arg)
-
-#endif//_H_SIMPLEC_SCHEAD
-```
-
-    可以看出来, 头文件包含是一种继承关系. 基本每一个包含了 schead.h 的文件, 都不用
-    再包含其它的辅助文件, 开发起来会很方便. 额外说一下 getch 这个函数: 
-
-```C
-#if defined(__GNUC__)
-
-inline int 
-getch(void) {
-	int cr;
-	struct termios nts, ots;
-	if (tcgetattr(0, &ots) < 0) // 得到当前终端(0表示标准输入)的设置
-		return EOF;
-
-	nts = ots;
-	cfmakeraw(&nts); // 设置终端为Raw原始模式，该模式下所有的输入数据以字节为单位被处理
-	if (tcsetattr(0, TCSANOW, &nts) < 0) // 设置上更改之后的设置
-		return EOF;
-
-	cr = getchar();
-	if (tcsetattr(0, TCSANOW, &ots) < 0) // 设置还原成老的模式
-		return EOF;
-	return cr;
+inline time_t mtime(const char * path) {
+    struct stat st;
+    // 数据最后的修改时间
+    return stat(path, &st) ? -1 : st.st_mtime;
 }
 
 #endif
+
+#ifdef _MSC_VER
+
+#include <io.h>
+#include <direct.h>
+#include <windows.h>
+
+// int access(const char * path, int mode /* 四个检测宏 */);
+#ifndef F_OK
+#   define  F_OK    (0)
+#endif       
+#ifndef X_OK 
+#   define  X_OK    (1)
+#endif       
+#ifndef W_OK 
+#   define  W_OK    (2)
+#endif       
+#ifndef R_OK 
+#   define  R_OK    (4)
+#endif
+
+inline time_t mtime(const char * path) {
+    WIN32_FILE_ATTRIBUTE_DATA st;
+    if (!GetFileAttributesEx(path, GetFileExInfoStandard, &st))
+        return -1;
+    // 基于 winds x64 sizeof(long) = 4
+    return *(time_t *)&st.ftLastWriteTime;
+}
+
+#endif
+
+//
+// removes - 删除非空目录 or 文件
+// path     : 文件路径
+// return   : < 0 is error, >=0 is success
+//
+extern int removes(const char * path);
+
+//
+// mkdirs - 创建多级目录
+// path     : 目录路径
+// return   : < 0 is error, 0 is success
+//
+extern int mkdirs(const char * path);
+
+//
+// mkfdir - 通过文件路径创建目录
+// path     : 文件路径
+// return   : < 0 is error, 0 is success
+//
+extern int mkfdir(const char * path);
+
+//
+// getawd - 得到程序运行目录, \\ or / 结尾
+// buf      : 存储地址
+// size     : 存储大小
+// return   : 返回长度, -1 is error 
+//
+extern int getawd(char * buf, size_t size);
+
+#endif//_FILE_H
 ```
 
-    很久以前一位化神期巨擘说过: 由于 linux对于 getch支持不友好, 导致了 linux错失了很多
-    游戏开发人员. 我是挺喜欢 getch的, 写个小游戏太轻松了. 就顺手补上了.
-    其它的辅助函数:
+	removes, mkdirs, mkfdir, getawd 是不是有了这些接口, 以后程序操作目录方便了很多. 其
+	中 removes 省力的通过系统 shell 的能力来实现的.
 
 ```C
-inline void 
-sh_pause(void) {
-    rewind(stdin);
-	fflush(stderr); fflush(stdout);
-	printf("Press any key to continue . . .");
-	getch();
-}
+//
+// removes - 删除非空目录 or 文件
+// path     : 文件路径
+// return   : < 0 is error, >=0 is success
+//
+inline int removes(const char * path) {
+    char s[BUFSIZ];
 
-inline bool 
-sh_isbe(void) {
-	static union { uint16_t i; uint8_t c; } _u = { 1 };
-	return 0 == _u.c;
-}
+#ifndef RMRF_STR
+#   ifdef _MSC_VER
+#       define RMRF_STR    "rmdir /s /q \"%s\""
+#   else
+#       define RMRF_STR    "rm -rf '%s'"
+#   endif
+#endif
 
-inline uint32_t 
-sh_hton(uint32_t x) {
-	if (sh_isbe()) {
-		uint8_t t;
-		union { uint32_t i; uint8_t s[sizeof(uint32_t)]; } u = { x };
-		t = u.s[0], u.s[0] = u.s[sizeof(u) - 1], u.s[sizeof(u) - 1] = t;
-		t = u.s[1], u.s[1] = u.s[sizeof(u) - 1 - 1], u.s[sizeof(u) - 1 - 1] = t;
-		return u.i;
-	}
-	return x;
-}
-
-inline uint32_t 
-sh_ntoh(uint32_t x) {
-	return sh_hton(x);
+    // path 超过缓冲区长度, 返回异常
+    if (snprintf(s, sizeof s, RMRF_STR, path) == sizeof s) 
+        return -1;
+    return access(path, F_OK) ? 0 : -system(s);
 }
 ```
 
-    说一下 sh_isbe, 它是判断当前系统是否是大端系统, 是返回 true. 而多数接触的是小端
-    机器, 所以自己设计了个 sh_hton 如果是大端结构会转成小端结构. 这样减少转换频率.
-    sh_pause 相似功能在 winds上面是 system("pause"), 在 linux 是 pause(). 用起来
-    不爽, 顺带为了方便 DEBUG 测试, 搞了个 SH_PAUSE(). schead.h 接口文件定位目标是
-    所有业务层面的辅助头文件. 美好从此刻开始 ~
-    
-    新的风暴已经出现 怎么能够停滞不前 穿越时空竭尽全力 我会来到你身边
+	access 检查 path 是否存在, 存在返回 0. 不存在返回 -1, 并且执行 system RMRF_STR 相关
+	操作. 而 mkdirs 和 mkfdir 核心在于 access 和 mkdir 来回瞎搞. 
 
-### 4.4 C 来个 Json 轮子
+```C
+//
+// mkdirs - 创建多级目录
+// path     : 目录路径
+// return   : < 0 is error, 0 is success
+//
+int 
+mkdirs(const char * path) {
+    char c, * p, * s;
 
-    在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 在国内
-    刚兴起, 所以一时兴起写了一个解释器. 过了1年接触到 cJSON库, 直接把自己当初写的那个删
-    了. 用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行, 就琢磨写了个简单的 scjson. 
-    这小节, 就带大家写写这个 scjson 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON好.
+    // 参数错误直接返回
+    if (!path || !*path) return -2;
+    // 文件存在 or 文件一次创建成功 直接返回
+    if (!access(path, F_OK) || !mkdir(path))
+        return 0;
+
+    // 跳过第一个 ['/'|'\\'] 检查是否是多级目录
+    p = (char *)path;
+    while ((c = *++p) != '\0')
+        if (c == '/' || c == '\\')
+            break;
+    if (c == '\0') return -1;
+
+    // 开始循环构建多级目录
+    s = p = strdup(path);
+    while ((c = *++p) != '\0') {
+        if (c == '/' || c == '\\') {
+            *p = '\0';
+
+            if (access(s, F_OK)) {
+                // 文件不存在, 开始创建, 创建失败直接返回错误
+                if (mkdir(s)) {
+                    free(s);
+                    return -1;
+                }
+            }
+
+            *p = c;
+        }
+    }
+
+    // 最后善尾
+    c = p[-1]; free(s);
+    if (c == '/' || c == '\\')
+        return 0;
+
+    // 剩下最后文件路径, 开始构建
+    return mkdir(path) ? -1 : 0;
+}
+
+//
+// mkfdir - 通过文件路径创建目录
+// path     : 文件路径
+// return   : < 0 is error, 0 is success
+//
+int 
+mkfdir(const char * path) {
+    const char * r;
+    char c, * p, * s;
+    if (!path) return -2;
+
+    for (r = path + strlen(path); r >= path; --r)
+        if ((c = *r) == '/' || c == '\\')
+            break;
+    if (r < path) return -1;
+
+    // 复制地址地址并构建
+    s = p = strdup(path);
+    p[r - path] = '\0';
+
+    while ((c = *++p) != '\0') {
+        if (c == '/' || c == '\\') {
+            *p = '\0';
+
+            if (access(s, F_OK)) {
+                // 文件不存在, 开始创建, 创建失败直接返回错误
+                if (mkdir(s)) {
+                    free(s);
+                    return -1;
+                }
+            }
+
+            *p = c;
+        }
+    }
+
+    // 一定不是 / or \\ 结尾直接, 构建返回
+    if (access(s, F_OK)) {
+        if (mkdir(s)) {
+            free(s);
+            return -1;
+        }
+    }
+    free(s);
+    return 0;
+}
+```
+
+	最后 getawd 获取程序运行目录
+
+```C
+//
+// getawd - 得到程序运行目录, \\ or / 结尾
+// buf      : 存储地址
+// size     : 存储大小
+// return   : 返回长度, -1 is error 
+//
+int 
+getawd(char * buf, size_t size) {
+    char * tail;
+
+#ifndef getawe
+#   ifdef _MSC_VER
+#       define getawe(b, s)    (int)GetModuleFileName(NULL, b, (DWORD)s);
+#   else
+#       define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
+#   endif
+#endif
+
+    int r = getawe(buf, size);
+    if (r <= 0 || r >= size)
+        return -1;
+
+    for (tail = buf + r - 1; tail > buf; --tail)
+        if ((r = *tail) == '/' || r == '\\')
+            break;
+    // believe getawe return
+    *++tail = '\0';
+    return (int)(tail - buf);
+}
+```
+
+	主要使用场景如下, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
+
+```C
+#define LOG_PATH_STR        "logs/structc.log"
+
+int n;
+char r[BUFSIZ];
+// 配置模块初始化
+//
+n = getawd(r, sizeof r);
+assert(0 < n && n < sizeof r);
+
+memcpy(r+n, LOG_PATH_STR, LEN(LOG_PATH_STR));
+mkfdir(r);
+EXTERN_RUN(log_init, r);
+```
+
+### 4.3.1 file 监控
+
+    很多时候有这样一个需求, 某个配置是可刷新的. 完成这个功能也很简单, 无外乎外部触发或者内部
+    监控. 两种方式内部触发是最省力, 我们也想这种能力包含到 file.h 接口设计中.
+
+```C
+#ifndef _FILE_H
+#define _FILE_H
+
+...
+
+//
+// file_f - 文件更新行为
+//
+typedef void (* file_f)(FILE * c, void * arg);
+
+//
+// file_set - 文件注册更新行为
+// path     : 文件路径
+// func     : file update -> func(path -> FILE, arg), func is NULL 标记清除
+// arg      : func 额外参数
+// return   : void
+//
+extern void file_set(const char * path, file_f func, void * arg);
+
+//
+// file_update - 配置文件刷新操作
+// return   : void
+//
+extern void file_update(void);
+
+#endif//_FILE_H
+```
+
+    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行
+    为, 用于监控是否有文件发生了变化. 它的本质是依赖 mtime 获取最后一次文件变化的时间. 用于确
+    定此文件当前是否发生了变化. 其中核心的数据结构如下
+
+```C
+struct file {
+    time_t last;            // 文件最后修改时间点
+    char * path;            // 文件全路径
+    unsigned hash;          // 文件路径 hash 值
+
+    file_f func;            // 执行行为
+    void * arg;             // 行为参数
+
+    struct file * next;     // 文件下一个节点
+};
+
+static struct files {
+    atom_t lock;            // 当前对象原子锁
+    struct file * head;     // 当前文件对象集
+} f_s;
+
+// files add 
+static void f_s_add(const char * p, unsigned h, file_f func, void * arg) {
+    struct file * fu;
+    if (mtime(p) == -1) {
+        RETNIL("mtime error p = %s", p);
+    }
+
+    fu = malloc(sizeof(struct file));
+    fu->last = -1;
+    fu->path = strdup(p);
+    fu->hash = h;
+    fu->func = func;
+    fu->arg = arg;
+
+    // 直接插入到头节点部分
+    atom_lock(f_s.lock);
+    fu->next = f_s.head;
+    f_s.head = fu;
+    atom_unlock(f_s.lock);
+}
+
+// files get 
+static struct file * f_s_get(const char * p, unsigned * r) {
+    struct file * fu = f_s.head;
+    unsigned h = *r = str_hash(p);
+
+    while (fu) {
+        if (fu->hash == h && strcmp(fu->path, p) == 0)
+            break;
+        fu = fu->next;
+    }
+
+    return fu;
+}
+```
+
+    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行
+    对于每个要监控的文件, 我们记录了最后一次修改时间 last, 文件全路径 path, 执行体 func 和 
+    arg. 有了这些基本上就查码代码了. 其中 file_set 设计包含了 del 操作, 即当 file_f 设置为空
+    NULL 就认为是 file_del(path) 操作. 
+
+```C
+//
+// file_set - 文件注册更新行为
+// path     : 文件路径
+// func     : file update -> func(path -> FILE, arg), func is NULL 标记清除
+// arg      : func 额外参数
+// return   : void
+//
+void 
+file_set(const char * path, file_f func, void * arg) {
+    unsigned h;
+    assert(path && *path);
+    struct file * fu = f_s_get(path, &h);
+    if (NULL == fu)
+        f_s_add(path, h, func, arg);
+    else {
+        atom_lock(f_s.lock);
+        fu->last = -1;
+        fu->func = func;
+        fu->arg = arg;
+        atom_unlock(f_s.lock);
+    }
+}
+```
+
+    随后就是 file_update 全局监控和更新
+
+```C
+//
+// file_update - 配置文件刷新操作
+// return   : void
+//
+void 
+file_update(void) {
+    atom_lock(f_s.lock);
+    struct file * fu = f_s.head;
+    while (fu) {
+        struct file * next = fu->next;
+
+        if (NULL == fu->func) {
+            // 删除的是头节点
+            if (f_s.head == fu)
+                f_s.head = next;
+
+            free(fu->path);
+            free(fu);
+        } else {
+            time_t last = mtime(fu->path);
+            if (fu->last != last && last != -1) {
+                FILE * c = fopen(fu->path, "rb+");
+                if (NULL == c) {
+                    CERR("fopen rb+ error = %s.", fu->path);
+                    continue;
+                }
+                fu->last = last;
+                fu->func(c, fu->arg);
+                fclose(c);
+            }
+        }
+
+        fu = next;
+    }
+    atom_unlock(f_s.lock);
+}
+```
+
+    file_update 做的工作就是循环遍历 struct files::head 链表, 挨个检查文件最后一次修改时间
+    mtime 是否发生变化. 如果发生了就触发 file_f 注册行为. 当然也会清除待删除的注册行为. 到这
+    里我们的文件操作就讲完了. 很枯燥, 但是是你的鲤鱼跃龙门的阶梯.
+
+## 4.4 C 来个 json 轮子
+
+        在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 在国内刚
+    兴起, 所以一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当初写的那个删了.
+    用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行, 就琢磨写了个简单的 c json. 这小节, 就带大
+    家写写这个 c json 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON 好学习.
+
+### 4.4.1 c json 设计布局
 
     首先大概分析 scjson 的实现部分. 最关心的是 scjson的内存布局, 这里引入了 tstr 布局.
     设计结构图如下 :
@@ -1159,6 +1468,217 @@ _parse_object(cjson_t item, const char * str) {
     关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 一个间接递归套路.
     通过上面的思路, 花些心思也可以构建出 json对象转 json串的思路. 或者写个小型计算
     器等等. 有了 json 的处理库, 有没有感觉基础的业务都能轻松胜任了哈哈.
+
+## 4.5 奥特曼, 通用头文件构建
+
+    在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个头文件都继承自
+	它. 同样此刻出现的就是筑基期至强奥义, 一切从头开始
+    
+schead.h
+
+```C
+#ifndef _H_SIMPLEC_SCHEAD
+#define _H_SIMPLEC_SCHEAD
+
+#include "clog.h"
+#include "scrand.h"
+#include "struct.h"
+#include <pthread.h>
+
+//
+//  宏就是C的金字塔最底层, 所有丑陋的起源~
+//  [ __clang__ -> clang | __GNUC__ -> gcc | __MSC_VER -> cl ]
+//
+#ifdef __GNUC__
+
+#include <termio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+/*
+ * 屏幕清除宏, 依赖系统脚本
+ *  return	: void
+ */
+#define sh_cls() \
+		printf("\ec")
+
+//
+// getch - 立即得到用户输入的一个字符, linux实现
+// return	: 返回得到字符
+//
+extern int getch(void);
+
+//
+// sh_mkdir - 通用的单层目录创建宏 等同于 shell> mkdir path
+// path		: 目录路径加名称
+// return	: 0表示成功, -1表示失败, 失败原因都在 errno
+// 
+#define sh_mkdir(path) \
+	mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+
+#elif _MSC_VER
+
+#include <direct.h> 
+#include <conio.h>
+
+#define sh_cls() \
+		system("cls")
+
+#define sh_mkdir(path) \
+	mkdir(path)
+
+#else
+#	error "error : Currently only supports the Best New CL and GCC!"
+#endif
+
+// 添加双引号的宏 
+#define _STR(v) #v
+#define CSTR(v)	_STR(v)
+
+// 获取数组长度,只能是数组类型或""字符串常量,后者包含'\0'
+#define LEN(a) (sizeof(a) / sizeof(*(a)))
+
+// 置空操作, v必须是个变量
+#define BZERO(v) \
+	memset(&(v), 0, sizeof(v))
+
+/*
+ * 比较两个结构体栈上内容是否相等,相等返回true,不等返回false
+ * a	: 第一个结构体值
+ * b	: 第二个结构体值
+ *		: 相等返回true, 否则false
+ */
+#define STRUCTCMP(a, b) (!memcmp(&a, &b, sizeof(a)))
+
+//
+// EXTERN_RUN - 简单的声明, 并立即使用的宏
+// test		: 需要执行的函数名称
+//
+#define EXTERN_RUN(test, ...) \
+	do { \
+		extern void test(); \
+		test (__VA_ARGS__); \
+	} while(0)
+
+// 简单的time时间记录宏
+#define TIME_PRINT(code) \
+	do { \
+		clock_t $s, $e; \
+		$s = clock(); \
+		code \
+		$e = clock(); \
+		printf("Now code run time:%lfs.\n", ((double)$e - $s) / CLOCKS_PER_SEC); \
+	} while (0)
+
+//
+// sh_pause - 等待的宏 是个单线程没有加锁 | "请按任意键继续. . ."
+// return	: void
+//
+extern void sh_pause(void);
+
+#ifndef SH_PAUSE
+
+#	ifdef _DEBUG
+#		define SH_PAUSE() atexit(sh_pause)
+#	else
+#		define SH_PAUSE() /* 别说了, 都重新开始吧 */
+#	endif
+
+#endif // !INIT_PAUSE
+
+//
+// sh_isbe - 判断是大端序还是小端序,大端序返回true
+// sh_hton - 将本地四字节数据转成'小端'网络字节
+// sh_ntoh - 将'小端'网络四字节数值转成本地数值
+//
+extern bool sh_isbe(void);
+extern uint32_t sh_hton(uint32_t x);
+extern uint32_t sh_ntoh(uint32_t x);
+
+//
+// async_run - 开启一个自销毁的线程 运行 run
+// run		: 运行的主体
+// arg		: run的参数
+// return	: >= SufBase 表示成功
+//
+extern int async_run_(node_f run, void * arg);
+#define async_run(run, arg) \
+        async_run_((node_f)(run), (void *)(intptr_t)arg)
+
+#endif//_H_SIMPLEC_SCHEAD
+```
+
+    可以看出来, 头文件包含是一种继承关系. 基本每一个包含了 schead.h 的文件, 都不用
+    再包含其它的辅助文件, 开发起来会很方便. 额外说一下 getch 这个函数: 
+
+```C
+#if defined(__GNUC__)
+
+inline int 
+getch(void) {
+	int cr;
+	struct termios nts, ots;
+	if (tcgetattr(0, &ots) < 0) // 得到当前终端(0表示标准输入)的设置
+		return EOF;
+
+	nts = ots;
+	cfmakeraw(&nts); // 设置终端为Raw原始模式，该模式下所有的输入数据以字节为单位被处理
+	if (tcsetattr(0, TCSANOW, &nts) < 0) // 设置上更改之后的设置
+		return EOF;
+
+	cr = getchar();
+	if (tcsetattr(0, TCSANOW, &ots) < 0) // 设置还原成老的模式
+		return EOF;
+	return cr;
+}
+
+#endif
+```
+
+    很久以前一位化神期巨擘说过: 由于 linux对于 getch支持不友好, 导致了 linux错失了很多
+    游戏开发人员. 我是挺喜欢 getch的, 写个小游戏太轻松了. 就顺手补上了.
+    其它的辅助函数:
+
+```C
+inline void 
+sh_pause(void) {
+    rewind(stdin);
+	fflush(stderr); fflush(stdout);
+	printf("Press any key to continue . . .");
+	getch();
+}
+
+inline bool 
+sh_isbe(void) {
+	static union { uint16_t i; uint8_t c; } _u = { 1 };
+	return 0 == _u.c;
+}
+
+inline uint32_t 
+sh_hton(uint32_t x) {
+	if (sh_isbe()) {
+		uint8_t t;
+		union { uint32_t i; uint8_t s[sizeof(uint32_t)]; } u = { x };
+		t = u.s[0], u.s[0] = u.s[sizeof(u) - 1], u.s[sizeof(u) - 1] = t;
+		t = u.s[1], u.s[1] = u.s[sizeof(u) - 1 - 1], u.s[sizeof(u) - 1 - 1] = t;
+		return u.i;
+	}
+	return x;
+}
+
+inline uint32_t 
+sh_ntoh(uint32_t x) {
+	return sh_hton(x);
+}
+```
+
+    说一下 sh_isbe, 它是判断当前系统是否是大端系统, 是返回 true. 而多数接触的是小端
+    机器, 所以自己设计了个 sh_hton 如果是大端结构会转成小端结构. 这样减少转换频率.
+    sh_pause 相似功能在 winds上面是 system("pause"), 在 linux 是 pause(). 用起来
+    不爽, 顺带为了方便 DEBUG 测试, 搞了个 SH_PAUSE(). schead.h 接口文件定位目标是
+    所有业务层面的辅助头文件. 美好从此刻开始 ~
+    
+    新的风暴已经出现 怎么能够停滞不前 穿越时空竭尽全力 我会来到你身边
 
 #### 4.5 阅读理解环节, csv解析库
 
