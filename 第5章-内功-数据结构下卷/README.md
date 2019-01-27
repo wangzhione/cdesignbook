@@ -1,90 +1,86 @@
-## 第5章-内功-数据结构下卷
+# 第5章-内功-数据结构下卷
 
-    恭喜你到这. 此刻是新开始临界点. 本章算开发中数据结构使用的实战阶段. 将会展示
-	金丹, 元婴 战斗中时常出现数据结构部分的内劲. 漫天飛絮, 气流涌动 ~
-    也许随后你觉得点复杂, 也许觉得点简单. 因为 C修真一个要求就是, 你需要懂得实现. 
-    才能运用流畅. 一切都是钻木取火, 自生自灭. 扯一点, 编译型语言要是有那种万能数
-	据结构 array 或者 table, 那生产率预估会提升 10倍. 写代码就和玩似的 ~ 
-    本章完工等价于数据结构已经胜任下任资格. C的代码写的越多, 越发觉得喜欢就好!
+        恭喜你到这. 此刻会是新开始的临界点. 本章算开发中数据结构使用的实战阶段. 将会展示
+	金丹, 元婴战斗中时常出现数据结构部分的内功. 漫天飛絮, 气流涌动 ~ 也许随后你觉得点复
+    杂, 也许觉得点简单. 因为 C 修真一个要求就是, 你需要懂得实现. 才能运用流畅. 一切都将
+    钻木取火, 自生自灭. 扯一点, 编译型语言要是有那种万能数据结构 array 或者 table, 那生
+    产率预估会提升 10 倍. 写代码就和玩似的 ~ 本章完工等价于数据结构已经登堂入世. C 的代
+    码写的越多, 越发觉得喜欢就好! 也许谁都想在这个元气稀薄的江湖成就元婴, 何不乘早, 打码
+    穿键盘 ~ 看书出心眼 ~ 
 
-    也许谁都想在这个元气稀薄的江湖成就元婴, 何不乘早, 打码穿键盘 ~ 看书出心眼 ~ 
+## 5.1 红黑树, 一道坎
 
-### 5.1 红黑树, 一道坎
-
-    红黑树的理论, 推荐搜索资料恶补. 它达到效果是, 防止二叉搜索树退化为有序的双向
-    链表. 相似的替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只能站在
-	自己框架用到的, 实现角度出发. 带大家感受, 那些瞎比调整的二叉树结点 ~ 是如何
-	张狂的出现在编程的世界里 ~ 哈哈 ~
-    首先瞄一下总设计野路子 :
-
-rbtree.h
+        红黑树的理论, 推荐搜索资料恶补. 它达到效果是, 防止二叉搜索树退化为有序的双向链表
+    . 相似的替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只能站在自己框架用到
+    的, 实现角度出发. 带大家感受, 那些瞎逼调整的二叉树节点 ~ 是如何张狂的出现在编程的世
+    界里 ~ 哈哈 ~ 首先瞄一下总设计野路子 rtree.h
 
 ```C
-#ifndef _H_SIMPLEC_RBTREE
-#define _H_SIMPLEC_RBTREE
+#ifndef _RTREE_H
+#define _RTREE_H
 
 #include "struct.h"
 
-struct $rbnode {
-	uintptr_t parent_color;
-	struct $rbnode * right;
-	struct $rbnode * left;
+//
+// 红黑树通用结构, 需要将 $RTREE 放在结构开头部位
+//
+
+struct $rtree {
+    uintptr_t parentc;
+    struct $rtree * left;
+    struct $rtree * right;
 };
 
+#define $RTREE struct $rtree $node;
+
 typedef struct {
-	struct $rbnode * root;
-	vnew_f new;
-	node_f die;
-	icmp_f cmp;
-} * rbtree_t;
+    struct $rtree * root;
+    cmp_f fget; // cmp_f 节点查找时比较行为
+    cmp_f fcmp;
+    new_f fnew;
+    node_f fdie;
+} * rtree_t;
 
-/*
- * 每个想使用红黑树的结构, 需要在头部插入下面宏. 
- * 例如 :
-	struct person {
-		$RBTREE_HEAD;
-		... // 自定义信息
-	};
- */
-#define $RBTREE_HEAD struct $rbnode $node
+//
+// rtee_create - 创建一个红黑树对象
+// fcmp     : cmp_f 节点插入时比较行为
+// fnew     : new_f 节点插入时构造行为
+// fdie     : node_f 节点删除时销毁行为
+// return   : 返回构建红黑树对象
+//
+extern rtree_t rtree_create(void * fcmp, void * fnew, void * fdie);
 
-/*
- * 创建一颗红黑树头结点 
- * new		: 注册创建结点的函数
- * die		: 注册程序销毁函数
- * cmp		: 注册比较的函数
- * return	: 返回创建好的红黑树结点
- */
-extern rbtree_t rb_create(vnew_f new, node_f die, icmp_f cmp);
+//
+// rtree_delete - 红黑树销毁函数
+// tree     : 待销毁的红黑树
+// return   : void
+//
+extern void rtree_delete(rtree_t tree);
 
-/*
- * 插入一个结点, 会插入 new(pack)
- * root		: 红黑树头结点
- * pack		: 待插入的结点当cmp(x, pack) 右结点
- */
-extern void rb_insert(rbtree_t tree, void * pack);
+//
+// rtree_search - 红黑树查找函数
+// tree     : 待查找的红黑树结构
+// return   : 返回查找的节点
+//
+extern void * rtree_search(rtree_t tree, void * pack);
 
-/*
- * 删除能和pack匹配的结点
- * root		: 红黑树结点
- * pack		: 当cmp(x, pack) 右结点
- */
-extern void rb_remove(rbtree_t tree, void * pack);
+//
+// rtree_insert - 红黑树中插入节点 fnew(pack)
+// tree     : 红黑树结构
+// pack     : 待插入基础结构
+// return   : void
+//
+extern void rtree_insert(rtree_t tree, void * pack);
 
-/*
- * 得到红黑树中匹配的结点
- * root		: 匹配的结点信息
- * pack		: 当前待匹配结点, cmp(x, pack)当右结点处理
- */
-extern void * rb_find(rbtree_t tree, void * pack);
+//
+// rtree_remove - 红黑树中删除节点
+// tree     : 红黑树结构
+// pack     : 待删除基础结构
+// return   : void
+//
+extern void rtree_remove(rtree_t tree, void * pack);
 
-/*
- * 销毁这颗二叉树
- * root		: 当前红黑树结点
- */
-extern void rb_delete(rbtree_t tree);
-
-#endif /* _H_SIMPLEC_RBTREE */
+#endif//_RTREE_H
 ```
 
     通过上面结构先体会下设计意图, 例如 rbtree_t 结构中 new, die, cmp 分别用于红黑树中
