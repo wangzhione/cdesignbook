@@ -12,8 +12,8 @@
 
 ## 1.1 缘起 main
 
-        很久很久以前进入一个被无数前辈巨擘称之为 main 的函数. 如果要仔细扯它的话, 估计
-    能说个几天. 这里只引述 C11 标准中规定的两种标准写法.
+        很久很久以前进入一个被无数前辈巨擘称之为 main 函数. 如果要仔细闲聊的话, 估计能
+    说个几天. 我们只简单引述 C11 标准中规定的两种标准写法.
 
 ```C
 The function called at program startup is named main. The implementation
