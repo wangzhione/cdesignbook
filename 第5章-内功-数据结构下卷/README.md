@@ -3,17 +3,17 @@
         恭喜你到这. 此刻会是新开始的临界点. 本章算开发中数据结构使用的实战阶段. 将会展示
 	金丹, 元婴战斗中时常出现数据结构部分的内功. 漫天飛絮, 气流涌动 ~ 也许随后你觉得点复
     杂, 也许觉得点简单. 因为 C 修真一个要求就是, 你需要懂得实现. 才能运用流畅. 一切都将
-    钻木取火, 自生自灭. 扯一点, 编译型语言要是有那种万能数据结构 array 或者 table, 那生
-    产率预估会提升 10 倍. 写代码就和玩似的 ~ 本章完工等价于数据结构已经登堂入世. C 的代
-    码写的越多, 越发觉得喜欢就好! 也许谁都想在这个元气稀薄的江湖成就元婴, 何不乘早, 打码
-    穿键盘 ~ 看书出心眼 ~ 
+    钻木取火, 自生自灭. 扯一点, 编译型语言要是有那种万能数据结构 array 或者 table, 那
+    生产力预估会提升 10 倍吧. 写代码就和玩似的 ~ 本章完工等价于数据结构已经登堂入世. C 
+    的代码写的越多, 越发觉得喜欢就好! 也许谁都想在这个元气稀薄的江湖成就元婴, 何不乘早, 
+    打码穿键盘 ~ 看书出心眼 ~ 
 
 ## 5.1 红黑树, 一道坎
 
-        红黑树的理论, 推荐搜索资料恶补. 它达到效果是, 防止二叉搜索树退化为有序的双向链表
-    . 相似的替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只能站在自己框架用到
-    的, 实现角度出发. 带大家感受, 那些瞎逼调整的二叉树节点 ~ 是如何张狂的出现在编程的世
-    界里 ~ 哈哈 ~ 首先瞄一下总设计野路子 rtree.h
+        红黑树的理论, 推荐搜索多方资料恶补. 它解决的问题是, 防止二叉搜索树退化为有序的双
+    向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只能站在自己框架
+    用到的, 实现角度出发. 带大家感受, 那些瞎逼调整的二叉树节点 ~ 是如何张狂的出现在编程的
+    世界里 ~ 哈哈 ~ 首先瞄一下总设计野路子 rtree.h
 
 ```C
 #ifndef _RTREE_H
@@ -83,935 +83,1249 @@ extern void rtree_remove(rtree_t tree, void * pack);
 #endif//_RTREE_H
 ```
 
-    通过上面结构先体会下设计意图, 例如 rbtree_t 结构中 new, die, cmp 分别用于红黑树中
-    insert 创建结点, delete 销毁结点, find 查找结点的时候的处理规则. 使用的套路是基于
-	注册的设计思路. 
-
-    _HEAD_RBTREE 宏结点同样是内嵌到需要实现 map结构头部. 算 C 中一种结构继承的技巧. 默
-	认偏移量为 0, 触发的潜规则是 $node 结点的首地址和当前结构的首地址相等. 同下相似
-
-```C
-char hoge[BUFSIZ];
-
-// true
-&hoge == hoge == &hoge[0]
-``` 
-    
-    对于 uintptr_t parent_color 它表示红黑树的父亲结点地址和当前是红是黑标识两种状态. 
-    利用原理是, 当前结构的内存布局以指针(x86 4字节, x64 8字节)位对齐的. 因为地址一定是
-	4的倍数, 0100 的倍数. 所以最后两位默认用不上, 扩展用于标识结点的红黑属性.
-
-    结构和行为设计同上. 随后详细看接口实现部分. 
-
-### 5.1.1 红黑树初步构建
-
-    先为 struct $rbnode 添加一些辅助操作, 方便判断父亲结点, 颜色标识等
+    向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只能站在自己框架
+    通过上面结构先体会下设计意图, 例如 rtree_t 结构中 fget, fnew, fcmp, fdie 分别用
+    于红黑树中 search 查找节点, insert 创建节点, insert 查找节点, delete 销毁节点时
+    候的处理规则. 使用的套路是基于注册的设计思路. $RTREE 和 $LIST 是一样的套路. C 中一
+    种结构继承的技巧, 运用地址重叠确定 struct $rtree 首地址. 而对于 struct $rtree 中
+    uintptr_t parentc 它表示红黑树的父亲节点地址和当前是红是黑标识两种状态. 利用原理是,
+    当前结构的内存布局以指针(x86 4 字节, x64 8 字节)位对齐的. 因为地址一定是 4 的倍数, 
+    即 0100 的倍数. 所以最后两位默认用不上, 扩展用于标识结点的红黑属性. 有了这些知识那么
+    就有如下代码.
 
 ```C
-/*
- * 操作辅助宏, 得到红黑树中具体父结点, 颜色. 包括详细设置信息
- * r	: 头结点
- * p	: 父结点新值
- * c	: 当前颜色
- */
-#define rb_parent(r)		((struct $rbnode *)((r)->parent_color & ~3))
-#define rb_color(r)  		((r)->parent_color & 1)
-#define rb_is_red(r)		(!rb_color(r))
-#define rb_is_black(r)		rb_color(r)
-#define rb_set_red(r)		(r)->parent_color &= ~1
-#define rb_set_black(r)		(r)->parent_color |= 1
+#include "rtree.h"
 
-static inline void rb_set_parent(struct $rbnode * r, struct $rbnode * p) {
-     r->parent_color = (r->parent_color & 3) | (uintptr_t)p;
+//
+// struct $rtree 结构辅助操作宏
+// r    : 当前节点
+// p    : 父节点
+// c    : 当前节点颜色, 1 is black, 0 is red
+//
+#define rtree_parent(r)      ((struct $rtree *)((r)->parentc & ~3))
+#define rtree_color(r)       ((r)->parentc & 1)
+#define rtree_is_red(r)      (!rtree_color(r))
+#define rtree_is_black(r)    rtree_color(r)
+#define rtree_set_red(r)     (r)->parentc &= ~1
+#define rtree_set_black(r)   (r)->parentc |= 1
+
+inline void rtree_set_parent(struct $rtree * r, struct $rtree * p) {
+    r->parentc = (r->parentc & 3) | (uintptr_t)p;
 }
 
-static inline void rb_set_color(struct $rbnode * r, int color) {
-     r->parent_color = (r->parent_color & ~1) | (1 & color);
+inline void rtree_set_color(struct $rtree * r, int color) {
+    r->parentc = (r->parentc & ~1) | (1 & color);
+}
+
+inline static int rtree_default_cmp(const void * ln, const void * rn) {
+    return (int)((intptr_t)ln - (intptr_t)rn);
 }
 ```
 
-    利用上面的 struct $rbnode 结构的辅助操作, 基本可以顺手操作红黑树结点. 默认有个小前
-	提, 在学习红黑树之前, 需要对二叉搜索树查找删除套路有个较深的印象. 因为红黑树是在普通
-	搜索树基础上加了颜色标识, 来回调整, 使其查找路径期望平均化. 
-	下面看一下基于注册的创建函数详细实现:
+    rtree_parent 通过当前节点获取父节点, rtree_color 获取当前节点颜色标识. 有了这些
+    我们就可以写些简单的部分代码. rtree_create 红黑树创建, rtree_delete 红黑树删除.
 
 ```C
-static inline void * _rb_dnew(void * node) { return node; }
-static inline void _rb_ddie(void * node) { }
-static inline int _rb_dcmp(const void * ln, const void * rn) { 
-	return (int)((intptr_t)ln - (intptr_t)rn); 
+//
+// rtee_create - 创建一个红黑树对象
+// fcmp     : cmp_f 节点插入时比较行为
+// fnew     : new_f 节点插入时构造行为
+// fdie     : node_f 节点删除时销毁行为
+// return   : 返回构建红黑树对象
+//
+inline rtree_t 
+rtree_create(void * fcmp, void * fnew, void * fdie) {
+    rtree_t tree = malloc(sizeof *tree);
+    tree->root = NULL;
+    tree->fcmp = fcmp ? fcmp : rtree_default_cmp;
+    tree->fnew = fnew;
+    tree->fdie = fdie;
+    tree->fget = NULL;
+    return tree;
 }
 
-inline rbtree_t 
-rb_create(vnew_f new, node_f die, icmp_f cmp) {
-	rbtree_t tree = malloc(sizeof(*tree));
-	if(NULL == tree) {
-		RETURN(NULL, "rb_new malloc is error!");
-	}
-	
-	tree->root = NULL;
-	tree->new = new ? new : _rb_dnew;
-	tree->die = die ? die : _rb_ddie;
-	tree->cmp = cmp ? cmp : _rb_dcmp;
+// rtree_die - 后序删除树节点
+static void rtree_die(struct $rtree * root, node_f fdie) {
+    if (root->left)
+        rtree_die(root->left, fdie);
+    if (root->right)
+        rtree_die(root->right, fdie);
+    fdie(root);
+}
 
-	return tree;
+//
+// rtree_delete - 红黑树销毁函数
+// tree     : 待销毁的红黑树
+// return   : void
+//
+inline void 
+rtree_delete(rtree_t tree) {
+    if (NULL == tree) return;
+    if (tree->root && tree->fdie)
+        rtree_die(tree->root, tree->fdie);
+    tree->root = NULL;
+    free(tree);
 }
 ```
 
-    对于用户注册 tree->new 只初始化用户使用的结构内存. 红黑树库的 $node 还需要初始化,
-    因而要为其包装一层. 初始化总结构中所有数据, 默认头部全部设置为 zero :
+    同样 rtree_search 红黑树查找操作也是很普通, 和有序二叉树操作一样. 只是多了步查找行
+    为 tree->fget 的选择. 
 
 ```C
-static inline struct $rbnode * _rb_new(rbtree_t tree, void * pack) {
-	struct $rbnode * node = tree->new(pack);
-	memset(node, 0, sizeof(struct $rbnode));
-	return node;
-}
-```
-
-    相对查找和删除都是老套路, 和二叉搜索树是一样的 ~ 
-
-```C
+//
+// rtree_search - 红黑树查找函数
+// tree     : 待查找的红黑树结构
+// return   : 返回查找的节点
+//
 void * 
-rb_find(rbtree_t tree, void * pack) {
-	icmp_f cmp;
-	struct $rbnode * node;
-	if((!tree) || !pack) {
-		RETURN(NULL, "rb_get param is empty! tree = %p, pack = %p.\n", tree, pack);	
-	}
-	
-	cmp = tree->cmp;
-	node = tree->root;
-	while(node) {
-		int ct = cmp(node, pack);
-		if(ct == 0)
-			break;
-		node = ct > 0 ? node->left : node->right;
-	}
+rtree_search(rtree_t tree, void * pack) {
+    cmp_f fcmp;
+    struct $rtree * node;
+    if (!tree) return NULL;
 
-	return node;
-}
-
-// 后序遍历删除操作
-static void _rb_delete(struct $rbnode * root, node_f die) {
-	if(NULL == root) return;
-	_rb_delete(root->left, die);
-	_rb_delete(root->right, die);
-	die(root);
-}
-
-inline void
-rb_delete(rbtree_t tree) {
-	if(!tree || !tree->root || tree->die == _rb_ddie)
-		return;
-
-	// 后续递归删除
-	_rb_delete(tree->root, tree->die);
-
-	// 销毁树本身内存
-	tree->root = NULL;
-	free(tree);
+    fcmp = tree->fget ? tree->fget : tree->fcmp;
+    node = tree->root;
+    while (node) {
+        int diff = fcmp(node, pack);
+        if (diff == 0)
+            break;
+        //
+        // tree left less, right greater 
+        //
+        node = diff > 0 ? node->left : node->right;
+    }
+    return node;
 }
 ```
 
-	中间插播扯一点, 有没有人好奇为啥那么喜欢 RETURN, CERR, CERR_EXIT 这类带
-	fprintf stderr 宏的使用呢. 看破不说破, 可以看看 shell tee. 
+### 5.1.1 红黑树调整
 
-    后续会逐渐展开红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要操作. 左旋和
-	右旋, 例如左旋代码如下
+    后续逐渐拉开了红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要调整旋转操作. 被称
+    为左旋和右旋, 例如左旋代码如下:
 
 ```C
 /* 
- * 对红黑树的节点(x)进行左旋转
+ * 对红黑树的节点 [x] 进行左旋转
  *
- * 左旋示意图(对节点x进行左旋)：
- *      px                              px
- *     /                               /
- *    x                               y                
- *   /  \      --(左旋)-->           / \                #
- *  lx   y                          x  ry     
- *     /   \                       /  \
- *    ly   ry                     lx  ly  
+ * 左旋示意图 (对节点 x 进行左旋):
+ *      px                             px
+ *     /                              /
+ *    x                              y
+ *   /  \       --- (左旋) -->       / \
+ *  lx   y                         x  ry
+ *     /   \                      /  \
+ *    ly   ry                    lx  ly  
  *
  */
-static void _rbtree_left_rotate(rbtree_t tree, struct $rbnode * x) {
-    // 设置x的右孩子为y
-    struct $rbnode * y = x->right;
-	struct $rbnode * xparent = rb_parent(x);
+static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
+    // 设置 [x] 的右孩子为 [y]
+    struct $rtree * y = x->right;
+    struct $rtree * xparent = rtree_parent(x);
 
-    // 将 “y的左孩子” 设为 “x的右孩子”；
+    // 将 [y的左孩子] 设为 [x的右孩子]；
     x->right = y->left;
-	// 如果y的左孩子非空，将 “x” 设为 “y的左孩子的父亲”
+    // 如果 y的左孩子 非空，将 [x] 设为 [y的左孩子的父亲]
     if (y->left != NULL)
-		rb_set_parent(y->left, x);
+        rtree_set_parent(y->left, x);
 
-    // 将 “x的父亲” 设为 “y的父亲”
-	rb_set_parent(y, xparent);
+    // 将 [x的父亲] 设为 [y的父亲]
+    rtree_set_parent(y, xparent);
 
-    if (xparent == NULL)
-        tree->root = y; // 如果 “x的父亲” 是空节点，则将y设为根节点
-    else {
-        if (xparent->left == x)
-            xparent->left = y;  // 如果 x是它父节点的左孩子，则将y设为“x的父节点的左孩子”
-        else
-            xparent->right = y; // 如果 x是它父节点的左孩子，则将y设为“x的父节点的左孩子”
+    if (xparent == NULL) {
+        // 如果 [x的父亲] 是空节点, 则将 [y] 设为根节点
+        tree->root = y;
+    } else {
+        if (xparent->left == x) {
+            // 如果 [x] 是它父节点的左孩子, 则将 [y] 设为 [x的父节点的左孩子]
+            xparent->left = y;
+        } else {
+            // 如果 [x] 是它父节点的左孩子, 则将 [y] 设为 [x的父节点的左孩子]
+            xparent->right = y;
+        }
     }
-    
-    // 将 “x” 设为 “y的左孩子”
+
+    // 将 [x] 设为 [y的左孩子]
     y->left = x;
-    // 将 “x的父节点” 设为 “y”
-	rb_set_parent(x, y);
+    // 将 [x的父节点] 设为 [y]
+    rtree_set_parent(x, y);
 }
 ```
 
-    为什么有这些额外辅助操作呢, 主要是为了满足红黑树五大特性
-
-    特性1: 每个节点或者是黑色, 或者是红色.
-
-    特性2: 根节点是黑色.
-
-    特性3: 每个叶子节点(NIL)是黑色. [这里叶子节点，是指为空(NIL或NULL)的叶子节点!]
-
-    特性4: 如果一个节点是红色的, 则它的子节点必须是黑色的.
-
-    特性5: 从一个节点到该节点的子孙节点的所有路径上包含相同数目的黑节点.
-
-    左右旋转就是为了调整出特性5设计的. 相应的右旋操作
+    后续逐渐拉开了红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要调整旋转操作. 被称
+    为什么有这些额外辅助调整操作呢, 主要是为了满足红黑树五大特性.
+        特性 1: 每个节点或者是黑色, 或者是红色.
+        特性 2: 根节点是黑色.
+        特性 3: 每个叶子节点(NIL)是黑色. [这里是指为空(NIL或NULL)的叶子节点]
+        特性 4: 如果一个节点是红色的, 则它的子节点必须是黑色的.
+        特性 5: 从一个节点到该节点的子孙节点的所有路径上包含相同数目的黑色节点.
+    而左右旋转操作, 就是为了调整出特性 5设计的. 相应的右旋操作如下:
 
 ```C
 /* 
- * 对红黑树的节点(y)进行右旋转
+ * 对红黑树的节点 [y] 进行右旋转
  *
  * 右旋示意图(对节点y进行左旋)：
- *            py                               py
- *           /                                /
- *          y                                x                  
- *         /  \      --(右旋)-->            /  \                    #
- *        x   ry                           lx   y  
- *       / \                                   / \                  #
- *      lx  rx                                rx  ry
+ *            py                            py
+ *           /                             /
+ *          y                             x                  
+ *         /  \     --- (右旋) -->       /  \
+ *        x   ry                        lx   y  
+ *       / \                                / \
+ *      lx  rx                             rx  ry
  * 
  */
-static void _rbtree_right_rotate(rbtree_t tree, struct $rbnode * y) {
-    // 设置x是当前节点的左孩子。
-    struct $rbnode * x = y->left;
-	struct $rbnode * yparent = rb_parent(y);
+static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
+    // 设置 [x] 是当前节点的左孩子。
+    struct $rtree * x = y->left;
+    struct $rtree * yparent = rtree_parent(y);
 
-    // 将 “x的右孩子” 设为 “y的左孩子”；
-	y->left = x->right;
-    // 如果"x的右孩子"不为空的话，将 “y” 设为 “x的右孩子的父亲”
+    // 将 [x的右孩子] 设为 [y的左孩子]
+    y->left = x->right;
+    // 如果 x的右孩子 不为空的话，将 [y] 设为 [x的右孩子的父亲]
     if (x->right != NULL)
-		rb_set_parent(x->right, y);
+        rtree_set_parent(x->right, y);
 
-    // 将 “y的父亲” 设为 “x的父亲”
-    rb_set_parent(x, yparent);
-    if (yparent == NULL) 
-        tree->root = x; // 如果 “y的父亲” 是空节点，则将x设为根节点
-    else {
-        if (y == yparent->right)
-            yparent->right = x; // 如果 y是它父节点的右孩子，则将x设为“y的父节点的右孩子”
-        else
-            yparent->left = x;  // (y是它父节点的左孩子) 将x设为“x的父节点的左孩子”
+    // 将 [y的父亲] 设为 [x的父亲]
+    rtree_set_parent(x, yparent);
+    if (yparent == NULL) {
+        // 如果 [y的父亲] 是空节点, 则将 [x] 设为根节点
+        tree->root = x;
+    } else {
+        if (y == yparent->right) {
+            // 如果 [y] 是它父节点的右孩子, 则将 [x] 设为 [y的父节点的右孩子]
+            yparent->right = x;
+        } else {
+            // 如果 [y] 是它父节点的左孩子, 将 [x] 设为 [x的父节点的左孩子]
+            yparent->left = x;
+        }
     }
 
-    // 将 “y” 设为 “x的右孩子”
+    // 将 [y] 设为 [x的右孩子]
     x->right = y;
-    // 将 “y的父节点” 设为 “x”
-	rb_set_parent(y, x);
+    // 将 [y的父节点] 设为 [x]
+    rtree_set_parent(y, x);
 }
 ```
 
+    后续逐渐拉开了红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要调整旋转操作. 被称
     注释很详细, 看起来也有点头痛. 木办法, 需要各自课下下功夫. 疯狂的吸收相关元气, 照着算
 	法解释抄一遍代码, 写一遍代码, 理解一遍, 坎就过了. 毕竟上面是工程代码, 和教学过家家有
-	些不同.
+	些不同. 旋转调整相比后面的插入调整, 删除调整, 要简单很多. 因而趁着它简单, 我们再额外
+    补充些. 红黑树存在父亲节点, 左右旋转相对容易点. 如果一个普通二叉数没有父亲节点, 该如
+    何旋转呢? 我们以陈启峰 2006 高中的时候构建的 Size Balanced Tree 为例子演示哈. 分
+    别观望数据结构和旋转实现, 坐山观虎斗(眼睛看), 净收渔翁之利(动手写). 
+
+```C
+#ifndef _STREE_H
+#define _STREE_H
+
+typedef unsigned long long stree_key_t;
+
+typedef union {
+    void * ptr;
+    double number;
+    signed long long i;
+    unsigned long long u;
+} stree_value_t;
+
+struct stree {
+    struct stree * left;    // 左子树
+    struct stree * right;   // 右子树
+    unsigned size;          // 树节点个数
+
+    stree_key_t key;        // tree node key
+    stree_value_t value;    // tree node value
+};
+
+typedef struct stree * stree_t;
+
+inline unsigned stree_size(const struct stree * const node) {
+    return node ? node->size : 0;
+}
+
+#endif//_STREE_H
+```
+
+![SBT](./img/sbt.png)
+
+```C
+// stree_left_rotate - size tree left rotate
+static void stree_left_rotate(stree_t * pode) {
+    stree_t node = *pode;
+    stree_t right = node->right;
+
+    node->right = right->left;
+    right->left = node;
+    right->size = node->size;
+    node->size = stree_size(node->left) + stree_size(node->right) + 1;
+
+    *pode = right;
+}
+
+// stree_right_rotate - size tree right rotate
+//
+//           (y)   left rotate      (x)
+//          /   \  ------------>   /   \
+//        (x)   [C]              [A]   (y)
+//       /   \     <------------      /   \
+//      [A]  [B]    right rotate    [B]   [C]
+//
+static void stree_right_rotate(stree_t * pode) {
+    stree_t node = *pode;
+    stree_t left = node->left;
+
+    node->left = left->right;
+    left->right = node;
+    left->size = node->size;
+    node->size = stree_size(node->left) + stree_size(node->right) + 1;
+
+    *pode = left;
+}
+```
 
 ### 5.1.2 红黑树 insert
 
-    请原谅作者拾(chao)人(xi)牙(mei)慧(lian), 弄了个大概无关痛痒的步骤说明如下: 
-    
-    将一个节点插入到红黑树中. 
-	首先, 将红黑树当作一颗二叉查找树, 将节点插入. 然后, 将节点着色为红色. 最后, 
-	通过旋转和重新着色等方法来修正该树, 使之重新成为一颗红黑树. 
-    
-	详细过程描述:
+    请原谅作者拾(chao)人(xi)牙(mei)慧(lian), 弄了个大概无关痛痒的步骤说明. 将一个节点
+    插入到红黑树中. 首先, 将红黑树当作一颗二叉查找树, 将节点插入. 然后, 将节点着色为红色
+    . 最后通过旋转和重新着色等方法来修正该树, 使之重新成为一颗红黑树. 详细过程描述.
     第一步: 
-	将红黑树当作一颗二叉查找树, 将节点插入红黑树本身就是一颗二叉查找树, 将节点插入后, 
-	该树仍然是一颗二叉查找树. 也就意味着, 树的键值仍然是有序的. 此外, 无论是左旋还是右
-	旋, 若旋转之前这棵树是二叉查找树, 旋转之后它一定还是二叉查找树. 这也就意味着, 任何
-	的旋转和重新着色操作, 都不会改变它仍然是一颗二叉查找树的事实.
-
-    第二步：
-	将插入的节点着色为'红色'. 将插入的节点着色为红色, 不会违背'特性5'!
-
+	将红黑树当作一颗二叉查找树, 将节点插入红黑树本身就是一颗二叉查找树, 将节点插入后, 该树
+    仍然是一颗二叉查找树. 也就意味着, 树的键值仍然是有序的. 此外, 无论是左旋还是右旋, 若
+    旋转之前这棵树是二叉查找树, 旋转之后它一定还是二叉查找树. 这也就意味着, 任何的旋转和重
+    新着色操作, 都不会改变它仍然是一颗二叉查找树的事实.
+    第二步:
+	将插入的节点着色为'红色'. 将插入的节点着色为红色, 不会违背'特性 5'!
     第三步: 
-	通过一系列的旋转或着色等操作, 使之重新成为一颗红黑树. 第二步中, 将插入节点着色为
-	'红色'之后, 不会违背'特性5'. 那它会违背哪些特性呢?
-    对于'特性1': 不会违背. 因为我们已经将它涂成红色了.
-    对于'特性2': 也不会违背. 在第一步中, 我们是将红黑树当作二叉查找树, 然后执行的插入
-		操作. 而根据二叉查找数的特点, 插入操作不会改变根节点. 所以，根节点仍然是黑色.
-    对于'特性3': 不会违背. 叶子节点是指的空叶子节点, 插入非空节点并不会对其造成影响
-    对于'特性4': 是有可能违背的！
-    那接下来工作就是想办法'满足特性4', 就可以将搜索树重新生成一棵红黑树了.
-    来看看代码到底是怎样实现这三步的:
+	通过一系列的旋转或着色等操作, 使之重新成为一颗红黑树. 第二步中, 将插入节点着色为'红色'
+    之后, 不会违背'特性 5'. 那它会违背哪些特性呢? 
+    对于'特性 1': 不会违背. 因为我们已经将它涂成红色了.
+    对于'特性 2': 也不会违背. 在第一步中, 我们是将红黑树当作二叉查找树, 然后执行的插入操
+        作. 而根据二叉查找数的特点, 插入操作不会改变根节点. 所以，根节点仍然是黑色.
+    对于'特性 3': 不会违背. 叶子节点是指的空叶子节点, 插入非空节点并不会对其造成影响
+    对于'特性 4': 是有可能违背的！
+    那接下来工作就是想办法'满足特性 4', 就可以将搜索树重新生成一棵红黑树了. 来看看热闹, 代
+    码到底是怎样实现这三大步的.
 
 ```C
 /*
  * 红黑树插入修正函数
  *
- * 在向红黑树中插入节点之后(失去平衡)，再调用该函数；
- * 目的是将它重新塑造成一颗红黑树。
+ * 在向红黑树中插入节点之后(失去平衡), 再调用该函数.
+ * 目的是将它重新塑造成一颗红黑树.
  *
- * 参数说明：
+ * 参数说明:
  *     tree 红黑树的根
- *     node 插入的结点        // 对应《算法导论》中的z
+ *     node 插入的节点        // 对应 <<算法导论>> 中的 z
  */
-static void _rbtree_insert_fixup(rbtree_t tree, struct $rbnode * node) {
-    struct $rbnode * parent, * gparent, * uncle;
+static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
+    struct $rtree * parent, * gparent, * uncle;
 
-    // 若“父节点存在，并且父节点的颜色是红色”
-    while ((parent = rb_parent(node)) && rb_is_red(parent)) {
-        gparent = rb_parent(parent);
+    // 若 [父节点] 存在，并且 [父节点] 的颜色是红色
+    while ((parent = rtree_parent(node)) && rtree_is_red(parent)) {
+        gparent = rtree_parent(parent);
 
-        //若“父节点”是“祖父节点的左孩子”
+        //若 [父节点] 是 [祖父节点的左孩子]
         if (parent == gparent->left) {
-            // Case 1条件：叔叔节点是红色
+            // Case 1 条件: 叔叔节点是红色
             uncle = gparent->right;
-            if (uncle && rb_is_red(uncle)) {
-                rb_set_black(uncle);
-                rb_set_black(parent);
-                rb_set_red(gparent);
+            if (uncle && rtree_is_red(uncle)) {
+                rtree_set_black(uncle);
+                rtree_set_black(parent);
+                rtree_set_red(gparent);
                 node = gparent;
                 continue;
             }
 
-            // Case 2条件：叔叔是黑色，且当前节点是右孩子
+            // Case 2 条件: 叔叔是黑色, 且当前节点是右孩子
             if (parent->right == node) {
-                _rbtree_left_rotate(tree, parent);
+                rtree_left_rotate(tree, parent);
                 uncle = parent;
                 parent = node;
                 node = uncle;
             }
 
-            // Case 3条件：叔叔是黑色，且当前节点是左孩子。
-            rb_set_black(parent);
-            rb_set_red(gparent);
-            _rbtree_right_rotate(tree, gparent);
-        } else { //若“z的父节点”是“z的祖父节点的右孩子”
-            // Case 1条件：叔叔节点是红色
+            // Case 3 条件: 叔叔是黑色, 且当前节点是左孩子
+            rtree_set_black(parent);
+            rtree_set_red(gparent);
+            rtree_right_rotate(tree, gparent);
+        } else { // 若 [z的父节点] 是 [z的祖父节点的右孩子]
+            // Case 1 条件: 叔叔节点是红色
             uncle = gparent->left;
-            if (uncle && rb_is_red(uncle)) {
-                rb_set_black(uncle);
-                rb_set_black(parent);
-                rb_set_red(gparent);
+            if (uncle && rtree_is_red(uncle)) {
+                rtree_set_black(uncle);
+                rtree_set_black(parent);
+                rtree_set_red(gparent);
                 node = gparent;
                 continue;
             }
 
-            // Case 2条件：叔叔是黑色，且当前节点是左孩子
+            // Case 2 条件: 叔叔是黑色, 且当前节点是左孩子
             if (parent->left == node) {
-                _rbtree_right_rotate(tree, parent);
+                rtree_right_rotate(tree, parent);
                 uncle = parent;
                 parent = node;
                 node = uncle;
             }
 
-            // Case 3条件：叔叔是黑色，且当前节点是右孩子。
-            rb_set_black(parent);
-            rb_set_red(gparent);
-            _rbtree_left_rotate(tree, gparent);
+            // Case 3 条件: 叔叔是黑色, 且当前节点是右孩子
+            rtree_set_black(parent);
+            rtree_set_red(gparent);
+            rtree_left_rotate(tree, gparent);
         }
     }
 
     // 将根节点设为黑色
-    rb_set_black(tree->root);
+    rtree_set_black(tree->root);
 }
 
-/*
- * 插入一个结点, 会插入 new(pack)
- * tree		: 红黑树头结点
- * pack		: 待插入的结点当cmp(x, pack) 右结点
- */
+// rtree_new - 插入时候构造一个新节点 | static 用于解决符号重定义
+static inline struct $rtree * rtree_new(rtree_t tree, void * pack) {
+    struct $rtree * node = tree->fnew ? tree->fnew(pack) : pack;
+    // 默认构建节点是红色的
+    return  memset(node, 0, sizeof *node);
+}
+
+//
+// rtree_insert - 红黑树中插入节点 fnew(pack)
+// tree     : 红黑树结构
+// pack     : 待插入基础结构
+// return   : void
+//
 void 
-rb_insert(rbtree_t tree, void * pack) {
-	icmp_f cmp;
-	struct $rbnode * node, * x, * y;
-	if((!tree) || (!pack) || !(node = _rb_new(tree, pack))) {
-		RETURN(NIL, "rb_insert param is empty! tree = %p, pack = %p.\n", tree, pack);
-	}
-	
-	cmp = tree->cmp;
-	// 开始走插入工作
-	y = NULL;
-	x = tree->root;
+rtree_insert(rtree_t tree, void * pack) {
+    if (!tree || !pack) return;
 
-	// 1. 将红黑树当作一颗二叉查找树，将节点添加到二叉查找树中。从小到大
-	while (x != NULL) {
-		y = x;
-		if (cmp(x, node) > 0)
-			x = x->left;
-		else
-			x = x->right;
-	}
-	rb_set_parent(node, y);
+    cmp_f fcmp = tree->fcmp;
+    struct $rtree * x = tree->root, * y = NULL;
+    // 1. 构造插入节点, 并设置节点的颜色为红色
+    struct $rtree * node = rtree_new(tree, pack);
 
-	if (y)
-		tree->root = node; // 情况1：若y是空节点，则将node设为根
-	else {
-		if (cmp(y, node) > 0)
-			y->left = node;  // 情况2：若“node所包含的值” < “y所包含的值”，则将node设为“y的左孩子”
-		else
-			y->right = node; // 情况3：(“node所包含的值” >= “y所包含的值”)将node设为“y的右孩子” 
-	}
+    // 2. 将红黑树当作一颗二叉查找树, 将节点添加到二叉查找树中. 默认 从小到大
+    while (x) {
+        y = x;
+        if (fcmp(x, node) > 0)
+            x = x->left;
+        else
+            x = x->right;
+    }
+    rtree_set_parent(node, y);
 
-	// 2. 设置节点的颜色为红色
-	rb_set_red(node);
+    if (NULL == y) {
+        // 情况 1: 若 y是空节点, 则将 node设为根
+        tree->root = node;
+    } else {
+        if (fcmp(y, node) > 0) {
+            // 情况 2: 若 "node所包含的值" < "y所包含的值", 则将 [node] 设为 [y的左孩子]
+            y->left = node;
+        } else {
+            // 情况 3：若 "node所包含的值" >= "y所包含的值", 将 [node] 设为 [y的右孩子] 
+            y->right = node;
+        }
+    }
 
-	// 3. 将它重新修正为一颗二叉查找树
-	_rbtree_insert_fixup(tree, node);
+    // 3. 将它重新修正为一颗二叉查找树
+    rtree_insert_fixup(tree, node);
 }
 ```
 
-    手写红黑树是个挑战. 参照无数元婴前辈们筑基期历练的手稿, 顺带从 linux上拔下来的
-	原始代码敲个一遍. 构造一个上面库. 学习的话1查2抄3默写, 应该好理解吧 ~
+    手写红黑树是个挑战. 参照无数元婴前辈们筑基期历练的手稿, 顺带从 linux 上拔下来的原始
+    代码敲个几遍遍. 构造一个上面库. 学习的话 1 查 2 抄 3 默写, 应该能蒙蒙胧吧 ~
 
 ### 5.1.3 红黑树 remove
 
-    将红黑树内某一个节点删除. 需要执行的操作依次是: 首先, 将红黑树当作一颗二叉查找
-	树, 将该节点从二叉查找树中删除. 然后, 通过'旋转和重新着色' 等一系列来修正该树, 
-	使之重新成为一棵红黑树. 详细描述如下:
-
+    将红黑树内某一个节点删除. 需要执行的操作顺序是: 首先, 将红黑树当作一颗二叉查找树, 将
+    该节点从二叉查找树中删除. 然后, 通过'旋转和重新着色' 等一系列来修正该树, 使之重新成
+    为一棵红黑树. 详细描述参照下面步骤.
     第一步: 
-	将红黑树当作一颗二叉查找树, 将节点删除. 这和'删除常规二叉查找树中删除节点的方法是
-	一样的'. 分3种情况:
-    	1. 被删除节点没有儿子, 即为叶节点. 那么, 直接将该节点删除就OK了.
-    	2. 被删除节点只有一个儿子. 那么, 直接删除该节点, 并用该节点的儿子节点顶替它的位置.
-    	3. 被删除节点有两个儿子. 那么, 先找出它的后继节点. 然后把'它的后继节点的内容'复制
-		   给'该节点的内容'. 之后, 删除'它的后继节点'. 在这里, 后继节点相当于替身, 在将后
-		   继节点的内容复制给'被删除节点'之后, 再将后继节点删除. 这样就巧妙的将问题转换为'
-		   删除后继节点'的情况了, 下面就考虑后继节点. 在'被删除节点'有两个非空子节点的情况
-		   下, 它的后继节点不可能是双子非空. 既然'的后继节点'不可能双子都非空, 就意味着'该
-		   节点的后继节点'要么没有儿子, 要么只有一个儿子. 若没有儿子, 则按'情况1' 进行处理
-		   . 若只有一个儿子, 则按'情况2' 进行处理.
-
+	将红黑树当作一颗二叉查找树, 将节点删除. 这和'删除常规二叉查找树中删除节点的方法是一样
+    的'. 分 3 种情况:
+    情况 1. 被删除节点没有儿子, 即为叶节点. 那么直接将该节点删除就 OK 了.
+    情况 2. 被删除节点只有一个儿子. 那么直接删除该节点, 并用该节点的儿子节点顶替它的位置.
+    情况 3. 被删除节点有两个儿子. 那么, 先找出它的后继节点. 然后把'它的后继节点的内容'复
+           制给'该节点的内容'. 之后, 删除'它的后继节点'. 在这里, 后继节点相当于替身, 
+           在将后继节点的内容复制给'被删除节点'之后, 再将后继节点删除. 这样就巧妙的将问
+           题转换为'删除后继节点'的情况了, 下面就考虑后继节点. 在'被删除节点'有两个非空
+           子节点的情况下, 它的后继节点不可能是双子非空. 既然'被删除节点的后继节点'不可
+           能双子都非空, 就意味着'该节点的后继节点'要么没有儿子, 要么只有一个儿子. 若没
+           有儿子, 则按'情况 1' 进行处理. 若只有一个儿子, 则按'情况 2' 进行处理.
     第二步: 
-	通过'旋转和重新着色'等一系列来修正该树, 使之重新成为一棵红黑树. 因为'第一步'中删除节点
-	之后, 可能会违背红黑树的特性. 所以需要通过'旋转和重新着色'来修正该树, 使之重新成为一棵
-	红黑树. 
-
-    最终对着算法说明和linux红黑树源码构造的一种工程实现如下:
+	通过'旋转和重新着色'等一系列来修正该树, 使之重新成为一棵红黑树. 因为'第一步'中删除节
+    点之后, 可能会违背红黑树的特性. 所以需要通过'旋转和重新着色'来修正该树, 使之重新成为
+    一棵红黑树. 
+    最终对着算法说明和 linux 红黑树源码构造的一种工程实现 rtree_remove 纯属一起作死一
+    起嗨.
 
 ```C
 /*
  * 红黑树删除修正函数
  *
- * 在从红黑树中删除插入节点之后(红黑树失去平衡)，再调用该函数；
- * 目的是将它重新塑造成一颗红黑树。
+ * 在从红黑树中删除插入节点之后(红黑树失去平衡), 再调用该函数.
+ * 目的是将它重新塑造成一颗红黑树.
  *
- * 参数说明：
+ * 参数说明:
  *     tree 红黑树的根
  *     node 待修正的节点
  */
-static void _rbtree_delete_fixup(rbtree_t tree, struct $rbnode * node, struct $rbnode * parent) {
-    struct $rbnode * other;
+static void rtree_remove_fixup(rtree_t tree, struct $rtree * node, struct $rtree * parent) {
+    struct $rtree * other;
 
-    while ((!node || rb_is_black(node)) && node != tree->root) {
+    while ((!node || rtree_is_black(node)) && node != tree->root) {
         if (parent->left == node) {
             other = parent->right;
-            if (rb_is_red(other)) {
-                // Case 1: x的兄弟w是红色的  
-                rb_set_black(other);
-                rb_set_red(parent);
-                _rbtree_left_rotate(tree, parent);
+            if (rtree_is_red(other)) {
+                // Case 1: x的兄弟 w 是红色的  
+                rtree_set_black(other);
+                rtree_set_red(parent);
+                rtree_left_rotate(tree, parent);
                 other = parent->right;
             }
-            if ((!other->left || rb_is_black(other->left)) &&
-                (!other->right || rb_is_black(other->right))) {
-                // Case 2: x的兄弟w是黑色，且w的俩个孩子也都是黑色的  
-                rb_set_red(other);
+            if ((!other->left || rtree_is_black(other->left)) &&
+                (!other->right || rtree_is_black(other->right))) {
+                // Case 2: x的兄弟 w 是黑色, 且 w的俩个孩子也都是黑色的  
+                rtree_set_red(other);
                 node = parent;
-                parent = rb_parent(node);
+                parent = rtree_parent(node);
             } else {
-                if (!other->right || rb_is_black(other->right)) {
-                    // Case 3: x的兄弟w是黑色的，并且w的左孩子是红色，右孩子为黑色。  
-                    rb_set_black(other->left);
-                    rb_set_red(other);
-                    _rbtree_right_rotate(tree, other);
+                if (!other->right || rtree_is_black(other->right)) {
+                    // Case 3: x的兄弟 w 是黑色的, 并且 w的左孩子是红色, 右孩子为黑色  
+                    rtree_set_black(other->left);
+                    rtree_set_red(other);
+                    rtree_right_rotate(tree, other);
                     other = parent->right;
                 }
-                // Case 4: x的兄弟w是黑色的；并且w的右孩子是红色的，左孩子任意颜色。
-                rb_set_color(other, rb_color(parent));
-                rb_set_black(parent);
-                rb_set_black(other->right);
-                _rbtree_left_rotate(tree, parent);
+                // Case 4: x的兄弟 w 是黑色的, 并且 w的右孩子是红色的, 左孩子任意颜色
+                rtree_set_color(other, rtree_color(parent));
+                rtree_set_black(parent);
+                rtree_set_black(other->right);
+                rtree_left_rotate(tree, parent);
                 node = tree->root;
                 break;
             }
         } else {
             other = parent->left;
-            if (rb_is_red(other)) {
-                // Case 1: x的兄弟w是红色的  
-                rb_set_black(other);
-                rb_set_red(parent);
-                _rbtree_right_rotate(tree, parent);
+            if (rtree_is_red(other)) {
+                // Case 1: x 的兄弟 w 是红色的  
+                rtree_set_black(other);
+                rtree_set_red(parent);
+                rtree_right_rotate(tree, parent);
                 other = parent->left;
             }
-            if ((!other->left || rb_is_black(other->left)) &&
-                (!other->right || rb_is_black(other->right))) {
-                // Case 2: x的兄弟w是黑色，且w的俩个孩子也都是黑色的  
-                rb_set_red(other);
+            if ((!other->left || rtree_is_black(other->left)) &&
+                (!other->right || rtree_is_black(other->right))) {
+                // Case 2: x 的兄弟 w 是黑色, 且 w的俩个孩子 也都是黑色的  
+                rtree_set_red(other);
                 node = parent;
-                parent = rb_parent(node);
+                parent = rtree_parent(node);
             } else {
-                if (!other->left || rb_is_black(other->left)) {
-                    // Case 3: x的兄弟w是黑色的，并且w的左孩子是红色，右孩子为黑色。  
-                    rb_set_black(other->right);
-                    rb_set_red(other);
-                    _rbtree_left_rotate(tree, other);
+                if (!other->left || rtree_is_black(other->left)) {
+                    // Case 3: x的兄弟 w 是黑色的, 并且 w的左孩子是红色, 右孩子为黑色
+                    rtree_set_black(other->right);
+                    rtree_set_red(other);
+                    rtree_left_rotate(tree, other);
                     other = parent->left;
                 }
-                // Case 4: x的兄弟w是黑色的；并且w的右孩子是红色的，左孩子任意颜色。
-                rb_set_color(other, rb_color(parent));
-                rb_set_black(parent);
-                rb_set_black(other->left);
-                _rbtree_right_rotate(tree, parent);
+                // Case 4: x的兄弟 w 是黑色的, 并且 w的右孩子是红色的, 左孩子任意颜色.
+                rtree_set_color(other, rtree_color(parent));
+                rtree_set_black(parent);
+                rtree_set_black(other->left);
+                rtree_right_rotate(tree, parent);
                 node = tree->root;
                 break;
             }
         }
     }
-    if (node)
-        rb_set_black(node);
+    if (node) rtree_set_black(node);
 }
 
-/*
- * 删除rb_get得到的结点
- * root		: 红黑树结点
- * pack		: 当cmp(x, pack) 右结点
- */
+//
+// rtree_remove - 红黑树中删除节点
+// tree     : 红黑树结构
+// pack     : 待删除基础结构
+// return   : void
+//
 void 
-rb_remove(rbtree_t tree, void * pack) {
-	struct $rbnode * child, * parent, * node = NULL;
-	int color;
-	
-	if ((!tree) || !(node = (struct $rbnode *)pack)) {
-		RETURN(NIL, "rb_remove check is error, tree = %p, node = %p.", tree, node);
-	}
+rtree_remove(rtree_t tree, void * pack) {
+    int color;
+    struct $rtree * child, * parent, * node = pack;
+    if (NULL != tree) return;
 
-	// 被删除节点的"左右孩子都不为空"的情况。
-	if (NULL != node->left && node->right != NULL) {
-		// 被删节点的后继节点。(称为"取代节点")
-		// 用它来取代"被删节点"的位置，然后再将"被删节点"去掉。
-		struct $rbnode * replace = node;
+    // 被删除节点的 "左右孩子都不为空" 的情况
+    if (NULL != node->left && node->right != NULL) {
+        // 被删节点的后继节点. (称为 "取代节点")
+        // 用它来取代 "被删节点" 的位置, 然后再将 "被删节点" 去掉
+        struct $rtree * replace = node;
 
-		// 获取后继节点
-		replace = replace->right;
-		while (replace->left != NULL)
-			replace = replace->left;
+        // 获取后继节点
+        replace = replace->right;
+        while (replace->left != NULL)
+            replace = replace->left;
 
-		// "node节点"不是根节点(只有根节点不存在父节点)
-		if ((parent = rb_parent(node))) {
-			if (parent->left == node)
-				parent->left = replace;
-			else
-				parent->right = replace;
-		} else 
-			// "node节点"是根节点，更新根节点。
-			tree->root = replace;
+        // "node节点" 不是根节点(只有根节点不存在父节点)
+        if ((parent = rtree_parent(node))) {
+            if (parent->left == node)
+                parent->left = replace;
+            else
+                parent->right = replace;
+        } else // "node节点" 是根节点, 更新根节点
+            tree->root = replace;
 
-		// child是"取代节点"的右孩子，也是需要"调整的节点"。
-		// "取代节点"肯定不存在左孩子！因为它是一个后继节点。
-		child = replace->right;
-		parent = rb_parent(replace);
-		// 保存"取代节点"的颜色
-		color = rb_color(replace);
+        // child 是 "取代节点" 的右孩子, 也是需要 "调整的节点"
+        // "取代节点" 肯定不存在左孩子! 因为它是一个后继节点
+        child = replace->right;
+        parent = rtree_parent(replace);
+        // 保存 "取代节点" 的颜色
+        color = rtree_color(replace);
 
-		// "被删除节点"是"它的后继节点的父节点"
-		if (parent == node)
-			parent = replace; 
-		else {
-			// child不为空
-			if (child)
-				rb_set_parent(child, parent);
-			parent->left = child;
+        // "被删除节点" 是 "它的后继节点的父节点"
+        if (parent == node)
+            parent = replace; 
+        else {
+            // child不为空
+            if (child)
+                rtree_set_parent(child, parent);
+            parent->left = child;
 
-			replace->right = node->right;
-			rb_set_parent(node->right, replace);
-		}
-		
-		rb_set_parent(replace, rb_parent(node));
-		rb_set_color(replace, rb_color(node));
-		replace->left = node->left;
-		rb_set_parent(node->left, replace);
+            replace->right = node->right;
+            rtree_set_parent(node->right, replace);
+        }
 
-		if (color) // 黑色结点重新调整关系
-			_rbtree_delete_fixup(tree, child, parent);
-		// 结点销毁操作
-		tree->die(node);
-		return ;
-	}
+        rtree_set_parent(replace, rtree_parent(node));
+        rtree_set_color(replace, rtree_color(node));
+        replace->left = node->left;
+        rtree_set_parent(node->left, replace);
 
-	if (node->left !=NULL)
-		child = node->left;
-	else 
-		child = node->right;
+        goto ret_out;
+    }
 
-	parent = rb_parent(node);
-	// 保存"取代节点"的颜色
-	color = rb_color(node);
+    if (NULL != node->left)
+        child = node->left;
+    else 
+        child = node->right;
 
-	if (child)
-		rb_set_parent(child, parent);
+    parent = rtree_parent(node);
+    // 保存 "取代节点" 的颜色
+    color = rtree_color(node);
 
-	// "node节点"不是根节点
-	if (!parent)
-		tree->root = child;
-	else {
-		if (parent->left == node)
-			parent->left = child;
-		else
-			parent->right = child;
-	}
+    if (child)
+        rtree_set_parent(child, parent);
 
-	if (!color)
-		_rbtree_delete_fixup(tree, child, parent);
-	tree->die(node);
+    // "node节点" 不是根节点
+    if (NULL == parent)
+        tree->root = child;
+    else {
+        if (parent->left == node)
+            parent->left = child;
+        else
+            parent->right = child;
+    }
+
+ret_out:
+    if (color) // 黑色节点重新调整关系, 并销毁节点操作
+        rtree_remove_fixup(tree, child, parent);
+    if (tree->fdie)
+        tree->fdie(node);
 }
 ```
 
-    红黑树代码是非线性的, 需要一点看材料的功夫. 就当扩展视野, 吸收成自己的代码库. 
-	写代码很多时候要和姑苏慕容学习, 以彼之道还治彼身. 这里关于红黑树的梗过去了, 
-	飞云逐日, 不如, 一切安好 ~
+    红黑树代码是非线性的, 需要一点看材料的功夫. 就当扩展视野, 吸收成自己的代码库. 写代码
+    很多时候要和姑苏慕容学习, 以彼之道还治彼身. 这里关于红黑树的梗过去了, 飞云逐日, 不如
+    , 一切安好 ~
 
-### 5.2 趁热打铁 map -> dict
+## 5.2 dict
 
-    红黑树是上层 map库的实现基石, 同样另一种相似的查找库 dict, 有时候采用的是 hash 桶
-	算法. 主要应用场景是通过 key -> value, 一种查找业务操作. 
-	由于应用很常见, 直接看接口设计:
-
-dict.h
+        趁热打铁 map -> dict. 红黑树是上层 map 库的实现基石, 同样另一种相似的查找库 
+    dict, 有时候采用的是 hash 桶算法去实现, 综合查找性能高于 map. 主要应用场景是通过
+    key -> value 映射查找业务操作. 由于应用场景更多, 我们带大家走遍形式, 直接看接口设
+    计 dict.h
 
 ```C
-#ifndef _H_SIMPLEC_DICT
-#define _H_SIMPLEC_DICT
+#ifndef _DICT_H
+#define _DICT_H
 
 #include "struct.h"
+#include "strext.h"
 
+//
+// dict_t - C 字符串为 k 的字典结构
+//
 typedef struct dict * dict_t;
 
 //
-// dict_create - 创建一个以C字符串为key的字典
-// die		: val 销毁函数
-// return	: void
+// dict_delete - 字典删除
+// d        : dict_create 创建的字典对象
+// return   : void 
 //
-extern dict_t dict_create(node_f die);
 extern void dict_delete(dict_t d);
 
 //
-// dict_set - 设置一个<k, v> 结构
-// d		: dict_create 创建的字典对象
-// k		: 插入的key, 重复插入会销毁已经插入的
-// v		: 插入数据的值
-// return	: void
+// dict_create - 字典创建
+// fdie     : node_f 销毁行为
+// return   : dict_t
 //
-extern void dict_set(dict_t d, const char * k, void * v);
-extern void dict_die(dict_t d, const char * k);
+extern dict_t dict_create(node_f fdie);
 
+//
+// dict_get - 获取字典中对映的 v
+// d        : dict_create 创建的字典对象
+// k        : 查找的 key 
+// return   : 查找的 v, NULL 表示没有
+//
 extern void * dict_get(dict_t d, const char * k);
 
-#endif//_H_SIMPLEC_DICT
+//
+// dict_set - 设置一个 <k, v> 结构
+// d        : dict_create 创建的字典对象
+// k        : 插入的 key
+// v        : 插入数据的值, NULL 会销毁 k
+// return   : void
+//
+extern void dict_set(dict_t d, const char * k, void * v);
+
+#endif//_DICT_H
 ```
 
-    内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟)
-    那就开始实现意图剖析, 来看结构部分, 内功的气海结构 :
+    内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那就开始
+    实现意图剖析, 来看 dict 内功的气海结构.
 
 ```C
-#include "dict.h"
-#include "tstr.h"
-
 struct keypair {
-	struct keypair * next;
-	unsigned hash;
-	char * key;
-	void * val;
+    struct keypair * next;
+    unsigned hash;
+    void * val;
+    char key[];
 };
+
+// keypair_delete - 销毁结点数据
+inline void keypair_delete(node_f fdie, struct keypair * pair) {
+    if (pair->val && fdie)
+        fdie(pair->val);
+    free(pair);
+}
+
+// keypair_create - 创建结点数据
+inline struct keypair * keypair_create(unsigned hash, void * v, const char * k) {
+    size_t len = strlen(k) + 1;
+    struct keypair * pair = malloc(sizeof(struct keypair) + len);
+    pair->hash = hash;
+    pair->val = v;
+    memcpy(pair->key, k, len);
+    return pair;
+}
 
 struct dict {
-	node_f die;
-	unsigned used; // 用户使用的
-	unsigned size; // table 的 size, 等同于桶数目
-	struct keypair ** table;
+    node_f fdie;                // 结点注册的销毁函数
+    unsigned idx;               // 使用 _primes 质数表索引
+    unsigned used;              // 用户已经使用的结点个数
+    struct keypair ** table;    // size = primes[idx][0]
 };
 ```
 
-    dict::table 就是我们的 hash池子, 存放所有 struct keypair结构. 如果冲突了, 那
-	就向 keypair桶结构中插入. 如果 hash池子满了, 那就重新挖一个大点的池子, 重新调
-	整所有关系. 这就是核心思想! 
-	很普通不是吗, 不妨详细看看创建的设计思路:
+    内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那就开始
+    dict::table 就是我们的 keypair 池子, 存放所有 struct keypair 结构. 如果冲突了
+    , 那就向 keypair::next 链式结构中接着插入. 如果池子满了, 那就重新挖一个大点的池子
+    , 重新调整所有关系. 这就是核心思想! 不妨详细看看池子漫了的时候的策略.
 
 ```C
-#define _UINT_INITSZ	(2 << 7)
+//
+// primes - 质数表
+//
+const unsigned primes[][2] = {
+    { (1<<6)-1  ,         53 },
+    { (1<<7)-1  ,         97 },
+    { (1<<8)-1  ,        193 },
+    { (1<<9)-1  ,        389 },
+    { (1<<10)-1 ,        769 },
+    { (1<<11)-1 ,       1543 },
+    { (1<<12)-1 ,       3079 },
+    { (1<<13)-1 ,       6151 },
+    { (1<<14)-1 ,      12289 },
+    { (1<<15)-1 ,      24593 },
+    { (1<<16)-1 ,      49157 },
+    { (1<<17)-1 ,      98317 },
+    { (1<<18)-1 ,     196613 },
+    { (1<<19)-1 ,     393241 },
+    { (1<<20)-1 ,     786433 },
+    { (1<<21)-1 ,    1572869 },
+    { (1<<22)-1 ,    3145739 },
+    { (1<<23)-1 ,    6291469 },
+    { (1<<24)-1 ,   12582917 },
+    { (1<<25)-1 ,   25165843 },
+    { (1<<26)-1 ,   50331653 },
+    { (1<<27)-1 ,  100663319 },
+    { (1<<28)-1 ,  201326611 },
+    { (1<<29)-1 ,  402653189 },
+    { (1<<30)-1 ,  805306457 },
+    { UINT_MAX  , 1610612741 },
+};
 
-dict_t 
-dict_create(node_f die) {
-	struct dict * d = malloc(sizeof(struct dict));
-	if (NULL == d) {
-		RETURN(NULL, "malloc sizeof struct dict is error!");
-	}
+static void dict_resize(struct dict * d) {
+    unsigned size, prime, i;
+    struct keypair ** table;
+    unsigned used = d->used;
 
-	d->table = calloc(_UINT_INITSZ, sizeof(struct keypair *));
-	if (NULL == d->table) {
-		free(d);
-		RETURN(NULL, "calloc sizeof(struct keypair) is error!");
-	}
+    if (used < primes[d->idx][0])
+        return;
+    
+    // 构造新的内存布局大小
+    size = primes[d->idx][1];
+    prime = primes[++d->idx][1];
+    table = calloc(prime, sizeof(struct keypair *));
 
-	d->die = die;
-	d->used = 0;
-	d->size = _UINT_INITSZ;
+    // 开始转移数据
+    for (i = 0; i < size; ++i) {
+        struct keypair * pair = d->table[i];
+        while (pair) {
+            struct keypair * next = pair->next;
+            unsigned index = pair->hash % prime;
 
-	return d;
+            pair->next = table[index];
+            table[index] = pair;
+            pair = next;
+        }
+    }
+
+    // table 重新变化
+    free(d->table);
+    d->table = table;
 }
 ```
 
-    dict_create 所做的工作, 对外记录玩家注册的结点清除行为. 对内安排内存并初始化.
-    有了构建那么删除也被召唤出来了:
+    内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那就开始
+    dict_resize 中选择了 calloc prime 和 pair->hash % prime 写法. 还有种技巧是
 
 ```C
-// 销毁数据
-static inline void _keypair_delete(struct dict * d, struct keypair * pair) {
-	free(pair->key);
-	if (pair->val && d->die)
-		d->die(pair->val);
-	free(pair);
-}
+// init
+unsigned prime = 1<<5; 
 
+// resize
+prime <<= 1;
+table = calloc(prime, sizeof(struct keypair *));
+
+// get
+unsigned index = pair->hash & (prime - 1);
+```
+
+    取 2 的幂大小当做 table 容量去操作. 这样写优势在于, 可以用 & 替代 % 运算. 减少运
+    算指令. 存在的隐患就是 hash 取余的不够随机导致最终池子中数据分布不均, 依赖链表解冲
+    突. 因而最终选取了素数表, 希望减少冲突, 提升性能. 接着看 dict_resize 做的工作, 
+    判断容量是否够, 不够开始重构 table. 有了这些可以看看 dict 的 delete 和 create
+    操作实现.    
+
+```C
+//
+// dict_delete - 字典销毁
+// d        : dict_create 创建的字典对象
+// return   : void 
+//
 void 
 dict_delete(dict_t d) {
-	if (NULL == d)
-		return;
-
-	for (unsigned i = 0; i < d->size; ++i) {
-		struct keypair * pair = d->table[i];
-		while (pair) {
-			struct keypair * next = pair->next;
-			_keypair_delete(d, pair);
-			pair = next;
-		}
-	}
-	free(d->table);
-	free(d);
-}
-```
-
-    聊到现在大家会发现, create and delete 都是成对出现. 名字可以随意, 但是这是一种态度,
-	创建和销毁一定要做好. 特别是销毁, 做人当如君子(伪君子也行). 有骨气. 渡人清风, 知错能
-	改. 苦练内功正能量(爱自己,  护亲人). 哈哈
-
-    上面是彻底销毁创建的 dict, 那么单独删除 dict中子节点呢?
-
-```C
-void 
-dict_die(dict_t d, const char * k) {
-	unsigned hash, idx;
-	struct keypair * pair, * front;
-	if (!d || !k)
-		return;
-
-	hash = tstr_hash(k);
-	idx = hash & (d->size - 1);
-	pair = d->table[idx];
-
-	front = NULL;
-	while (pair) {
-		if (pair->hash == hash && !strcmp(pair->key, k)) {
-			// 找见数据, 调整结点关系和开始删除
-			if (front == NULL)
-				d->table[idx] = pair->next;
-			else
-				front->next = pair->next;
-			
-			// 删除数据
-			_keypair_delete(d, pair);
-			--d->used;
-		}
-		front = pair;
-		pair = pair->next;
-	}
-}
-```
-
-    思路无外乎, 字符串映射为 hash值, 通过 hash 取余得到查找的桶. 对桶进行详细勘察
-    strcmp. 随后就是走链表销毁那一套了. 性能高效不失简单. 同样得到查的结点, 也是上
-	面思路, hash 取余返回
-
-```C
-inline void * 
-dict_get(dict_t d, const char * k) {
-	unsigned hash, idx;
-	struct keypair * pair;
-	assert(d != NULL && k != NULL);
-
-	hash = tstr_hash(k);
-	idx = hash & (d->size - 1);
-	pair = d->table[idx];
-
-	return pair ? pair->val : NULL;
-}
-```
-
-    dict 修炼最后一关, set 设值
-
-```C
-// 重新调整hash表大小
-static void _dict_resize(dict_t d) {
-	unsigned size = d->size;
-	unsigned used = d->used;
-	struct keypair ** table;
-
-	if (used < size)
-		return;
-	
-	// 开始构建新内存
-	do size <<= 1; while (size > used);
-	table = calloc(size, sizeof(struct keypair *));
-	if (NULL == table) {
-		RETURN(NIL, "_dict_resize struct keypair * size = %u.", size);
-	}
-
-	// 开始转移数据
-	for (unsigned i = 0; i < d->size; ++i) {
-		struct keypair * pair = d->table[i];
-		while (pair) {
-			struct keypair * next = pair->next;
-			unsigned idx = pair->hash & (size - 1);
-			struct keypair * npair = table[idx];
-			if (npair) {
-				pair = npair->next;
-				npair->next = pair;
-			}
-			else {
-				table[idx] = pair;
-				pair->next = NULL;
-			}
-
-			pair = next;
-		}
-	}
-	free(d->table);
-
-	d->size = size;
-	d->table = table;
+    unsigned i, size;
+    if (NULL == d) return;
+    size = primes[d->idx][1];
+    for (i = 0; i < size; ++i) {
+        struct keypair * pair = d->table[i];
+        while (pair) {
+            struct keypair * next = pair->next;
+            keypair_delete(d->fdie, pair);
+            pair = next;
+        }
+    }
+    free(d->table);
+    free(d);
 }
 
 //
-// dict_set - 设置一个<k, v> 结构
-// d		: dict_create 创建的字典对象
-// k		: 插入的key, 重复插入会销毁已经插入的
-// v		: 插入数据的值
-// return	: void
+// dict_create - 字典创建
+// fdie     : v 销毁函数
+// return   : dict_t
+//
+inline dict_t 
+dict_create(node_f fdie) {
+    struct dict * d = malloc(sizeof(struct dict));
+    unsigned size = primes[d->idx = 0][1];
+    d->used = 0;
+    d->fdie = fdie;
+    // 默认构建的第一个素数表 index = 0
+    d->table = calloc(size, sizeof(struct keypair *));
+    return d;
+}
+```
+
+    聊到现在大家会发现, create and delete 都是成对出现. 命名很固定, 这是良好一种编码
+    态度, 创建和删除一定要做好. 特别是删除, 做人当如君子(伪君子也行). 有骨气. 渡人清风
+    , 知错能改, 不留坑. 苦练内功正能量(爱自己, 护亲人). 之后是获取字典中数据.
+
+```C
+//
+// dict_get - 获取字典中对映的 v
+// d        : dict_create 创建的字典对象
+// k        : 查找的 key 
+// return   : 查找的 v, NULL 表示没有
+//
+void * 
+dict_get(dict_t d, const char * k) {
+    unsigned hash, index;
+    struct keypair * pair;
+    assert(NULL != d && k != NULL);
+
+    hash = str_hash(k);
+    index = hash % primes[d->idx][1];
+    pair = d->table[index];
+
+    while (pair) {
+        if (!strcmp(pair->key, k))
+            return pair->val;
+        pair = pair->next;
+    }
+
+    return NULL;
+}
+```
+
+    dict_get hash 之后 cmp 操作很普通. 随后 进入 dict 修炼最后一关, dict_set 操作.
+
+```C
+//
+// dict_set - 设置一个 <k, v> 结构
+// d        : dict_create 创建的字典对象
+// k        : 插入的 key
+// v        : 插入数据的值, NULL 会销毁 k
+// return   : void
 //
 void 
 dict_set(dict_t d, const char * k, void * v) {
-	unsigned hash, idx;
-	struct keypair * pair;
-	assert(d != NULL && k != NULL);
-	
-	// 检查一下内存, 看是否需要重构
-	_dict_resize(d);
+    unsigned hash, index;
+    struct keypair * pair, * prev;
+    assert(NULL != d && k != NULL);
 
-	// 开始插入数据
-	hash = tstr_hash(k);
-	idx = hash & (d->size - 1);
-	pair = d->table[idx];
+    // 检查一下内存, 看是否要扩充
+    dict_resize(d);
 
-	// 数据 modify
-	while (pair) {
-		if (pair->hash == hash && !strcmp(pair->key, k)) {
-			if (d->die)
-				d->die(pair->val);
-			pair->val = v;
-			return;
-		}
-		pair = pair->next;
-	}
+    // 开始寻找数据
+    hash = str_hash(k);
+    index = hash % primes[d->idx][1];
+    pair = d->table[index];
+    prev = NULL;
 
-	// 没有找见直接创建数据
-	pair = _keypair_create(k, v, hash);
-	if (pair) {
-		++d->used;
-		pair->next = d->table[idx];
-		d->table[idx] = pair;
-	}
+    while (pair) {
+        // 找见了数据
+        if (pair->hash == hash && !strcmp(pair->key, k)) {
+            // 相同数据直接返回什么都不操作
+            if (pair->val == v)
+                return;
+
+            // 删除操作
+            if (NULL == v) {
+                if (NULL == prev)
+                    d->table[index] = pair->next;
+                else
+                    prev->next = pair->next;
+
+                // 销毁结点, 直接返回
+                return keypair_delete(d->fdie, pair);
+            }
+
+            // 更新结点
+            if (d->fdie)
+                d->fdie(pair->val);
+            pair->val = v;
+            return;
+        }
+
+        prev = pair;
+        pair = pair->next;
+    }
+
+    // 没有找见设置操作, 直接插入数据
+    if (NULL != v) {
+        pair = keypair_create(hash, v, k);
+        pair->next = d->table[index];
+        d->table[index] = pair;
+        ++d->used;
+    }
 }
 ```
 
-    _dict_resize 工作是当 d->size == d->used 的时候, 需要扩充内存. 随后重编原
-	先 hash 池子中所有值, 放入新的 hash 池子中.
-    dict_set 工作是查找待插入的字符串, 开始寻找它, 找到了重新设置. 找不见添加值.
-    到这里 dict 完工了. 是不是感觉很简单, 苦练内功学什么都快. 例如张无忌 ~
+    dict_get hash 之后 cmp 操作很普通. 随后 进入 dict 修炼最后一关, dict_set 操作.
+    这里为 dict_set(d, k, NULL) 赋予新语义 dict_del 删除字典 k 操作. 单纯的 set 
+    操作仍然是三部曲 reset -> get -> set, 到这里 dict 完工了. 是不是感觉很简单, 苦
+    练内功学什么都快. 类比奇遇太子张无忌 ~
 
-### 4.3 来个消息队列吧
+## 5.2 来个消息队列吧
 
-    消息队列及其重要, 基本偏 C系列的开发中不是链表, 就是消息队列. 消息队列可以理解
-	为咱们排队进入火车站. 那个一排栏杆让人一个个的检查过去, 就是消息队列. 消息队列
-	最大的功效是让异步编程变成同步并发(多个消息队列). 说白了就是将异步程序变成顺序
-	同步程序. 开发起来很爽. 而在 C中消息队列的标配就是无锁, 大伙还记得 scatom.h ?
-    金丹期之后的战斗, 无不是消息队列领域的对撞. 随我步入简单高效的无锁消息队列的世
-    界中. 
-	
-	消息队列本质还是队列, 思路是通过动态数组和原子锁构建不冲突的 pop 和 push.
-    凡事先看接口, 熟悉用法:
+        消息队列极其重要, 基本偏 C 系列的开发中不是链表, 就是消息队列. 消息队列可以比喻
+    为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是消息队列作用. 消
+    息队列最大的功效是让异步编程变成同步并发. 说白了就是将异步程序变成顺序同步程序. 开发
+    起来很爽. 而在 C 中消息队列的至高王的装逼是无锁, 而我们这里还是会老老实实带大家用原
+    子锁实现. 大伙还记得 atom.h 吗? 金丹期之后的战斗, 无不是消息队列领域的对撞. 随我步
+    入简单高效的消息队列的世界中. 
 
-mq.h
+### 5.2.1 简单队列
+
+	消息队列本质还是队列, 直白思路是通过动态循环数组和原子锁构建 pop 和 push. 凡事先看
+    接口, 熟悉起用法, 请看 q.h
 
 ```C
-#ifndef _H_SIMPLEC_MQ
-#define _H_SIMPLEC_MQ
+#ifndef _Q_H
+#define _Q_H
 
 #include "struct.h"
+
+//
+// pop empty  <=> tail == -1 ( head == 0 )
+// push full  <=> head == (tail + 1) % size
+//
+typedef struct q {
+    int head;           // 头结点
+    int tail;           // 尾结点
+    int size;           // 队列大小
+    void ** queue;      // 队列实体
+} q_t[1];
+
+//
+// q_init - 初始化
+// q      : 队列对象
+// return : void
+// Q_INT  - 队列初始大小, 必须是 2 的幂
+#define Q_INT     (1<< 6)
+inline void q_init(q_t q) {
+    q->head = 0;
+    q->tail = -1;
+    q->size = Q_INT;
+    q->queue = malloc(sizeof(void *) * Q_INT);
+}
+
+//
+// q_swap - q swap
+// r      : q one
+// w      : q two
+// return : void
+//
+inline void q_swap(q_t r, q_t w) {
+    q_t q;
+    q[0] = r[0];
+    r[0] = w[0];
+    w[0] = q[0];
+}
+
+//
+// q_pop - 队列中弹出消息数据
+// q      : 队列对象
+// return : 若队列 empty, 返回 NULL
+//
+extern void * q_pop(q_t q);
+
+//
+// q_push - 队列中压入数据
+// q      : 队列对象
+// m      : 压入消息
+// return : void
+// 
+extern void q_push(q_t q, void * m);
+
+//
+// q_delete - 队列删除
+// q        : 队列对象
+// fdie     : node_f push 节点删除行为
+// return   : void
+//
+extern void q_delete(q_t q, node_f fdie);
+
+#endif//_Q_H
+```
+
+    消息队列本质还是队列, 直白思路是通过动态循环数组和原子锁构建 pop 和 push. 凡事先看
+    我写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满
+    , q::tail == -1 标识队列为空. 读者可以思考下还有没有其它方式标识 empty 和 full
+    状态, 再互相对比方式差异好处和坏处! 那可以先看看 q_delete 实现.
+
+```C
+//
+// q_delete - 队列删除
+// q        : 队列对象
+// fdie     : node_f push 节点删除行为
+// return   : void
+//
+void 
+q_delete(q_t q, node_f fdie) {
+    // 销毁所有对象
+    if (q->tail >= 0 && fdie) {
+        for (;;) {
+            fdie(q->queue[q->head]);
+            if (q->head == q->tail)
+                break;
+            q->head = (q->head + 1) & (q->size - 1);
+        }
+    }
+
+    free(q->queue);
+}
+```
+
+    q->head == q->tail 是查找结束条件. 整个删除销毁操作, 等同于 array range. 重点
+    在于 q->head = (q->head + 1) & (q->size - 1); 找到数组下一个位置的索引. 那看
+    看 q_pop 在队列中弹出元素.
+
+```C
+//
+// q_pop - 队列中弹出消息数据
+// q      : 队列对象
+// return : 若队列 empty, 返回 NULL
+//
+void * 
+q_pop(q_t q) {
+    void * m = NULL;
+    if (q->tail >= 0) {
+        m = q->queue[q->head];
+        if (q->tail != q->head)
+            q->head = (q->head + 1) & (q->size - 1);
+        else {
+            q->head = 0; // empty 情况, 重置 tail 和 head
+            q->tail = -1;
+        }
+    }
+    return m;
+}
+```
+
+    q_push 操作包含了 q_expand 内存扩充操作, 用于内存重建和前面的 dict_resize 思路
+    相似. 此刻 q.c 实现部分 50 多行, 已经全部贴完了. 是不是觉得工程中用到的数据结构也
+    不过如此.   
+
+```C
+// q_expand - expand memory by twice
+static void q_expand(q_t q) {
+    int i, size = q->size << 1;
+    void ** p = malloc(sizeof(void *) * size);
+    for (i = 0; i < q->size; ++i)
+        p[i] = q->queue[(q->head + i) & (q->size - 1)];
+    free(q->queue);
+
+    // 重新构造内存关系
+    q->head = 0;
+    q->tail = q->size;
+    q->size = size;
+    q->queue = p;
+}
+
+//
+// q_push - 队列中压入数据
+// q      : 队列对象
+// m      : 压入消息
+// return : void
+// 
+void 
+q_push(q_t q, void * m) {
+    int tail = (q->tail + 1) & (q->size - 1);
+    // 队列 full 直接扩容
+    if (tail == q->head && q->tail >= 0)
+        q_expand(q);
+    else
+        q->tail = tail;
+    q->queue[q->tail] = m;
+}
+```
+
+### 4.3.2 线程安全
+
+    看 q.h 实现也会发现, 它不是线程安全的. 并发的 push 和 pop 将未定义. 我们不妨将其
+    包装成线程安全的x消息队列 mq.h
+
+```C
+#ifndef _MQ_H
+#define _MQ_H
+
+#include "q.h"
+#include "atom.h"
+
+struct mq {
+    q_t q;             // 队列
+    atom_t lock;       // 自旋锁
+};
 
 typedef struct mq * mq_t;
 
 //
-// mq_create - 创建一个消息队列类型
-// return	: 返回创建好的消息队列对象, NULL表示失败
+// mq_delete - 消息队列删除
+// q        : 消息队列对象
+// fdie     : node_f 行为, 删除 push 进来的节点
+// return   : void
 //
-extern mq_t mq_create(void);
+inline void mq_delete(mq_t q, node_f fdie) {
+    // 销毁所有对象
+    q_delete(q->q, fdie);
+    free(q);
+}
 
 //
-// mq_delete - 删除创建消息队列, 并回收资源
-// mq		: 消息队列对象
-// die		: 删除push进来的结点
-// return	: void
+// mq_create - 消息队列创建
+// return   : 消息队列对象
 //
-extern void mq_delete(mq_t mq, node_f die);
+inline mq_t mq_create(void) {
+    struct mq * q = malloc(sizeof(struct mq));
+    q_init(q->q);
+    q->lock = 0;
+    return q;
+}
+
+//
+// mq_pop - 消息队列中弹出消息, 并返回数据
+// q        : 消息队列对象
+// return   : 若 mq empty return NULL
+//
+inline void * mq_pop(mq_t q) {
+    atom_lock(q->lock);
+    void * m = q_pop(q->q);
+    atom_unlock(q->lock);
+    return m;
+}
 
 //
 // mq_push - 消息队列中压入数据
-// mq		: 消息队列对象
-// msg		: 压入的消息
-// return	: void
-// 
-extern void mq_push(mq_t mq, void * msg);
+// q        : 消息队列对象
+// m        : 压入的消息
+// return   : void
+//
+inline void mq_push(mq_t q, void * m) {
+    atom_lock(q->lock);
+    q_push(q->q, m);
+    atom_unlock(q->lock);
+}
 
 //
-// mq_pop - 消息队列中弹出消息,并返回
-// mq		: 消息队列对象
-// return	: 返回队列尾巴, 队列为empty返回NULL
+// mq_len - 消息队列的长度
+// q        : 消息队列对象
+// return   : 返回消息队列长度
 //
-extern void * mq_pop(mq_t mq);
+inline static int mq_len(mq_t q) {
+    int head, tail, size;
+    atom_lock(q->lock);
+    if ((tail = q->q->tail) == -1) {
+        atom_unlock(q->lock);
+        return 0;
+    }
 
-//
-// mq_len - 得到消息队列的长度,并返回
-// mq		: 消息队列对象
-// return	: 返回消息队列长度
-// 
-extern int mq_len(mq_t mq);
+    head = q->q->head;
+    size = q->q->size;
+    atom_unlock(q->lock);
 
-#endif // !_H_SIMPLEC_MQ
+    // 计算当前时间中内存队列的大小
+    tail -= head - 1;
+    return tail>0 ? tail : tail+size;
+}
+
+#endif//_MQ_H
 ```
 
-    养成好习惯, 先想接口后码实现. 上面 mq_len 是个辅助接口, 查询当前消息队列中长度.
-	用于线上监测, 当然这些都可以后期自行扩展添加. 目前只是提供一个思路. 
+    不知道有没有同学好奇 mq_delete 为什么不是线程安全的? 这个是这样的 mq_delete 一旦
+    执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出
+    封印. 基于这个 mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len
+    额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚
+    操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~    
+
+### 5.2.3 消息队列
+
+    
 
 ### 4.3.1 消息队列设计实现
 
