@@ -763,7 +763,7 @@ enum {
 extern void * realloc_(void * ptr, size_t size);
 
 //
-// calloc_ - calloc 包装函数
+// calloc_  - calloc 包装函数
 // num      : 数量
 // size     : 大小
 // return   : 返回可用内存地址, 并置 0
@@ -771,21 +771,21 @@ extern void * realloc_(void * ptr, size_t size);
 extern void * calloc_(size_t num, size_t size);
 
 //
-// malloc_ - malloc 包装函数
+// malloc_  - malloc 包装函数
 // size     : 分配的内存字节
 // return   : 返回可使用的内存地址
 //
 extern void * malloc_(size_t size);
 
 //
-// free_ - free 包装函数
+// free_    - free 包装函数
 // ptr      : 内存首地址
 // return   : void
 //
 extern void free_(void * ptr);
 
 //
-// strdup_ - strdup 包装函数
+// strdup_  - strdup 包装函数
 // s        : '\0' 结尾 C 字符串
 // return   : 拷贝后新的 C 字符串
 //
@@ -811,9 +811,9 @@ extern char * strdup_(const char * s);
 #endif//_ALLOC_H
 ```
 
-    通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 目前采用了近代
-    软件编程中最后免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料, 
-    对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果其中遇到困难, 
+    通过 OFF_ALLOC 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 目前采用了近
+    代软件编程中最后免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料
+    , 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果其中遇到困难, 
     可以搜索和翻看作者相关博客. alloc.c 实现全在这里, 代码即注释 ~
 
 ```C
@@ -823,7 +823,7 @@ extern char * strdup_(const char * s);
 #define JEMALLOC_NO_DEMANGLE
 #include <jemalloc/jemalloc.h>
 
-// check - 内存检测并处理
+// check 内存检测并处理
 inline void * check(void * ptr, size_t size) {
     if (NULL == ptr) {
         fprintf(stderr, "check memory collapse %zu\n", size);
@@ -845,7 +845,7 @@ inline void * realloc_(void * ptr, size_t size) {
 }
 
 //
-// calloc_ - calloc 包装函数
+// calloc_  - calloc 包装函数
 // num      : 数量
 // size     : 大小
 // return   : 返回可用内存地址, 并置 0
@@ -856,7 +856,7 @@ inline void * calloc_(size_t num, size_t size) {
 }
 
 //
-// malloc_ - malloc 包装函数
+// malloc_  - malloc 包装函数
 // size     : 分配的内存字节
 // return   : 返回可使用的内存地址
 //
@@ -866,7 +866,7 @@ inline void * malloc_(size_t size) {
 }
 
 //
-// free_ - free 包装函数
+// free_    - free 包装函数
 // ptr      : 内存首地址
 // return   : void
 //
@@ -875,7 +875,7 @@ inline void free_(void * ptr) {
 }
 
 //
-// strdup_ - strdup 包装函数
+// strdup_  - strdup 包装函数
 // s        : '\0' 结尾 C 字符串
 // return   : 拷贝后新的 C 字符串
 //
@@ -897,7 +897,7 @@ inline char * strdup_(const char * s) {
 
         引入 jemalloc 库会很自信扛住内存方面瓶颈, 又给华山剑法注入了一道自信秘术 :0 练习
     的人是否体会到身体中兴奋 ~ 颤抖 ~ 原来这么简单, 就可以这么炫. 啊哈. 此刻只想说三个字, 
-    屌 屌  屌 ~ (仔细看 alloc.h 会发现其实现是可插拔的.)
+    屌 屌  屌 ~ (仔细看 alloc.h 会发现其实现是可插拔的)
 
 ***
 
