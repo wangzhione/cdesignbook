@@ -7,6 +7,7 @@ Output/
 # Ignore the project uploaded folders
 .vs/
 x64/
+.git/
 Debug/
 .vscode/
 Release/
