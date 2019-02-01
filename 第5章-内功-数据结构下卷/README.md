@@ -1051,7 +1051,7 @@ dict_set(dict_t d, const char * k, void * v) {
     操作仍然是三部曲 reset -> get -> set, 到这里 dict 完工了. 是不是感觉很简单, 苦
     练内功学什么都快. 类比奇遇太子张无忌 ~
 
-## 5.2 来个消息队列吧
+## 5.3 来个队列吧
 
         消息队列极其重要, 基本偏 C 系列的开发中不是链表, 就是消息队列. 消息队列可以比喻
     为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是消息队列作用. 消
@@ -1060,7 +1060,7 @@ dict_set(dict_t d, const char * k, void * v) {
     子锁实现. 大伙还记得 atom.h 吗? 金丹期之后的战斗, 无不是消息队列领域的对撞. 随我步
     入简单高效的消息队列的世界中. 
 
-### 5.2.1 简单队列
+### 5.3.1 简单队列
 
 	消息队列本质还是队列, 直白思路是通过动态循环数组和原子锁构建 pop 和 push. 凡事先看
     接口, 熟悉起用法, 请看 q.h
@@ -1226,7 +1226,7 @@ q_push(q_t q, void * m) {
 }
 ```
 
-### 4.3.2 线程安全
+### 5.3.2 线程安全
 
     看 q.h 实现也会发现, 它不是线程安全的. 并发的 push 和 pop 将未定义. 我们不妨将其
     包装成线程安全的x消息队列 mq.h
@@ -1323,640 +1323,546 @@ inline static int mq_len(mq_t q) {
     额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚
     操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~    
 
-### 5.2.3 消息队列
+### 5.3.3 队列拓展
 
-    
-
-### 4.3.1 消息队列设计实现
-
-    队列的设计, 一大重点, 就是如何判断队列是否为空, 是否为满. 下面所传的queue内功不
-	亚于小易筋经. 首先看结构:
+    本章已经轻微剧透了些元婴功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字
+    很好处理边界问题. 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要
+    自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的
+    解决方案. 首先定义消息结构.
 
 ```C
-#include "mq.h"
-#include "scatom.h"
+#ifndef _MSG_H
+#define _MSG_H
 
-// 2 的 幂
-#define _INT_MQ				(1 << 6)
+#include "struct.h"
+
+#ifdef _MSC_VER
+//
+// CPU 检测 x64 or x86
+// ISX64 defined 表示 x64 否则 x86
+//
+#  if defined(_M_ARM64) || defined(_M_X64)
+#    define ISX64
+#  endif
+//
+// _M_PPC 为 PowerPC 平台定义, 现在已不支持
+//
+#  if defined(_M_PPC)
+#    define ISBIG
+#  endif
+#else
+#  if defined(__x86_64__)
+#    define ISX64
+#  endif
+//
+// 大小端检测 : ISBENIAN defined 表示大端
+//
+#  if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
+#    define ISBIG
+#  endif
+#endif
+
+// hton - 本地字节序转网络字节序(大端)
+inline uint32_t hton(uint32_t x) {
+#  ifdef ISBIG
+    return x;
+#  else
+    uint8_t t;
+    union { uint32_t i; uint8_t s[sizeof(uint32_t)]; }u = { x };
+    t = u.s[0]; u.s[0] = u.s[sizeof(u)-1]; u.s[sizeof(u)-1] = t;
+    t = u.s[1]; u.s[1] = u.s[sizeof(u)-2]; u.s[sizeof(u)-2] = t;
+    return u.i;
+#  endif
+}
+
+// noth - 网络字节序(大端)转本地字节序
+inline uint32_t ntoh(uint32_t x) {
+    return hton(x);
+}
 
 //
-// pop empty	<=> tail == -1 ( head = 0 )
-// push full	<=> head + 1 == tail
+// msg_t 网络传输协议结构
+// sz -> type + len 网络字节序 -> data
 //
-struct mq {
-	int lock;			// 消息队列锁
-	int cap;			// 消息队列容量, 必须是2的幂
-	int head;			// 消息队列头索引
-	int tail;			// 消息队列尾索引
-	void ** queue;		// 具体的使用消息
-
-	volatile bool fee;	// true表示销毁退出
-};
-```
-
-    上面注释表述了意图, 额外修改 tail == -1 表示队列为空. 这样做的意图是为了给
-    head + 1 == tail 让步, 很多消息队列设计 head == tail 的时候表示队列需要扩充
-	内存. 所以会造成队列永远不满的情况, 浪费内存. 这里设计的原理是每次 push check 
-	full, 并且已经满了才会扩充内存, 重新调整布局. 相比其它套路省内存
-
-    详细看看 create 和 delete 操作
-
-```C
-inline mq_t 
-mq_create(void) {
-	struct mq * q = malloc(sizeof(struct mq));
-	assert(q);
-	q->lock = 0;
-	q->cap = _INT_MQ;
-	q->head = 0;
-	q->tail = -1;
-	q->queue = malloc(sizeof(void *) * _INT_MQ);
-	assert(q->queue);
-	q->fee = false;
-	return q;
-}
-
-void 
-mq_delete(mq_t mq, node_f die) {
-	if (!mq || mq->fee) return;
-	ATOM_LOCK(mq->lock);
-	mq->fee = true;
-	// 销毁所有对象
-	if (mq->tail >= 0 && die) {
-		for(;;) {
-			die(mq->queue[mq->head]);
-			if (mq->tail == mq->head)
-				break;
-			mq->head = (mq->head + 1) & (mq->cap - 1);
-		}
-	}
-	free(mq->queue);
-	ATOM_UNLOCK(mq->lock);
-	free(mq);
-}
-```
-
-    到这都是大白话, 申请内存随后删除, 删除采用轮询到数据一直为空结束. 
-	核心到了, mq push 的时候, 检查 queue 是否满了, 然后 xxxx 俗套剧情进行:
-
-```C
-// add two cap memory, memory is do not have assert
-static void _mq_expand(struct mq * mq) {
-	int i, cap = mq->cap << 1;
-	void ** nqueue = malloc(sizeof(void *) * cap);
-	assert(nqueue);
-	
-	for (i = 0; i < mq->cap; ++i)
-		nqueue[i] = mq->queue[(mq->head + i) & (mq->cap - 1)];
-	
-	mq->head = 0;
-	mq->tail = mq->cap;
-	mq->cap  = cap;
-	free(mq->queue);
-	mq->queue = nqueue;
-}
-
-void 
-mq_push(mq_t mq, void * msg) {
-	int tail;
-	if (!mq || mq->fee || !msg) return;
-	ATOM_LOCK(mq->lock);
-
-	tail = (mq->tail + 1) & (mq->cap - 1);
-	// 队列为full的时候申请内存
-	if (tail == mq->head && mq->tail >= 0)
-		_mq_expand(mq);
-	else
-		mq->tail = tail;
-
-	mq->queue[mq->tail] = msg;
-
-	ATOM_UNLOCK(mq->lock);
-}
-```
-
-    看上面加锁的方式, 哪里有竞争的地方哪里加锁. 没一点含蓄, 很实在. pop 也相同
-
-```C
-void * 
-mq_pop(mq_t mq) {
-	void * msg = NULL;
-	if (!mq || mq->fee) return NULL;
-
-	ATOM_LOCK(mq->lock);
-
-	if (mq->tail >= 0) {
-		msg = mq->queue[mq->head];
-		if(mq->tail != mq->head)
-			mq->head = (mq->head + 1) & (mq->cap - 1);
-		else {
-			// 这是empty,情况, 重置
-			mq->tail = -1;
-			mq->head = 0;
-		}
-	}
-
-	ATOM_UNLOCK(mq->lock);
-
-	return msg;
-}
-```
-
-    当 pop 为空的时候, 会设置 tail = -1 和 head = 0. 来标识empty状态. 最后统计
-	中用的 mq_len 返回的只是当时状态的消息队列情况:
-
-```C
-int 
-mq_len(mq_t mq) {
-	int head, tail, cap;
-	if (!mq || mq->fee) return 0;
-
-	ATOM_LOCK(mq->lock);
-	tail = mq->tail;
-	if (tail < 0) {
-		ATOM_UNLOCK(mq->lock);
-		return 0;
-	}
-	cap = mq->cap;
-	head = mq->head;
-	ATOM_UNLOCK(mq->lock);
-
-	tail -= head - 1;
-	return tail > 0 ? tail : tail + cap;
-}
-```
-
-    有一点需要注意, push 的时候 tail 移动一格, 此时 tail == head 标识队列满.
-    普通时候 tail == head 表示队列中只有一个元素. 无锁消息队列已经搞完了, 强烈
-	推荐引入到自己的项目中, 什么双缓冲太重, 上面那种最省内存. 代码很短, 思路会在
-	很多地方用到, 随后利用上面思路构建一个网络IO 收发队列. 用于解决 TCP socket 
-	流式协议无边界问题.
-
-### 4.4 收发消息的环形队列
-
-    本章已经轻微剧透了些元婴功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文
-	套接子很好处理边界问题. 因为 UDP包有固定大小. 而 TCP 流式套接字一直在收发, 还可
-	能重传. 业务层默认它的报文是无边界的. 因此 TCP的报文边切割需要程序员自己处理. 通
-	过上面表述的问题, 就需要我们来定义收发报文协议, 用于区分每一个消息包. 这就是这个库
-	的由来, 首先看 rsmq.h 结构设计:
-
-```C
-//
-// recv msg : 
-//  这仅仅是一个是处理网络序列接收端的解析库. 
-//  通过 len [统一小端网络字节, sizeof uint32] -> data
-//
-// need send msg :
-//	one send sizeof uint32_t + data
-//
-
 typedef struct {
-	// uint8_t type + uint8_t check + uint16_t len
-	uint32_t sz;
-	char data[];
-} * msgrs_t ;
-
-typedef struct rsmq * rsmq_t;
+    // uint8_t type + uint24_t len + data[]
+    uint32_t sz;
+    char data[];
+} * msg_t;
 
 //
-// RSMQ_TYPE - 得到当前消息8bit字节
-// RSMQ_SIZE - 得到当前消息长度 0x00 + 2 字节 sz
-// RSMQ_SZ	- 8bit type + 24 bit len -> uint32_t
+// MSG_TYPE - 得到当前消息 8bit 1 字节 type
+// MSG_LEN  - 得到当前消息长度 24bit 3 字节 len
+// MSG_SZ   - 8bit type + 24 bit len -> uint32_t sz
 //
-#define MSGRS_TYPE(sz)		(uint8_t)((uint32_t)(sz) >> 24)
-#define MSGRS_LEN(sz)		((uint32_t)(sz) & 0xffffff)
-#define MSGRS_SZ(type, len)	(((uint32_t)((uint8_t)type) << 24) | (uint32_t)(len))
-```
+#define MSG_TYPE(sz)  (uint8_t)((uint32_t)(sz)>>24)
+#define MSG_LEN( sz)  ((uint32_t)(sz)&0xFFFFFF)
+#define MSG_SZ(t, n)  (((uint32_t)(uint8_t)(t)<<24)|(uint32_t)(n))
 
-    我们采用 len + data 构建 bit 流传输, len = 8 bit type + 24 bit size. 用于服务器
-	和客户端基础通信协议. 
-
-### 4.4.1 发的构建部分
-
-    发送部分比较简单. 主要就是将 data -> data + sz -> type size data 消息流构建过程.
-    代码比文字更有说服力
-
-```C
 //
-// msgrs_create - msgrs构建函数, 客户端发送 write(fd, msg->data, msg->sz);
-// msg		: 待填充的消息体
-// data		: 客户端待发送的消息体
-// sz		: data 的长度
-// type		: 发送的消息类型, 默认0是 RSMQ_TYPE_INFO
-// return	: 创建好的消息体
+// msg_create - msg 创建函数, send(fd, msg->data, msg->sz, 0)
+// data     : 待发送的消息体
+// len      : data 的长度
+// return   : 创建好的 msg_t 消息体
 //
-inline msgrs_t 
-msgrs_create(const void * data, uint32_t sz) {
-	DEBUG_CODE({
-		if (!data || sz <= 0 || sz > USHRT_MAX)
-			CERR_EXIT("msgrs_create params data = %p, sz = %u", data, sz);
-	});
-	uint32_t szn = sz + sizeof(uint32_t); 
-	msgrs_t msg = malloc(sizeof(*msg) + szn);
-	if (NULL == msg)
-		CERR_EXIT("malloc sizeof uint32_t + %u err!", sz);
-	msg->sz = szn;
+inline static msg_t msg_create(const void * data, uint32_t len) {
+    DCODE({
+        if(!data || len <= 0 || len > 0xFFFFFF)
+            EXIT("error data = %p, len = %u.\n", data, len);
+    });
 
-	// type + sz -> 协议值 -> 网络传输约定值
-	szn = MSGRS_SZ(0, sz);
-	szn = sh_hton(szn);
-	// 开始内存填充
-	memcpy(msg->data, &szn, sizeof(uint32_t));
-	memcpy((char *)msg->data + sizeof(uint32_t), data, sz);
+    uint32_t sz = len + sizeof(uint32_t);
+    msg_t msg = malloc(sizeof(*msg) + sz);
+    msg->sz = sz;
+    
+    // type + len -> 协议值 -> 网络传输约定值
+    sz = MSG_SZ(0, len);
+    sz = hton(sz);
 
-	return msg;
+    // 开始内存填充
+    memcpy(msg->data, &sz, sizeof(uint32_t));
+    memcpy(msg->data + sizeof(uint32_t), data, len);
+
+    return msg;
 }
 
-inline void 
-msgrs_delete(msgrs_t msg) {
-	if (msg) free(msg);
+//
+// msg_delete - msg 删除函数
+// msg      : msg_t 消息体
+// return   : void
+//
+inline static void msg_delete(msg_t msg) {
+    if (msg) free(msg);
 }
+
+#endif//_MSG_H
 ```
 
-    顺带扯一点, 有兴趣的朋友也可以查查手册熟悉 inline 关键字. 目前这个关键字有点
-    鸡肋, 只是表达一种意愿, 而且不同编译平台语义也不一样. 单纯的内联函数是没有函数
-    地址的. static inline 会生成单独生成一份函数地址. 看着用吧 ~ 欢喜就好 ~
-
-### 4.4.2 收的构建部分
-
-    同 mq 无锁环形消息队列设计差不多. 先看 create 和 delete 
+    hton 和 ntoh 用于本地字节序和网络字节序互转操作. 用于遵循网络收发一律走网络大端字节
+    序的规则. 协议方面我们采用 sz + data  构建 bit 流传输, 其中 sz = 8 bit type + 
+    24 bit size. 用于服务器和客户端基础通信协议. 其中 msg_create 主要将 data -> 
+    data + sz -> type size data 消息流构建过程, 代码比文字更有说服力. 这处代码很清晰
+    好懂. 随后分享的是 msg 切包部分, 不同人有不同见解, 这里纯当凑小怪兽, 辅助玩家提升经
+    验 ~
 
 ```C
-#define _INT_RECVMQ	(1 << 8)
+#ifndef _BUF_H
+#define _BUF_H
+
+#include "msg.h"
 
 //
-// tail == -1 ( head = 0 ) -> queue empty
-// push head == tail + 1 -> queue full
+// buffer recv send msg
 //
-struct rsmq {
-	int lock;
-	int cap;
-	int head;
-	int tail;
-	char * buff;
-	// buffq.sz is msg header body size length
-	uint32_t sz;
+typedef struct msg_buf * msg_buf_t;
+
+//
+// msg_buf_create - msg buffer 创建
+// return   : msg buffer
+//
+extern msg_buf_t msg_buf_create(void);
+
+//
+// msg_buf_delete - msg buffer 删除
+// q        : msg buffer
+// return   : void
+//
+extern void msg_buf_delete(msg_buf_t q);
+
+//
+// buf_append - msg buffer 添加数据, 并尝试解析出结果
+// q        : msg buffer
+// p        : return msg
+// data     : 内存数据
+// sz       : 内存数据 size
+// return   : EParse 协议解析错误, ESmall 协议不完整
+//
+extern int msg_buf_append(msg_buf_t q,
+                          const void * data, uint32_t sz,
+                          msg_t * p);
+
+#endif//_BUF_H
+```
+
+    我们先看 struct msg_buf 结构设计. 
+
+```C
+#include "buf.h"
+
+#define BUF_INT         (128)
+
+//
+// msg buffer manager
+//
+struct msg_buf {
+    uint32_t sz;    // q.sz is msg header body size length
+    char * data;    // 数据流
+    int cap;        // 容量
+    int len;        // 长度
 };
 
-inline rsmq_t
-rsmq_create(void) {
-	struct rsmq * buff = malloc(sizeof(struct rsmq));
-	buff->lock = 0;
-	buff->cap = _INT_RECVMQ;
-	buff->head = 0;
-	buff->tail = -1;
-	buff->buff = malloc(buff->cap);
-	buff->sz = 0;
-	return buff;
-}
+// msg_buf_expand - 内存扩充 
+static void msg_buf_expand(struct msg_buf * q, int sz) {
+    // 确定内存是否足够
+    int cap = q->cap, len = q->len;
+    if (len + sz <= cap)
+        return;
 
-inline void 
-rsmq_delete(rsmq_t q) {
-	if (q) {
-		free(q->buff);
-		free(q);
-	}
+    // 开始构建所需内存
+    do cap <<= 1; while (len + sz > cap);
+    q->data = realloc(q->data, cap);
+    assert(q->data != NULL);
+    q->cap = cap;
 }
 ```
 
-    随后无外乎是 push 和 pop, push 的时候利用了 memcpy 进行了简单优化
+    这样的结构对我们而言是不是太熟悉了. 随后看看 create 和 delete 简单系列.
 
 ```C
-static inline int _rsmq_len(rsmq_t q) {
-	int tail = q->tail;
-	if (tail < 0)
-		return 0;
-
-	tail -= q->head - 1;
-	return tail > 0 ? tail : tail + q->cap;
-}
-
-static inline void _rsmq_expand(rsmq_t q, int sz) {
-	// 确定是够需要扩充内存
-	int cap = q->cap;
-	int head = q->head;
-	int len = _rsmq_len(q);
-	if (len + sz <= cap)
-		return;
-
-	// 开始构建所需内存
-	do cap <<= 1; while (len + sz > cap);
-	char * nbuf = malloc(cap);
-	assert(NULL != nbuf);
-
-	if (len <= 0)
-		q->tail = -1;
-	else {
-		if (head + len <= cap)
-			memcpy(nbuf, q->buff + head, len);
-		else {
-			memcpy(nbuf, q->buff + head, q->cap - head);
-			memcpy(nbuf + q->cap - head, q->buff, len + head - q->cap);
-		}
-		q->tail = len;
-	}
-
-	// 数据定型操作
-	free(q->buff);
-	q->cap = cap;
-	q->head = 0;
-	q->buff = nbuf;
-}
-
-void 
-rsmq_push(rsmq_t q, const void * data, uint32_t sz) {
-	int tail, cap, len = (int)sz;
-	ATOM_LOCK(q->lock);
-
-	// 开始检测一下内存是否足够
-	_rsmq_expand(q, len);
-
-	cap = q->cap;
-	tail = q->tail + 1;
-	// 分布填充数据
-	if (tail + len < cap)
-		memcpy(q->buff + tail, data, len);
-	else {
-		memcpy(q->buff + tail, data, cap - tail);
-		memcpy(q->buff, (const char *)data + cap - tail, tail + len - cap);
-	}
-	q->tail = (q->tail + len) & (cap - 1);
-
-	ATOM_UNLOCK(q->lock);
-}
-```
-
-    这类代码不是很好理解, 强烈推荐抄一遍, 再抄一遍, 以后全部都懂了. 一次书写终生受用.
-    (难在业务的杂糅和代码的优化) pop 思路是: 先 pop size, 后根据 size, pop data.
-
-```C
-static void _rsmq_pop_dn(rsmq_t q, void * d, int len) {
-	char * nbuf = d;
-	int head = q->head, cap = q->cap;
-
-	if (head + len <= cap)
-		memcpy(nbuf, q->buff + head, len);
-	else {
-		memcpy(nbuf, q->buff + head, q->cap - head);
-		memcpy(nbuf + q->cap - head, q->buff, len + head - q->cap);
-	}
-
-	q->head = (head + len) & (cap - 1);
-	// 这是empty,情况, 重置
-	if (_rsmq_len(q) == q->cap) {
-		q->tail = -1;
-		q->head = 0;
-	}
-}
-
-static inline void _rsmq_pop_sz(rsmq_t q) {
-	_rsmq_pop_dn(q, &q->sz, sizeof(q->sz));
-	q->sz = sh_ntoh(q->sz);
+//
+// msg_buf_create - msg buffer 创建
+// return   : msg buffer
+//
+inline msg_buf_t 
+msg_buf_create(void) {
+    struct msg_buf * q = malloc(sizeof(struct msg_buf));
+    q->sz = 0;
+    q->data = malloc(q->cap = BUF_INT);
+    q->len = 0;
+    return q;
 }
 
 //
-// rsmq_pop - 数据队列中弹出一个解析好的消息体
-// q		: 数据队列对象, rsmq_create 创建
-// pmsg		: 返回的消息体对象指针
-// return	: ErrParse 协议解析错误, ErrEmpty 数据不完整, SufBase 解析成功
+// msg_buf_delete - msg buffer 删除
+// q        : msg buffer
+// return   : void
+//
+inline void 
+msg_buf_delete(msg_buf_t q) {
+    if (q) {
+        free(q->data);
+        free(q);
+    }
+}
+```
+
+    而对于 msg_buf_append 将会复杂一点. 我们将其分为两个环节, 如果传入的 data 内存够
+    , 我们直接从中尝试解析出 msg_t 消息体. 否则进入第二环节, 填充再尝试解析. 代码整体认
+    识如下.
+
+```C
+//
+// buf_append - msg buffer 添加数据, 并尝试解析出结果
+// q        : msg buffer
+// data     : 内存数据
+// sz       : 内存数据 size
+// p        : return msg
+// return   : EParse 协议解析错误, ESmall 协议不完整
 //
 int 
-rsmq_pop(rsmq_t q, msgrs_t * pmsg) {
-	int len, cnt;
-	msgrs_t msg;
-	ATOM_LOCK(q->lock);
+msg_buf_append(msg_buf_t q,
+               const void * data, uint32_t sz,
+               msg_t * p) {
+    DCODE({
+        if(!q || !data || !sz || !p) {
+            EXIT(
+                "error q = %p, data = %p, sz = %u, p = %p\n", 
+                q, data, sz, p
+            );
+        }
+    });
 
-	cnt = _rsmq_len(q);
-
-	// step 1 : 报文长度 buffq.sz check
-	if (q->sz <= 0 && cnt >= sizeof(uint32_t)) {
-		// 得到报文长度, 小端网络字节转成本地字节
-		_rsmq_pop_sz(q);
-		cnt -= sizeof(q->sz);
-	}
-
-	
-	len = MSGRS_LEN(q->sz);
-	// step 2 : check data parse is true
-	if (len > USHRT_MAX || (q->sz > 0 && len <= 0)) {
-		ATOM_UNLOCK(q->lock);
-		return ErrParse;
-	}
-
-	// step 3 : buffq.sz > 0 继续看是否有需要的报文内容
-	if (len <= 0 || len > cnt) {
-		ATOM_UNLOCK(q->lock);
-		return ErrEmpty;
-	}
-
-	// 索要的报文长度存在, 构建好给弹出去
-	msg = malloc(sizeof(*msg) + len);
-	assert(NULL != msg);
-	// 返回数据
-	msg->sz = q->sz;
-	_rsmq_pop_dn(q, msg->data, len);
-	q->sz = 0;
-	*pmsg = msg;
-
-	ATOM_UNLOCK(q->lock);
-	return SufBase;
+    // data, sz 刚好可以解析出 msg 情况处理
+    if (q->sz <= 0 && sz > BUF_INT) {
+        *p = msg_buf_data_pop(q, data, sz);
+        if (*p)
+            return SBase;
+    }
+    
+    msg_buf_push(q, data, sz);
+    return msg_buf_pop(q,p);
 }
 ```
 
-    小端 size + data 传输环形字符消息队列构建完毕. 从此网络中流式传输问题就解决了. 此刻
-	不知道有没有感觉出来, 现在代码的能量越来越高, 适用性越来越针对. 码多了会发现, 很多极
-	致优化的方案, 都是偏方, 心智成本高. 咱们这里传授的武功秘籍, 只要你多比划多实战. 必定
-	不会被天外飞仙这种失传的绝技一招干死, 怎么着也 Double kill.
+    而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create
+    着看. 注释很用心, 欢迎阅读 ~ 
 
-江湖中杜撰过一句话, 内功决定能飞多高, 武技能决定能跑多久~
+```C
+// msg_data_pop - data pop msg 
+static msg_t msg_buf_data_pop(msg_buf_t q, 
+                              const char * data, uint32_t n) {
+    // step 1 : 报文长度 buffer q->sz init
+    uint32_t sz;
+    memcpy(&sz, data, sizeof sz);
+    sz = ntoh(sz);
+
+    // step 2 : check data len is true
+    uint32_t len = MSG_LEN(q->sz);
+    if (len <= 0 || len + sizeof(uint32_t) > n)
+        return NULL;
+
+    // step 3 : create msg
+    msg_t msg = malloc(sizeof(*msg) + len);
+    msg->sz = sz;
+    memcpy(msg->data, data + sizeof(uint32_t), len);
+
+    // step 4 : 数据存在, 填入剩余数据
+    len += sizeof(uint32_t);
+    if (len < n) {
+        msg_buf_push(q, data + len, n - len);
+    }
+
+    return msg;
+}
+```
+
+    那开始一键横扫了
+
+```C
+//
+// msg_buf_push - msg buffer push data
+// q        : msg buffer
+// data     : 内存数据
+// sz       : 内存数据 size
+//
+inline static void msg_buf_push(msg_buf_t q, 
+                                const void * data, int len) {
+    msg_buf_expand(q, len);
+    memcpy(q->data + q->len, data, len);
+    q->len += len; 
+}
+
+// msg_buf_pop_data - q pop len data
+inline void msg_buf_pop_data(msg_buf_t q, 
+                             void * data, int len) {
+    memcpy(data, q->data, len);
+    q->len -= len;
+    memmove(q->data, q->data + len, q->len);
+}
+
+// msg_buf_pop_sz - q pop sz
+inline void msg_buf_pop_sz(msg_buf_t q) {
+    msg_buf_pop_data(q, &q->sz, sizeof(uint32_t));
+    q->sz = ntoh(q->sz);
+}
+
+//
+// msg_buf_pop - msg buffer pop
+// q        : msg buffer 
+// p        : return msg
+// return   : EParse 协议解析错误, ESmall 协议不完整
+//
+int msg_buf_pop(msg_buf_t q, msg_t * p) {
+    *p = NULL;
+
+    // step 1 : 报文长度 buffer q->sz check
+    if (q->sz <= 0 && q->len >= sizeof(uint32_t))
+        msg_buf_pop_sz(q);
+    // step 2 : check data parse is true
+    int len = MSG_LEN(q->sz);
+    if (len <= 0 && q->sz > 0)
+        return EParse;
+
+    // step 3 : q->sz > 0 继续看是否有需要的报文内容
+    if (len <= 0 || len > q->len)
+        return ESmall;
+
+    // step 4: 索要的报文长度存在, 开始构建返回
+    msg_t msg = malloc(sizeof(*msg) + len);
+    msg->sz = q->sz;
+    msg_buf_pop_data(q, msg->data, len);
+    *p = msg;
+
+    q->sz = 0;
+    return SBase;
+}
+```
+
+    而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create
+    从 msg_buf_push 到 msg_buf_pop 到最后的 msg_buf_append 经历过多少个日夜修炼.
+    此刻不知道有没有感觉出来, 代码中的能量越来越高, 适用性越来越针对. 码多了会发现, 很多
+    极致优化的方案, 都是偏方, 心智成本高. 咱们这里传授的武功秘籍, 只要你多比划多实战. 必
+    定不会被天外飞仙这种失传的绝技一招干死, 怎么着也有希望 Double kill.
 
 ***
     ...
     每一条路的尽头 是一个人
     看不透 世上的真
     你还是 这样天真
+
     假如我可以再生
     像太极为两仪而生
     动静间如行云流水
     追一个豁达的眼神
     ...
-
 ***
 
-### 4.5 阅读理解, 插入个配置解析库
+    江湖中杜撰过一句话, 内功决定能飞多高, 武技决定能跑多久 ~ 
 
-    内功修炼中写了个 dict 数据结构, 不妨为其出个阅读理解吧. 构建一个高效的配置解析库.
-    还是觉得代码比文字值钱, 说再多抵不上简单实在的代码. 毕竟对于实践派而言 run 起来才
-	是真理. 这个配置库没有什么思维逻辑过程, 仿照 php 变量解析设计的. 看接口设计:
+### 5.3 阅读理解
 
-scconf.h
-
-```C
-#ifndef _H_SIMPLEC_SCCONF
-#define _H_SIMPLEC_SCCONF
-
-#include "dict.h"
-
-/*
- * 这里是配置文件读取接口,
- * 写配置,读取配置,需要指定配置的路径
- * 
- * 配置规则 , 参照 php 变量定义.
- * 举例, 文件中可以配置如下:
-
-	 $heoo = "Hello World\n";
-
-	 $yexu = "\"你好吗\",
-	 我很好.谢谢!";
-
-	 $end = "coding future 123 runing, ";
- 
- * 
- * 后面可以通过, 配置文件读取出来. conf_get("heoo") => "Hello World\n"
- */
-
-//
-// conf_xxxx 得到配置写对象, 失败都返回NULL 
-// path		: 配置所在路径
-// conf		: conf_create 创建的对象
-// key		: 查找的key
-// return	: 返回要得到的对象, 失败为NULL 
-//
-extern dict_t conf_create(const char * path);
-extern void conf_delete(dict_t conf);
-extern const char * conf_get(dict_t conf, const char * key);
-
-#endif // !_H_SIMPLEC_SCCONF
-```
-
-    当前配置解析的思路是, 逐个读取文件中字符. 当然也可以自行优化, 批量读取. 
-    逐个读取优势是节约内存. 其它都是老套路, 依赖 dict::set, dict::get.
+        内功修炼中我们写了不少实战中需要操练的数据结构, 不妨来个简单的阅读理解吧. 构建一
+    个通用的堆结构库. 让你嗨嗨嗨 :0 请你我认真修炼, 让内力更加精纯 ~
 
 ```C
-#include "scconf.h"
-#include "tstr.h"
+#include "heap.h"
 
-// 函数创建函数, kv 是 [ abc\012345 ]这样的结构
-static void _sconf_create(dict_t conf, char * key) {
-	char * value = key;
-	while (*value++)
-		;
-	dict_set(conf, key, strdup(value));
+#define HEAP_UINT       (1<<5u)
+
+struct heap {
+    cmp_f   fcmp;       // 比较行为
+    unsigned len;       // heap 长度
+    unsigned cap;       // heap 容量
+    void ** data;       // 数据节点数组
+};
+
+// heap_expand - 添加节点扩容
+inline void heap_expand(struct heap * h) {
+    if (h->len >= h->cap) {
+        h->data = realloc(h->data, h->cap<<=1);
+        assert(h->data);
+    }
 }
 
-// 将这一行读取完毕
-#define READBR(txt, c) \
-	while (c != EOF && c != '\n') \
-		c = fgetc(txt)
-
-// 开始解析串
-static void _sconf_parse(dict_t root, FILE * txt) {
-	char c, n;
-	TSTR_CREATE(tstr);
-
-	//这里处理读取问题
-	while ((c = fgetc(txt)) != EOF) {
-		//1.0 先跳过空白字符
-		while (c != EOF && isspace(c))
-			c = fgetc(txt);
-
-		//2.0 如果遇到第一个字符不是 '$'
-		if (c != '$') { 
-			READBR(txt, c);
-			continue;
-		}
-		//2.1 第一个字符是 $ 合法字符, 开头不能是空格,否则也读取完毕
-		if ((c = fgetc(txt)) != EOF && isspace(c)) {
-			READBR(txt, c);
-			continue;
-		}
-
-		//开始记录了
-		tstr->len = 0;
-
-		//3.0 找到第一个等号 
-		while (c != EOF && c != '=') {
-			if(!isspace(c))
-				tstr_appendc(tstr, c);
-			c = fgetc(txt);
-		}
-		if (c != '=') // 无效的解析直接结束
-			break;
-
-		c = '\0';
-		//4.0 找到 第一个 "
-		while (c != EOF && c != '\"') {
-			if (!isspace(c))
-				tstr_appendc(tstr, c);
-			c = fgetc(txt);
-		}
-		if (c != '\"') // 无效的解析直接结束
-			break;
-
-		//4.1 寻找第二个等号
-		for (n = c; (c = fgetc(txt)) != EOF; n = c) {
-			if (c == '\"' ) {
-				if (n != '\\')
-					break;
-				// 回退一个 '\\' 字符
-				--tstr->len;
-			}
-			tstr_appendc(tstr, c);
-		}
-		if (c != '\"') //无效的解析直接结束
-			break;
-
-		// 这里就是合法字符了,开始检测 了, 
-		_sconf_create(root, tstr_cstr(tstr));
-
-		// 最后读取到行末尾
-		READBR(txt, c);
-		if (c != '\n')
-			break;
-	}
-
-	TSTR_DELETE(tstr);
+//
+// heap_create - 创建符合规则的堆
+// fcmp     : 比较行为, 规则 fcmp() <= 0
+// return   : 返回创建好的堆对象
+//
+inline heap_t 
+heap_create(cmp_f fcmp) {
+    struct heap * h = malloc(sizeof(struct heap));
+    assert(h && fcmp);
+    h->fcmp = fcmp;
+    h->len = 0;
+    h->cap = HEAP_UINT;
+    h->data = malloc(sizeof(void *) * HEAP_UINT);
+    assert(h->data && HEAP_UINT > 0);
+    return h;
 }
 
-dict_t 
-conf_create(const char * path) {
-	dict_t conf;
-	FILE * txt = fopen(path, "rb");
-	if (NULL == txt) {
-		RETURN(NULL, "fopen  r is error! path = %s.", path);
-	}
-
-	// 创建具体配置二叉树对象
-	conf = dict_create(free);
-	if (conf) {
-		// 解析添加具体内容
-		_sconf_parse(conf, txt);
-	}
-
-	fclose(txt);
-	return conf;
+//
+// heap_delete - 销毁堆
+// h        : 堆对象
+// fdie     : 销毁行为, 默认 NULL
+// return   : void
+//
+void 
+heap_delete(heap_t h, node_f fdie) {
+    if (NULL == h || h->data == NULL) return;
+    if (fdie && h->len > 0)
+        for (unsigned i = 0; i < h->len; ++i)
+            fdie(h->data[i]);
+    free(h->data);
+    h->data = NULL;
+    h->len = 0;
+    free(h);
 }
 
-inline void 
-conf_delete(dict_t conf) {
-	dict_delete(conf);
+// down - 堆节点下沉, 从上到下沉一遍
+static void down(cmp_f fcmp, void * data[], unsigned len, unsigned x) {
+    void * m = data[x];
+    for (unsigned i = x * 2 + 1; i < len; i = x * 2 + 1) {
+        if (i + 1 < len && fcmp(data[i+1], data[i]) < 0)
+            ++i;
+        if (fcmp(m, data[i]) <= 0)
+            break;
+        data[x] = data[i];
+        x = i;
+    }
+    data[x] = m;
 }
 
-inline const char * 
-conf_get(dict_t conf, const char * key) {
-	return dict_get(conf, key);
+// up - 堆节点上浮, 从下到上浮一遍
+static void up(cmp_f fcmp, void * node, void * data[], unsigned x) {
+    while (x > 0) {
+        void * m = data[(x-1)>>1];
+        if (fcmp(m, node) <= 0)
+            break;
+        data[x] = m;
+        x = (x-1)>>1;
+    }
+    data[x] = node;
+}
+
+//
+// heap_insert - 堆插入数据
+// h        : 堆对象
+// node     : 操作对象
+// return   : void
+//
+inline void heap_insert(heap_t h, void * node) {
+    heap_expand(h);
+    up(h->fcmp, node, h->data, h->len++);
+}
+
+//
+// heap_remove - 堆删除数据
+// h        : 堆对象
+// arg      : 操作参数
+// fcmp     : 比较行为, 规则 fcmp() == 0
+// return   : 找到的堆节点
+//
+void * heap_remove(heap_t h, void * arg, cmp_f fcmp) {
+    if (h == NULL || h->len <= 0)
+        return NULL;
+
+    // 开始查找这个节点
+    unsigned i = 0;
+    fcmp = fcmp ? fcmp : h->fcmp;
+    do {
+        void * node = h->data[i];
+        if (fcmp(arg, node) == 0) {
+            // 找到节点开始走删除操作
+            if (--h->len > 0 && h->len != i) {
+                // 尾巴节点和待删除节点比较
+                int ret = h->fcmp(h->data[h->len], node);
+
+                // 小顶堆, 新的值比老的值小, 那么上浮
+                if (ret < 0)
+                    up(h->fcmp, h->data[h->len], h->data, i);
+                else if (ret > 0) {
+                    // 小顶堆, 新的值比老的值大, 那么下沉
+                    h->data[i] = h->data[h->len];
+                    down(h->fcmp, h->data, h->len, i);
+                }
+            }
+
+            return node;
+        }
+    } while (++i < h->len);
+
+    return NULL;
+}
+
+//
+// heap_top - 查看堆顶节点数据
+// h        : 堆对象
+// return   : 堆顶节点
+//
+inline void * heap_top(heap_t h) {
+    return h->len <= 0 ? NULL : *h->data;
+}
+
+//
+// heap_top - 摘掉堆顶节点数据
+// h        : 堆对象
+// return   : 返回堆顶节点
+//
+inline void * heap_pop(heap_t h) {
+    void * node = heap_top(h);
+    if (node && --h->len > 0) {
+        // 尾巴节点一定比小堆顶节点大, 那么要下沉
+        h->data[0] = h->data[h->len];
+        down(h->fcmp, h->data, h->len, 0);
+    }
+    return node;
 }
 ```
 
-    _sconf_parse 过程篇幅大点, 解析文件中内容. 其它使用 dict.h 接口的方法. 也许这就
-	是追求的学以致用(但真相是, 我是想写个 sconf, 不得不写个 dict 哈).  
-    内功部分, 带大家走了一遍 rbtree -> dict -> mq -> rsmq -> sconf 围绕常用容器.
-    一个人内部容器有多大, 就能容纳多少, 就会有多深内功. 有种错觉, 看书的人到这里可以
-	结束一段时间了. 以后将不会那么平静 ~ 妖魔战场已经向你发起了召唤令 ~
-
 ***
 
-	日月神教，战无不胜。东方教主，文成武德。千秋万载，一统江湖。
+	日月神教, 战无不胜. 东方教主, 文成武德. 千秋万载, 一统江湖.
 
 ***
 
