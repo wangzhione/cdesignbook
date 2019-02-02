@@ -11,74 +11,82 @@
 ## 6.1 传说中的线程池
 
         线程池是很古老的旧话题. 讨论的很多, 深入的不多. 也就在那些基础库中才能见到这种
-	有点精妙的技巧. 这里也会随大流深入简述一种高效且控制性强的一种线程池实现. 先引入
-	一个概念, 惊群. 简单举个例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米粒. 
-	扔出去, 立马无数麻雀过来争抢. 而最终只有一只麻雀得到了. 而那些没有抢到的麻雀很累
-	....... 编程中惊群, 也是个很古老的编程话题了. 服务器框架开发中很有机会遇到. 有兴
-	趣的可以自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象.
-	采用的POSIX跨平台的线程库 pthread. 
+	有点精妙的技巧. 这里也会随大流深入简述一种简单且控制性强的一种线程池实现. 先引入一个
+    概念, 惊群. 简单举个例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米粒. 扔出去
+    , 立马无数麻雀过来争抢. 而最终只有一只麻雀会得到. 而那些没有抢到的麻雀很累...... 编
+    程中惊群, 也是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以自行搜索, 多
+    数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的 POSIX 跨平台的
+    线程库 pthread 来演示和克服. 
 
 ```C
+//
+// pthread_cond_signal - 通过条件变量激活正在等待线程
+// cond     : 条件变量
+// return   : 0 is success, -1 is error, 见 errno
+//
 extern int __cdecl pthread_cond_signal (pthread_cond_t * cond);
+
+//
+// pthread_cond_wait - 线程等待激活
+// cond     : 条件变量
+// mutex    : 互斥锁
+// return   : 0 is success, -1 is error, 见 errno 
+//
+extern int __cdecl pthread_cond_wait (pthread_cond_t * cond, 
+                                      pthread_mutex_t * mutex);
 ```
 
-    上面 pthread 接口就是线程池中出现惊群来源. 它会激活 pthread_cond_wait 等待态
-	一个或多个线程. 同样这里解决惊群的方式很普通也很实在, 定向激活, 每个实际运行线程
-	对象都有自己的条件变量. 那么每次只要激活需要激活的线程变量就可以了. 惊群的现象自
-	然就避免了.
+    上面 pthread_cond_signal 接口就是线程池中出现惊群来源. 它会激活一个或多个等待状态
+    pthread_cond_wait 线程. 同样这里解决惊群的方式很普通也很实在, 定向激活, 每个实际运
+    行线程对象都有自己的条件变量. 那么每次只要激活需要激活的线程变量就可以了. 惊群的现象
+    自然就巧妙避免了.
 
 ***
 
 ![日出东方](./img/开始.jpg)
 
-#### 6.1.1 线程池接口设计
+### 6.1.1 线程池设计
 
 ```C
-#ifndef _H_SIMPLEC_SCTHREADS
-#define _H_SIMPLEC_SCTHREADS
+#ifndef _THREADS_H
+#define _THREADS_H
 
-#include "schead.h"
+#include "thread.h"
 
 //
-// 这是个简易的线程池的库.
+// 简易的线程池的库
 //
-
 typedef struct threads * threads_t;
 
 //
-// threads_create - 创建一个线程池处理对象
-// return	: 返回创建好的线程池对象, NULL表示失败
+// threads_create - 创建线程池对象
+// return   : 创建的线程池对象, NULL 表示失败
 //
 extern threads_t threads_create(void);
 
 //
-// threads_delete - 异步销毁一个线程池对象
-// pool		: 线程池对象
-// return	: void
+// threads_delete - 异步销毁线程池对象
+// pool     : 线程池对象
+// return   : void
 //
 extern void threads_delete(threads_t pool);
 
 //
-// threads_insert - 线程池中添加要处理的任务
-// pool		: 线程池对象
-// run		: 运行的执行题
-// arg		: run的参数
-// return	: void
+// threads_insert - 线程池中添加待处理的任务
+// pool     : 线程池对象
+// frun     : node_f 运行的执行体
+// arg      : frun 的参数
+// return   : void
 //
-extern void threads_insert_(threads_t pool, node_f run, void * arg);
-#define threads_insert(pool, run, arg) threads_insert_(pool, (node_f)run, (void *)(intptr_t)arg)
+extern void threads_insert(threads_t pool, void * frun, void * arg);
 
-#endif // !_H_SIMPLEC_SCTHREADS
+#endif // !_THREADS_H
 ```
 
-    定义了不完全类型 threads_t, 创建销毁添加等行为. 其中使用了个函数宏的技巧. 用于
-    去掉警告. 也许 n 年后, 这类 void (*)(long *) convert void (*)(void *) 不再弹
-    出 warning. 那 threads_insert 就可以寿终正寝了. 其中对于 (intptr_t)arg 的意图
-	让其可以塞入 int 变量, 因为在 x64 上 int 是4字节强转8字节的指针变量会被弹出警告.
-    到这线程池接口设计部分已经完工. 代码比文字好理解, 文字可以瞎写, 但是代码的真相缺
-	早已经注定. 设计的不好, 那将什么都不是 ......
+    不完全类型 threads_t 就是我们定义的线程池对象, 创建删除添加等行为. 其中使用了个函数
+    参数  void * frun 的技巧. 用于去掉警告. 设计的如果不好,  那将什么都不是 ......
 
-#### 6.1.2 线程池部分实现
+### 6.1.2 线程池实现
 
     线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将
 	多个线程业务转成多个任务被固定的线程来回处理. 这个思路是不是很巧妙. 先说说线程池
