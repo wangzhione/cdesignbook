@@ -19,7 +19,7 @@
     线程库 pthread 来演示和克服. 
 
 ```C
-//
+//1
 // pthread_cond_signal - 通过条件变量激活正在等待线程
 // cond     : 条件变量
 // return   : 0 is success, -1 is error, 见 errno
@@ -37,9 +37,9 @@ extern int __cdecl pthread_cond_wait (pthread_cond_t * cond,
 ```
 
     上面 pthread_cond_signal 接口就是线程池中出现惊群来源. 它会激活一个或多个等待状态
-    pthread_cond_wait 线程. 同样这里解决惊群的方式很普通也很实在, 定向激活, 每个实际运
-    行线程对象都有自己的条件变量. 那么每次只要激活需要激活的线程变量就可以了. 惊群的现象
-    自然就巧妙避免了.
+    pthread_cond_wait 线程. 同样我们解决惊群的方式很普通也很实在, 定向激活, 每个实际运
+    行线程对象都有自己的条件变量. 这样每次只要激活需要激活的线程变量就可以了. 惊群现象就
+    自然巧妙避过去了.
 
 ***
 
@@ -80,269 +80,308 @@ extern void threads_delete(threads_t pool);
 //
 extern void threads_insert(threads_t pool, void * frun, void * arg);
 
-#endif // !_THREADS_H
+#endif//_THREADS_H
 ```
 
-    不完全类型 threads_t 就是我们定义的线程池对象, 创建删除添加等行为. 其中使用了个函数
-    参数  void * frun 的技巧. 用于去掉警告. 设计的如果不好,  那将什么都不是 ......
+    不完全类型 threads_t 就是我们定义的线程池对象, 创建删除添加等行为. 其中使用函数参数 
+	void * frun 的技巧, 用于去掉警告. 设计的如果不好, 那将什么都不是 ......
 
 ### 6.1.2 线程池实现
 
-    线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将
-	多个线程业务转成多个任务被固定的线程来回处理. 这个思路是不是很巧妙. 先说说线程池
-	容易的实现部分, 来看任务结构的设计:
+    线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将多个
+	线程业务转成多个任务被固定的线程来回处理. 这个思路很朴实, 牺牲优先级来换取性能. 先说
+	说线程池容易的实现部分, 来看任务结构的设计.
 
 ```C
-// 任务链表 结构 和 构造
+#include "threads.h"
+
+// struct job 任务链表 结构 和 构造
 struct job {
-	struct job * next;  // 指向下一个任务结点
-	node_f run;         // 任务结点执行的函数体
-	void * arg;	
+    struct job * next;      // 指向下一个任务节点
+    node_f frun;            // 任务节点执行的函数体
+    void * arg;
 };
 
-static inline struct job * _job_new(node_f run, void * arg) {
-	struct job * job = malloc(sizeof(struct job));
-	if (NULL == job)
-		CERR_EXIT("malloc sizeof(struct job) is error!");
-	job->next = NULL;
-	job->run = run;
-	job->arg = arg;
-	return job;
+inline struct job * job_new(node_f frun, void * arg) {
+    struct job * job = malloc(sizeof(struct job));
+    job->next = NULL;
+    job->frun = frun;
+    job->arg = arg;
+    return job;
 }
 ```
 
-    内存处理方式很直接, 申请失败直接退出. 更加粗暴的方式是调用 abort(). 强制退出.
-    但实际开发中还真没遇到过内存不足(抛开测试). 假如一个系统真的内存不足了, 可能一
-	切都是未知. 继续分析线程池结构, 线程处理对象和线程池对象结构如下:
+	job_new 创建一个 job 任务结构. 很直白 job::frun(job::arg) 去执行任务. 继续分析线
+	程池结构, 线程处理对象和线程池对象结构如下:
 
 ```C
-// 线程结构体, 每个线程一个信号量, 定点触发
+// struct thread 线程结构体, 每个线程一个信号量, 定点触发
 struct thread {
-	struct thread * next;   // 下一个线程对象
-	bool wait;              // true 表示当前线程被挂起
-	pthread_t tid;          // 当前线程id
-	pthread_cond_t cond;    // 线程条件变量
+    struct thread * next;   // 下一个线程对象
+    pthread_cond_t cond;    // 线程条件变量
+    volatile bool wait;     // true 表示当前线程被挂起
+    pthread_t id;           // 当前线程 id
 };
 
 // 定义线程池(线程集)定义
 struct threads {
-	size_t size;            // 线程池大小, 最大线程结构体数量
-	size_t curr;            // 当前线程池中总的线程数
-	size_t idle;            // 当前线程池中空闲的线程数
-	volatile bool cancel;   // true表示当前线程池正在 delete
-	pthread_mutex_t mutx;   // 线程互斥量
-	struct thread * thrs;   // 线程结构体对象集
-	struct job * head;      // 线程任务链表的链头, 队列结构
-	struct job * tail;      // 线程任务队列的表尾, 后插入后执行
+    int size;               // 线程池大小, 线程体最大数量
+    int curr;               // 当前线程池中总的线程数
+    int idle;               // 当前线程池中空闲的线程数
+    struct thread * thrs;   // 线程结构体对象集
+    pthread_mutex_t mutx;   // 线程互斥量
+    volatile bool cancel;   // true 表示当前线程池正在 delete
+    struct job * head;      // 线程任务链表的链头, 队列结构
+    struct job * tail;      // 线程任务队列的表尾, 后进后出
 };
-```
 
-    上面可以找出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量
-	. 这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段
-	. 来避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop ,
-    这类有风险的设计. 上面两个结构衍生了几个辅助行为操作如下 :
+// threads_add - 线程池中添加线程
+static void threads_add(struct threads * pool, pthread_t id) {
+    struct thread * thrd = malloc(sizeof(struct thread));
+    thrd->next = pool->thrs;
+    thrd->cond = PTHREAD_COND_INITIALIZER;
+    thrd->wait = false;
+    thrd->id = id;
 
-```C
-// 根据 cond 内存地址熟悉, 删除 pool->thrs 中指定数据
-static void _threads_del(struct threads * pool, pthread_cond_t * cond) {
-	struct thread * head = pool->thrs, * front = NULL;
-	
-	while (head) {
-		// 找见了, 否则开始记录前置位置
-		if (cond == &head->cond)
-			break;
-		front = head;
-		head = head->next;
-	}
-
-	if (head) {
-		if (front)
-			front->next = head->next;
-		else
-			pool->thrs = head->next;
-
-		// head 结点就是我们要找的
-		pthread_cond_destroy(&head->cond);
-		free(head);
-	}
+    pool->thrs = thrd;
+    ++pool->curr;
 }
 
-// 找到线程 tid 对应的条件变量地址
-static struct thread * _threads_get(struct threads * pool, pthread_t tid) {
-	struct thread * head = pool->thrs;
-	while (head) {
-		if (pthread_equal(tid, head->tid))
-			return head;
-		head = head->next;
-	}
-	return NULL;
+// threads_del - 根据 cond 内存地址删除 pool->thrs 中指定数据
+static void threads_del(struct threads * pool, pthread_cond_t * cond) {
+    struct thread * head = pool->thrs, * prev = NULL;
+    while (head) {
+        // 找见了, 否则开始记录前置位置
+        if (cond == &head->cond) {
+            if (prev)
+                prev->next = head->next;
+            else
+                pool->thrs = head->next;
+            return free(head);
+        }
+        prev = head;
+        head = head->next;
+    }
 }
 
-// 找到空闲的线程, 并返回起信号量 
-static pthread_cond_t * _threads_getcont(struct threads * pool) {
-	struct thread * head = pool->thrs;
-	while (head) {
-		if (head->wait)
-			return &head->cond;
-		head = head->next;
-	}
-	return NULL;
+// threads_get - 找到线程 id 对应的条件变量地址
+static struct thread * threads_get(struct threads * pool, pthread_t id) {
+    struct thread * head = pool->thrs;
+    while (head) {
+        if (pthread_equal(id, head->id))
+            break;
+        head = head->next;
+    }
+    return head;
+}
+
+// threads_cond - 找到空闲的线程, 并返回其信号量 
+static pthread_cond_t * threads_cond(struct threads * pool) {
+    struct thread * head = pool->thrs;
+    while (head) {
+        if (head->wait)
+            return &head->cond;
+        head = head->next;
+    }
+    return NULL;
 }
 ```
 
-    对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列.
-    struct thread * thrs; 链接所有线程对象的链表. 线程池对象中共用 struct threads 
-	中 mutex 一个互斥量. 希望还记得前面数据结构部分扯的, 链表是 C结构中基础的内丹, 
-	所有代码都是或多或少围绕它这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代
-	码其实和业务代码没啥区别, 创建销毁添加查找等. 前戏营造的估计够了, 现在开搞其它接
-	口简单实现代码 :
+	线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将多个
+    上面可以找出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量. 这
+	就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来避
+	免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这类有风险
+	的设计. 上面两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 
+	对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列.
+    struct thread * thrs; 链接所有线程对象的链表. 线程池对象中共用 struct threads 中 
+	mutex 一个互斥量. 希望还记得前面章节数据结构部分扯的, 链表是 C 结构中基础的内丹, 所
+	有代码都是或多或少围绕它这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码其实
+	和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其它接口实现.
 
 ```C
-// 开启的线程数
-#define _UINT_THREADS		(4u)
+// THREADS_INT - 开启的线程数是 2 * CPU
+#define THREADS_INT        (8)
 
-threads_t 
+//
+// threads_create - 创建线程池对象
+// return   : 创建的线程池对象, NULL 表示失败
+//
+inline threads_t 
 threads_create(void) {
-	struct threads * pool = calloc(1, sizeof(struct threads));
-	if (NULL == pool) {
-		RETURN(NULL, "calloc sizeof(struct threads) is error!");
-	}
-
-	pool->size = _UINT_THREADS;
-	pthread_mutex_init(&pool->mutx, NULL);
-
-	return pool;
+    struct threads * pool = calloc(1, sizeof(struct threads));
+    pool->size = THREADS_INT;
+    pool->mutx = PTHREAD_MUTEX_INITIALIZER;
+    return pool;
 }
 ```
 
-    上面创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 
-    还有一个释放资源函数. 设计意图允许创建多个线程池(但是没有必要). 请看下面优雅的销
-	毁操作:
+    上面创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 配套
+	还有一个删除释放资源函数. 设计意图允许创建多个线程池(但是没有必要). 请看下面优雅的删除
+	销毁操作:
 
 ```C
+//
+// threads_delete - 异步销毁线程池对象
+// pool     : 线程池对象
+// return   : void
+//
 void 
 threads_delete(threads_t pool) {
-	struct job * head;
-	struct thread * thrs;
+    if (!pool || pool->cancel)
+        return;
 
-	if (!pool || pool->cancel) 
-		return;
-	// 标识当前线程池正在销毁过程中
-	pool->cancel = true;
+    // 已经在销毁过程中, 直接返回
+    pthread_mutex_lock(&pool->mutx);
+    if (pool->cancel) {
+        pthread_mutex_unlock(&pool->mutx);
+        return;
+    }
 
-	pthread_mutex_lock(&pool->mutx);
+    // 标识当前线程池正在销毁过程中, 并随后释放任务列表
+    pool->cancel = true;
+    struct job * head = pool->head;
+    while (head) {
+        struct job * next = head->next;
+        free(head);
+        head = next;
+    }
+    pool->head = pool->tail = NULL;
+    pthread_mutex_unlock(&pool->mutx);
 
-	// 先来释放任务列表
-	head = pool->head;
-	while (head) {
-		struct job * next = head->next;
-		free(head);
-		head = next;
-	}
-	pool->head = pool->tail = NULL;
+    // 再来销毁每个线程
+    struct thread * thrs = pool->thrs;
+    while (thrs) {
+        struct thread * next = thrs->next;
+        // 激活每个线程让其主动退出
+        pthread_cond_signal(&thrs->cond);
+        pthread_join(thrs->id, NULL);
+        thrs = next;
+    }
 
-	pthread_mutex_unlock(&pool->mutx);
-
-	// 再来销毁每个线程
-	thrs = pool->thrs;
-	while (thrs) {
-		struct thread * next = thrs->next;
-		// 激活每个线程让其主动退出
-		pthread_cond_signal(&thrs->cond);
-		pthread_join(thrs->tid, NULL);
-		thrs = next;
-	}
-
-	// 销毁自己
-	pthread_mutex_destroy(&pool->mutx);
-	free(pool);
+    // 销毁自己
+    free(pool);
 }
 ```
 
-    用到很多 pthread api. 不熟悉的多搜索, 多做笔记. 不懂多了, 说明提升功力的机会来了.
-    对于上面释放函数先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任
-	务队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最终清除锁销毁自
-	己. 优雅结束了线程池的生成周期. 
-
-    如果不知道是不是真爱, 那就追求优雅 ~
-    如果是真爱, 那么什么都不想要 ~
-
-#### 6.1.3 线程池核心部分
-
-    核心部分就两个函数, 一个是线程轮询处理任务的函数. 另一个是构建线程池函数. 线程轮询
-	函数如下:
+    用到很多 pthread api. 不熟悉的多搜索, 多做笔记. 不懂的时候说明提升功力的机会来了. 对
+	于上面删除释放函数先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任务
+	队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最后清除锁并销毁自己. 
+	优雅结束了线程池的生成周期. 如果不知道是不是真爱, 那就追求优雅 ~ 如果是真爱, 那么什么
+	都不想要 ~ 随后步入核心部分就两个函数, 一个是线程轮询处理任务的函数, 另一个是构建线程
+	池函数. 线程轮询函数如下:
 
 ```C
-// 线程运行的时候执行函数, 消费者线程
-static void _consumer(struct threads * pool) {
-	int status;
-	struct thread * thrd;
-	pthread_cond_t * cond;
-	pthread_t tid = pthread_self();
-	pthread_mutex_t * mutx = &pool->mutx;
+// thread_consumer - 消费线程
+static void thread_consumer(struct threads * pool) {
+    pthread_t id = pthread_self();
+    pthread_mutex_t * mutx = &pool->mutx;
 
-	pthread_mutex_lock(mutx);
+    pthread_mutex_lock(mutx);
 
-	thrd = _threads_get(pool, tid);
-	assert(thrd);
-	cond = &thrd->cond;
+    struct thread * thrd = threads_get(pool, id);
+    assert(thrd);
+    pthread_cond_t * cond = &thrd->cond;
 
-	// 使劲循环的主体, 开始消费 or 沉睡
-	while (!pool->cancel) {
-		if (pool->head) {
-			struct job * job = pool->head;
-			pool->head = job->next;
-			// 队列尾置空监测
-			if (pool->tail == job)
-				pool->tail = NULL;
+    // 使劲循环的主体, 开始消费 or 沉睡
+    while (!pool->cancel) {
+        if (pool->head) {
+            struct job * job = pool->head;
+            pool->head = job->next;
+            // 队列尾置空监测
+            if (pool->tail == job)
+                pool->tail = NULL;
 
-			// 解锁, 允许其它消费者线程加锁或生产者添加新任务
-			pthread_mutex_unlock(mutx);
+            // 解锁, 允许其它消费者线程加锁或生产者添加新任务
+            pthread_mutex_unlock(mutx);
 
-			// 回调函数, 后面再去删除任务
-			job->run(job->arg);
-			free(job);
+            // 回调函数, 后面再去删除任务
+            job->frun(job->arg);
+            free(job);
 
-			// 新的一轮开始, 需要重新加锁
-			pthread_mutex_lock(mutx);
-			continue;
-		}
+            // 新的一轮开始, 需要重新加锁
+            pthread_mutex_lock(mutx);
+            continue;
+        }
 
-		// job 已经为empty , 开启线程等待
-		thrd->wait = true;
-		++pool->idle;
+        // job 已经为 empty , 开启线程等待
+        thrd->wait = true;
+        ++pool->idle;
 
-		// 开启等待, 直到线程被激活
-		status = pthread_cond_wait(cond, mutx);
-		if (status < 0) {
-			pthread_detach(tid);
-			CERR("pthread_cond_wait error status = %zu.", status);
-			break;
-		}
-		thrd->wait = false;
-		--pool->idle;
-	}
+        // 开启等待, 直到线程被激活
+        int status = pthread_cond_wait(cond, mutx);
+        if (status < 0) {
+            pthread_detach(id);
+            CERR("pthread_cond_wait error status = %d.", status);
+            break;
+        }
+        thrd->wait = false;
+        --pool->idle;
+    }
 
-	// 到这里程序出现异常, 线程退出中, 先减少当前线程
-	--pool->curr;
-	// 去掉这个线程链表pool->thrs中对应的数据
-	_threads_del(pool, cond);
+    // 到这里程序出现异常, 线程退出中, 先减少当前线程
+    --pool->curr;
+    // 去掉这个线程链表 pool->thrs 中对应的数据
+    threads_del(pool, cond);
 
-	// 一个线程一把锁, 退出中
-	pthread_mutex_unlock(mutx);
+    // 所有线程共用同一把任务锁
+    pthread_mutex_unlock(mutx);
+}
+
+//
+// threads_insert - 线程池中添加待处理的任务
+// pool     : 线程池对象
+// frun     : node_f 运行的执行体
+// arg      : frun 的参数
+// return   : void
+//
+void 
+threads_insert(threads_t pool, void * frun, void * arg) {
+    if (!frun || !pool || pool->cancel)
+        return;
+
+    struct job * job = job_new(frun, arg);
+    pthread_mutex_t * mutx = &pool->mutx;
+
+    pthread_mutex_lock(mutx);
+
+    // 线程池中任务队列的插入任务
+    if (!pool->head)
+        pool->head = job;
+    else
+        pool->tail->next = job;
+    pool->tail = job;
+
+    // 构建线程, 构建完毕直接获取
+    if (pool->idle > 0) {
+        pthread_cond_t * cond = threads_cond(pool);
+        // 先释放锁后发送信号激活线程, 速度快, 缺点丧失线程执行优先级
+        pthread_mutex_unlock(mutx);
+        // 发送给空闲的线程, 这个信号量一定存在
+        pthread_cond_signal(cond);
+        return;
+    }
+
+    if (pool->curr < pool->size) { // 没有, 那就新建线程去处理
+        pthread_t id;
+        if (pthread_create(&id, NULL, (start_f)thread_consumer, pool))
+            CERR("pthread_create error curr = %d.", pool->curr);
+        else // 添加开启线程的信息
+            threads_add(pool, id);
+    }
+
+    pthread_mutex_unlock(mutx);
 }
 ```
-	对于消费者线程 _consumer 函数运行起来, 内部出现异常进入自销毁操作 pthread_detach
-	. 外部让其退出, 走 pthread_join 关联接收. 
 
-    突然想起以前扯的一句话, 关于提升技术好办法
-    1. 多看书
-    2. 多写代码, 多搜搜, 多问问
-    3. 多看别人的好代码, 多临摹源码
-    4. 多创造, 多改进, 多实战
-    等该明白的都明白了, 一切都是那样容易, 那样的美的时候. 就可以回家种田了. 哈哈 ~
-
-    到这里线程池是结束了, 不妨为其写个测试代码吧 ~
+	对于消费者线程 thread_consumer 函数运行起来, 内部出现异常会进入自销毁操作 
+	pthread_detach. 外部 pool->cancel == true 的时候会让其退出, 走 pthread_join 关联
+	接收. 再次想起以前扯的一句闲篇, 关于提升技术好办法
+    	1' 多看书
+    	2' 多写代码, 多搜搜, 多问问
+    	3' 多看别人的好代码, 多临摹源码
+    	4' 多创造, 多改进, 多实战
+    等该明白的都明白了, 多数会变得可以试试了. 期待这样的场景重复, 到这里线程池是结束了, 不
+	妨为其写个测试代码吧 ~
 
 ```C
 #include "scthreads.h"
