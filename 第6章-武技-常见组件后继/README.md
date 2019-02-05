@@ -1,26 +1,26 @@
 # 第6章-武技-常见组件后继
 
-        时间过得真快, 如果武技修炼完毕, 修真之旅岁月也就过去一半了. 武技本是金丹期选手在
-    妖魔大战中招招实战的经验. 原始而奏效, 飞沙走石, 热浪滚滚. 说的也许很短, 但未来的传说
-    由你为自己谱写 ~ 此刻只带你穿梭那种场景, 感受一刹那间神魂震动, 山河破碎, 天地不仁 ~
-
-    带好你的剑, 
-    那年学的华山剑法 ~
-    ---:o- 此刻上路吧
+        时间过得真快, 如果此章武技修炼完毕, 修真之旅的岁月也就过去一半了. 武技本是金丹期
+	选手在妖魔实战中的宝贵经验. 原始而奏效, 飞沙走石, 热浪滚滚. 要说的也许很短, 但未来的
+	传说由你自己谱写 ~ 此刻只一块穿梭那种场景, 感受一刹那间神魂震动, 山河破碎, 天地不仁 
+	~
+    ~ 带好你的剑, 
+    ~ 还记得那年的华山剑法?
+    ~ ---:o- 此刻上路吧.
 
 ## 6.1 传说中的线程池
 
-        线程池是很古老的旧话题. 讨论的很多, 深入的不多. 也就在那些基础库中才能见到这种
-	有点精妙的技巧. 这里也会随大流深入简述一种简单且控制性强的一种线程池实现. 先引入一个
-    概念, 惊群. 简单举个例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米粒. 扔出去
-    , 立马无数麻雀过来争抢. 而最终只有一只麻雀会得到. 而那些没有抢到的麻雀很累...... 编
-    程中惊群, 也是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以自行搜索, 多
-    数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的 POSIX 跨平台的
-    线程库 pthread 来演示和克服. 
+        线程池是个很古老的旧话题. 讨论的很多, 深入也很难. 也就在那些基础库中才能见到这种
+	有点精妙的模型技巧. 这里也会随大流深入简述简单且控制性强的一种线程池实现. 先引入一个
+    概念什么是惊群. 举个简单例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米渣. 扔
+	出去, 立马无数麻雀过来争抢. 而最终会有一只或多只麻雀会得到. 而那些没有抢到的麻雀会很
+	累 ...... 编程中惊群, 也是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以
+	自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的 
+	POSIX 跨平台的线程库 pthread 来演示和克服. 
 
 ```C
 //1
-// pthread_cond_signal - 通过条件变量激活正在等待线程
+// pthread_cond_signal - 通过条件变量激活正在等待的线程
 // cond     : 条件变量
 // return   : 0 is success, -1 is error, 见 errno
 //
@@ -36,14 +36,16 @@ extern int __cdecl pthread_cond_wait (pthread_cond_t * cond,
                                       pthread_mutex_t * mutex);
 ```
 
-    上面 pthread_cond_signal 接口就是线程池中出现惊群来源. 它会激活一个或多个等待状态
-    pthread_cond_wait 线程. 同样我们解决惊群的方式很普通也很实在, 定向激活, 每个实际运
+    上面 pthread_cond_signal 接口就是线程池中出现惊群现象的原因所在. 它会激活一个或多个
+	等待状态 pthread_cond_wait 线程. 同样我们解决惊群的方式很普通, 定向激活, 每个实际运
     行线程对象都有自己的条件变量. 这样每次只要激活需要激活的线程变量就可以了. 惊群现象就
-    自然巧妙避过去了.
+    自然巧妙的避过去了.
 
 ***
 
 ![日出东方](./img/开始.jpg)
+
+***
 
 ### 6.1.1 线程池设计
 
@@ -65,7 +67,7 @@ typedef struct threads * threads_t;
 extern threads_t threads_create(void);
 
 //
-// threads_delete - 异步销毁线程池对象
+// threads_delete - 删除线程池对象, 同步操作
 // pool     : 线程池对象
 // return   : void
 //
@@ -83,14 +85,15 @@ extern void threads_insert(threads_t pool, void * frun, void * arg);
 #endif//_THREADS_H
 ```
 
-    不完全类型 threads_t 就是我们定义的线程池对象, 创建删除添加等行为. 其中使用函数参数 
-	void * frun 的技巧, 用于去掉警告. 设计的如果不好, 那将什么都不是 ......
+    不完全类型 threads_t 就是我们定义的线程池对象, 并有创建删除添加行为. 其中使用函数参
+	数 void * frun 是用于去掉警告. 设计的如果不好, 那还不如不设计, 同样功能越少出错的概
+	率越小.
 
 ### 6.1.2 线程池实现
 
-    线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将多个
-	线程业务转成多个任务被固定的线程来回处理. 这个思路很朴实, 牺牲优先级来换取性能. 先说
-	说线程池容易的实现部分, 来看任务结构的设计.
+    线程池解决的问题是避免创建过多线程对象, 加重操作系统切换的负担. 从而换了一种方式, 将
+	多个线程业务转成多个任务被固定的线程来回处理. 这个思路是牺牲优先级来换取性能. 先说说
+	线程池容易实现的部分, 任务结构的设计.
 
 ```C
 #include "threads.h"
@@ -111,8 +114,8 @@ inline struct job * job_new(node_f frun, void * arg) {
 }
 ```
 
-	job_new 创建一个 job 任务结构. 很直白 job::frun(job::arg) 去执行任务. 继续分析线
-	程池结构, 线程处理对象和线程池对象结构如下:
+	job_new 创建一个 job 任务结构. 很直白 job::frun(job::arg) 去执行任务. 继续设计线
+	程池结构, 线程对象和线程池对象结构如下:
 
 ```C
 // struct thread 线程结构体, 每个线程一个信号量, 定点触发
@@ -187,16 +190,15 @@ static pthread_cond_t * threads_cond(struct threads * pool) {
 }
 ```
 
-	线程池解决的问题是避免创建过多线程对象, 加重操作系统的负担. 从而换了一种方式, 将多个
-    上面可以找出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量. 这
+    上面可以看出每个 struct thread 线程运行对象中, 都有个 pthread_cont_t 条件变量. 这
 	就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来避
 	免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这类有风险
-	的设计. 上面两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 
+	的设计. 由上两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 
 	对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列.
-    struct thread * thrs; 链接所有线程对象的链表. 线程池对象中共用 struct threads 中 
-	mutex 一个互斥量. 希望还记得前面章节数据结构部分扯的, 链表是 C 结构中基础的内丹, 所
-	有代码都是或多或少围绕它这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码其实
-	和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其它接口实现.
+    struct thread * thrs; 是线程对象的链表. 线程池对象中共用 struct threads 中 mutex
+	一个互斥量, 方便写代码. 希望还记得前面章节数据结构部分扯的, 链表是 C 结构中基础的内丹
+	, 所有代码都是或多或少围绕它这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码
+	其实和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其它接口实现.
 
 ```C
 // THREADS_INT - 开启的线程数是 2 * CPU
@@ -216,8 +218,8 @@ threads_create(void) {
 ```
 
     上面创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 配套
-	还有一个删除释放资源函数. 设计意图允许创建多个线程池(但是没有必要). 请看下面优雅的删除
-	销毁操作:
+	还有一个删除释放资源函数. 设计意图允许创建多个线程池对象, 因为有了创建和删除成对操作. 
+	请看下面优雅的删除销毁操作:
 
 ```C
 //
@@ -264,11 +266,11 @@ threads_delete(threads_t pool) {
 ```
 
     用到很多 pthread api. 不熟悉的多搜索, 多做笔记. 不懂的时候说明提升功力的机会来了. 对
-	于上面删除释放函数先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任务
-	队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最后清除锁并销毁自己. 
-	优雅结束了线程池的生成周期. 如果不知道是不是真爱, 那就追求优雅 ~ 如果是真爱, 那么什么
-	都不想要 ~ 随后步入核心部分就两个函数, 一个是线程轮询处理任务的函数, 另一个是构建线程
-	池函数. 线程轮询函数如下:
+	于上面删除函数, 先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任务
+	队列并置空, 随后解锁. 再去准备销毁每个线程, 激活它并等待它退出. 最后销毁自己. 优雅结
+	束了线程池的生成周期. 如果不知道是不是真爱, 那就追求优雅 ~ 如果是真爱, 那么什么都不想
+	要 ~ 随后步入核心部分只有两个函数, 一个是线程轮询处理任务的函数, 另一个是构建线程池函
+	数. 
 
 ```C
 // thread_consumer - 消费线程
@@ -373,600 +375,407 @@ threads_insert(threads_t pool, void * frun, void * arg) {
 }
 ```
 
-	对于消费者线程 thread_consumer 函数运行起来, 内部出现异常会进入自销毁操作 
-	pthread_detach. 外部 pool->cancel == true 的时候会让其退出, 走 pthread_join 关联
-	接收. 再次想起以前扯的一句闲篇, 关于提升技术好办法
-    	1' 多看书
-    	2' 多写代码, 多搜搜, 多问问
-    	3' 多看别人的好代码, 多临摹源码
-    	4' 多创造, 多改进, 多实战
-    等该明白的都明白了, 多数会变得可以试试了. 期待这样的场景重复, 到这里线程池是结束了, 不
-	妨为其写个测试代码吧 ~
+	对于消费者线程 thread_consumer 函数运行起来后, 只有内部出现异常 status == -1 时候会
+	进入自销毁 pthread_detach 操作. 外部 pool->cancel == true 的时候会让其退出, 走 
+	pthread_join 关联接收. 再次想起以前扯的一句闲篇, 关于提升技术好办法
+    	1' 多望书
+    	2' 多写代码, 搜搜, 问问
+    	3' 多看好代码, 临摹源码
+    	4' 多创造, 改进, 实战
+    等该明白的都明白了, 多数会变得那就这样吧. 期待这样的场景重复, 到这里线程池是结束了, 不
+	妨为其写段测试代码 ~
 
 ```C
-#include "scthreads.h"
+#include "times.h"
+#include "threads.h"
 
-// 测试开启线程量集
-#define _INT_THS (8192)
+// old 全局计时器, 存在锁问题
+static int old;
 
-//全局计时器,存在锁问题
-static int _old;
-
-//简单的线程打印函数
-static inline void _ppt(const char * str) {
-	printf("%d => %s\n", ++_old, str);
+// ppt 简单的线程打印函数
+static inline void ppt(const char * str) {
+    printf("%d => %s\n", ++old, str);
 }
 
-//另一个线程测试函数
-static inline void _doc(void * arg) {
-	printf("p = %d, 技术不决定项目的成败!我老大哭了\n", ++_old);
+// doc 另一个线程测试函数
+static inline void doc(void * arg) {
+    printf("p = %d, 技术不决定项目的成败! 我老大哭了\n", ++old);
 }
 
-int main(void) {
-	//创建线程池
-	threads_t pool = threads_create();
+void test_threads(void) {
+    // 创建线程池
+    threads_t pool = threads_create();
 
-	//添加任务到线程池中
-	for (int i = 0; i<_INT_THS; ++i) {
-		threads_insert(pool, _ppt, "你为你负责的项目拼命过吗.流过泪吗");
-		threads_insert(pool, _doc, NULL);
-	}
+    // 添加任务到线程池中
+    for (int i = 0; i < BUFSIZ; ++i) {
+        threads_insert(pool, ppt, "你为你负责的项目拼命过吗. 流过泪吗");
+        threads_insert(pool, doc, NULL);
+    }
 
-	//等待5s 再结束吧
-	sh_msleep(5000);
-	//清除当前线程池资源, 实战上线程池是常驻内存,不要清除.
-	threads_delete(pool);
-    return EXIT_SUCCESS;
+    //等待 5s 再结束吧
+    msleep(5000);
+
+    // 清除当前线程池资源, 实战上线程池是常驻内存, 不要清除.
+    threads_delete(pool);
 }
 ```
 
-    咱们费了老大劲写了个线程池, 9.9 业务基本都不会用到. 密集型业务目前修真界都流
-	行少量线程加轮询消息队列的方式处理, 下一个出场的主角登场了 ~
+	线程模型有点廉颇老矣, 尚能饭否的味道. 在现代服务业务处理上面, 切换代价, 资源数量(线程栈
+	大小, 线程数量)消耗大. 所以 goroutine 这类模型很吃香. 但如果你足够自信通过设置 CPU 硬
+	亲和性, 有时候会获得更高性能. 总而言之咱们费了老大劲写了个线程池, 99% 业务基本都不会用
+	到. 密集型业务目前修真界都流行少量线程加轮询消息队列的方式处理, 下一个主角该登场了 ~
 
 ### 4.2 消息轮序器
 
-    系统开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务统
-	一封装 push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的
-    无上大阵. 下面就带大家写个超酷炫的封魔大镇, 收获门派一世繁华 ~
-
-    接口设计部分 scrunloop.h
+    	服务开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务统一封装
+	push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的无上大阵. 下面就带
+	大家写个超炫迈的封魔大阵, 收获门派一世繁华 ~ 接口设计部分 loop.h
 
 ```C
-#ifndef _H_SIMPLEC_SCRUNLOOP
-#define _H_SIMPLEC_SCRUNLOOP
+#ifndef _LOOP_H
+#define _LOOP_H
 
-#include "struct.h"
+#include "q.h"
+#include "atom.h"
+#include "thread.h"
 
-typedef struct srl * srl_t;
-
-//
-// srl_create - 创建轮询服务对象
-// run		: 轮序处理每条消息体, 弹出消息体的时候执行
-// die		: srl_push msg 的销毁函数
-// return	: void 
-//
-srl_t srl_create_(node_f run, node_f die);
-#define srl_create(run, die) srl_create_((node_f)(run), (node_f)(die))
+typedef struct loop * loop_t;
 
 //
-// srl_delete - 销毁轮询对象,回收资源
-// s		: 轮询对象
-// return	: void 
+// loop_delete - 轮询对象销毁
+// p        : 轮询对象
+// return   : void
 //
-extern void srl_delete(srl_t srl);
+extern void loop_delete(loop_t p);
 
 //
-// srl_push - 将消息压入到轮询器中
-// s		: 轮询对象
-// msg		: 待加入的消息地址
-// return	: void
-// 
-extern void srl_push(srl_t s, void * msg);
+// loop_push  - 消息压入轮询器
+// p        : 轮询对象
+// m        : 消息
+// return   : void
+//
+extern void loop_push(loop_t p, void * m);
 
-#endif // !_H_SIMPLEC_SCRUNLOOP
+//
+// loop_create - 创建轮询对象
+// frun     : node_f 消息处理行为
+// fdie     : node_f 消息销毁行为
+// return   : 轮询对象
+//
+extern loop_t loop_create(void * frun, void * fdie);
+
+#endif//_LOOP_H
 ```
 
-    通过宏函数 srl_create 启动一个消息轮序器, 需要注册两个函数 run 和 die, 前者用于处
-	理每个 push 进来的消息, die 用户 push 进来消息的善后工作(销毁清除). 这个类实现的非
-	常精简. 直贴代码, 比较有价值. 多感受其中的妙用, 真是, 小也能满足你 
-
-scrunloop.c
+	push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的无上大阵. 下面就带
+    函数 loop_create 创建一个消息轮序器并启动, 需要注册两个函数 frun 和 fdie, 前者用于处
+	理每个 push 进来的消息, fdie 用于用户 push 进来消息的善后工作销毁清除操作. 这个库实现
+	的非常精简. 直贴代码, 比较有价值. 多感受其中的妙用, 真是, 小就不能满足你了吗. 
 
 ```C
-#include "mq.h"
-#include "schead.h"
-#include "scrunloop.h"
-#include <semaphore.h>
+#include "loop.h"
 
-// 具体轮询器
-struct srl {
-	pthread_t id;           // 具体奔跑的线程
-	sem_t blocks;           // 线程阻塞
-
-	mq_t mq;                // 消息队列
-	node_f run;             // 每个消息都会调用 run(pop())
-	node_f die;             // 每个消息体的善后工作
-	volatile bool loop;     // true表示还在继续 
-	volatile bool wait;     // true表示当前轮序器正在等待
+// loop 轮询器结构
+struct loop {
+    q_t rq;             // 读消息
+    q_t wq;             // 写消息
+    atom_t lock;        // 消息切换锁
+    node_f frun;        // 消息处理行为
+    node_f fdie;        // 消息销毁行为
+    sem_t block;        // 线程信号量
+    pthread_t id;       // 运行的线程id
+    volatile bool loop; // true 线程正在运行
+    volatile bool wait; // true 线程空闲等待
 };
 
-static void * _srl_loop(struct srl * s) {
-	while (s->loop) {
-		void * pop = mq_pop(s->mq);
-		if (NULL == pop) {
-			s->wait = true;
-			sem_wait(&s->blocks);
-		} else {
-			// 开始处理消息
-			s->run(pop);
-			s->die(pop);
-		}
-	}
-	return s;
+// run - 消息处理行为
+inline void run(loop_t p, void * m) {
+    // 开始处理消息
+    p->frun(m);
+    p->fdie(m);
 }
-
-srl_t
-srl_create_(node_f run, node_f die) {
-	struct srl * s = malloc(sizeof(struct srl));
-	assert(s && run);
-	s->mq = mq_create();
-	s->loop = true;
-	s->run = run;
-	s->die = die;
-	s->wait = true;
-	// 初始化 POSIX 信号量, 进程内线程共享, 初始值 0
-	sem_init(&s->blocks, 0, 0);
-	// 创建线程,并启动
-	if (pthread_create(&s->id, NULL, (start_f)_srl_loop, s)) {
-		mq_delete(s->mq, die);
-		free(s);
-		RETURN(NULL, "pthread_create create error !!!");
-	}
-	return s;
-}
-
-void
-srl_delete(srl_t s) {
-	if (s) {
-		s->loop = false;
-		sem_post(&s->blocks);
-		// 等待线程结束, 然后退出
-		pthread_join(s->id, NULL);
-		sem_destroy(&s->blocks);
-		mq_delete(s->mq, s->die);
-		free(s);
-	}
-}
-
-inline void 
-srl_push(srl_t s, void * msg) {
-	assert(s && msg);
-	mq_push(s->mq, msg);
-	if (s->wait) {
-		s->wait = false;
-		sem_post(&s->blocks);
-	}
-}
-```
-	对于 struct srl::die 可以优化, 支持为 NULL 操作, 或者添加函数行为. 但是总的而言,
-	语法糖层面支持的越好, 用起来是爽了, 多次爽之后那种退烧的感觉会更有意思. C 很难把所
-	有业务统一起来支持, 那样的代码臃肿和不敢维护. 体会并学会那种 C 设计的思路, 大不了
-	为另一种业务写个更加贴切的支持, 如果追求性能的话.
-
-    再分析会, 假如是多线程环境 srl_push 触发了并发操作, 相应的 sem_post 会执行多次
-	P 操作. 但 _srl_loop 是单线程轮询处理的, 只会触发对映次的 sem_wait V 操作. 所以
-	push 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是
-	高效的保证. 武技修炼中, srl 库是继 clog 库之后, 最小意外的实现 ~
-
-    修炼到现在, 逐渐进出妖魔战场, 另一个异常恐怖 - 域外天魔正在逼近. 它会拷问你的心,
-    你为什么修炼编程 ? 进入弥天幻境, 多数人在幻境的路中间 ~ 不曾解脱 ~  
-
-    走不过去那条大道, 元婴终身无望 ~ 
-
-### 4.3 http util by libcurl
-
-    开发中对于 http 请求处理, 也是一个重要环节, 链接运营管理业务, 不可缺失. 同样都有固
-	定套路. 这里用的是 libcurl c http 处理库. 
-
-```Bash
-// linux 安装总结
-sudo apt-get install libcurl4-openssl-dev
-
-// winds 使用方法
-/*
- 方法1. 查教程, 去 libcurl 官网下载最新版本编译
- 方法2. 如果你怕麻烦 github 找我的项目 simplc, 参照 extern 目录下面
- 方法3. 随便, 只要你搭好 hello world 就行 
- */
-```
-
-    按照上面思路, 搭建好环境开搞. 服务器中对于 http 请求, 主要围绕在 get 和 post. 
-    接收别人的 http 请求和接收 tcp请求一样, 通过协议得到完整报文, 抛给业务层. 所
-	以封装的 http 工具库, 接口功能很单一. 就是对外发送 get post 请求:
-
-httputil.h
-
-```C
-#ifndef _H_SIMPLEC_HTTPUTIL
-#define _H_SIMPLEC_HTTPUTIL
-
-#include "tstr.h"
-#include <curl/curl.h>
 
 //
-// http_start - http 库启动
-// return	: void
+// loop_delete - 轮询对象销毁
+// p        : 轮询对象
+// return   : void
 //
-extern void http_start(void);
-
-//
-// http_get - http get 请求 or https get请求 
-// url		: 请求的url
-// str		: 返回最终申请的结果, NULL表示只请求不接收数据
-// return	: true表示请求成功
-//
-extern bool http_get(const char * url, tstr_t str);
-extern bool http_sget(const char * url, tstr_t str);
-
-//
-// http_post - http post 请求 or https post 请求
-// url		: 请求的路径
-// params	: 参数集 key=value&.... 串
-// str		: 返回结果, 需要自己释放, NULL表示只请求不接受数据返回
-// return	: false表示请求失败, 会打印错误信息
-//
-extern bool http_post(const char * url, const char * params, tstr_t str);
-extern bool http_spost(const char * url, const char * params, tstr_t str);
-
-#endif // !_H_SIMPLEC_HTTPUTIL
-```
-
-    对于 http_start 启动, 稍微说点. 不知道有没有人好奇, winds 上面使用 socket 的
-	时候需要先加载 WSAStartup 操作. 其实是我们用惯了 linux 上面的, 没有先加载操作.
-    linux c 程序编译的时候, 默认加了 socket 库的初始化加载工作. 所以咱们就不需要继
-    续加载了(编译器主动做了). 这就清晰了 xxx_start 相当于启动操作, 先启动车子, 才
-	能操作车子不是吗. 那我们继续看吧
-
-```C
-#include "httputil.h"
-
-// 超时时间10s
-#define _INT_TIMEOUT		(4)
-
-// libcurl 库退出操作
-static inline void _http_end(void) {
-	curl_global_cleanup();
-}
-
-inline void 
-http_start(void) {
-	//
-	// CURLcode curl_global_init(long flags);
-	// @ 初始化libcurl, 全局只需调一次
-	// @ flags : CURL_GLOBAL_DEFAULT        // 等同于 CURL_GLOBAL_ALL
-	//           CURL_GLOBAL_ALL            // 初始化所有的可能的调用
-	//           CURL_GLOBAL_SSL            // 初始化支持安全套接字层
-	//           CURL_GLOBAL_WIN32          // 初始化WIN32套接字库
-	//           CURL_GLOBAL_NOTHING        // 没有额外的初始化
-	//
-	CURLcode code = curl_global_init(CURL_GLOBAL_DEFAULT);
-	if (code != CURLE_OK) {
-		RETURN(NIL, "curl_global_init error = %s.", curl_easy_strerror(code));
-	}
-
-	atexit(_http_end);
-}
-```
-
-    这类 start 操作基本都是单例, 在 main 函数启动的时候组织顺序执行一次就可以. 其中
-    atexit 可有可无, 因为 http_start 操作 curl_global_init 需要跟随程序整个生命周期.
-    对于这种同程序同生共死的操作, 流程操作系统回收吧. 下面 http_get 函数也只是熟悉 
-	libcurl 库的简单用法:
-
-```C
-// 请求共有头部
-static CURL * _http_head(const char * url, tstr_t str) {
-	CURL * crl = curl_easy_init();
-	if (NULL == crl) {
-		RETURN(NULL, "curl_easy_init error !!!");
-	}
-
-	// 设置下载属性和常用参数
-	curl_easy_setopt(crl, CURLOPT_URL, url);                    // 访问的URL
-	curl_easy_setopt(crl, CURLOPT_TIMEOUT, _INT_TIMEOUT);       // 设置超时时间 单位s
-	curl_easy_setopt(crl, CURLOPT_HEADER, true);                // 下载数据包括HTTP头部
-	curl_easy_setopt(crl, CURLOPT_NOSIGNAL, true);              // 屏蔽其它信号
-
-	curl_easy_setopt(crl, CURLOPT_WRITEFUNCTION, (curl_write_callback)_http_write);	// 输入函数类型
-	curl_easy_setopt(crl, CURLOPT_WRITEDATA, str);              // 输入参数
-
-	return crl;
-}
-
-// 请求共有尾部
-static inline bool _http_tail(CURL * crl, tstr_t str) {
-	CURLcode res = curl_easy_perform(crl);
-	tstr_cstr(str);
-	curl_easy_cleanup(crl);
-	if (res != CURLE_OK) {
-		RETURN(false, "curl_easy_perform error = %s!", curl_easy_strerror(res));
-	}
-
-	return true;
-}
-
-inline bool 
-http_get(const char * url, tstr_t str) {
-	CURL * crl = _http_head(url, str);
-	return crl ? _http_tail(crl, str) : false;
-}
-```
-
-    对于 http_sget 走 https 协议, 相比 http_get 请求也只是多了个属性设置
-
-```C
-// 添加 https 请求设置
-static inline void _http_sethttps(CURL * crl) {
-	curl_easy_setopt(crl, CURLOPT_SSL_VERIFYPEER, false);
-	curl_easy_setopt(crl, CURLOPT_SSL_VERIFYHOST, false);
-}
-
-inline bool 
-http_sget(const char * url, tstr_t str) {
-	CURL * crl = _http_head(url, str);
-	if (crl) {
-		_http_sethttps(crl);
-		return _http_tail(crl, str);
-	}
-	return false;
-}
-```
-
-    get 方面请求完了, 自然 post 也会很快就完了. 不是它太简单, 而是这种看的多了, 
-    查查手册, 看看源码, 用的会贼溜 ~
-
-```C
-// 添加 post 请求设置
-static inline void _http_setpost(CURL * crl, const char * params) {
-	curl_easy_setopt(crl, CURLOPT_POST, true); 
-	curl_easy_setopt(crl, CURLOPT_POSTFIELDS, params);
-}
-
-inline bool 
-http_post(const char * url, const char * params, tstr_t str) {
-	CURL * crl = _http_head(url, str);
-	if (crl) {
-		_http_setpost(crl, params);
-		return _http_tail(crl, str);
-	}
-	return false;
-}
-
-bool 
-http_spost(const char * url, const char * params, tstr_t str) {
-	CURL * crl = _http_head(url, str);
-	if (crl) {
-		_http_sethttps(crl);
-		_http_setpost(crl, params);
-		return _http_tail(crl, str);
-	}
-	return false;
-}
-```
-
-    前面几章内功练到好, 这里武技只是三花聚顶, 越打越带劲. 出掌震飞尸, 拔剑灭妖魔.
-    当然了 http 解决方案不少, 很多知名网络库都会附赠个 http 处理小单元. libcurl 是
-    我见过比较良心的了. 成熟可靠, 资料很全. 武技讲的这么多, 希望修炼的你能懂. 一切
-    都是套路, 只有赤城之人才能走到道的远方 ~
-
-#### 4.4 阅读理解时间, 不妨来个定时器
-
-	对于定式器实现而言无外乎三大套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设
-	计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 
-	还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条颗度上的链表. 总的而
-	言定时器的套路不少, 具体看应用的场景. 我们这里带来的阅读理解是基于有序链表, 刚好温
-	故下 list 用. 可以说起缘 list, 终于 list. 
-
-sctimer.h
-
-```C
-#ifndef _H_SIMPLEC_SCTIMER
-#define _H_SIMPLEC_SCTIMER
-
-#include "schead.h"
-
-//
-// st_add - 添加定时器事件,虽然设置的属性有点多但是都是必要的
-// intval	: 执行的时间间隔, <=0 表示立即执行, 单位是毫秒
-// timer	: 定时器执行函数
-// arg		: 定时器参数指针
-// return	: 返回这个定时器的唯一id
-//
-extern int st_add_(int intval, node_f timer, void * arg);
-#define st_add(intval, timer, arg) st_add_(intval, (node_f)timer, (void *)(intptr_t)arg)
-
-//
-// st_del - 删除指定事件
-// id		: st_add 返回的定时器id
-// return	: void
-//
-extern void st_del(int id);
-
-#endif // !_H_SIMPLEC_SCTIMER
-```
-
-	结构清晰易懂, 业务只有添加和删除. 顺便用了一个去除警告的函数宏技巧 st_add . 实现部分如下, 
-	重点感受数据结构内功的 list 结构的用法. 
-
-```C
-// 使用到的定时器结点
-struct stnode {
-    $LIST_HEAD;
-
-    int id;                 // 当前定时器的id
-    struct timespec tv;     // 运行的具体时间
-    node_f timer;           // 执行的函数事件
-    void * arg;             // 执行函数参数
-};					   
-							   
-// 当前链表对象管理器			  
-struct stlist {				   
-    int lock;               // 加锁用的
-    int nowid;              // 当前使用的最大timer id
-    bool status;            // false表示停止态, true表示主线程loop运行态
-    struct stnode * head;   // 定时器链表的头结点
-};
-
-// 定时器对象的单例, 最简就是最复杂
-static struct stlist _st;
-
-// 先创建链表对象处理函数
-static struct stnode * _stnode_new(int s, node_f timer, void * arg) {
-	struct stnode * node = malloc(sizeof(struct stnode));
-	if (NULL == node)
-		RETURN(NULL, "malloc struct stnode is error!");
-
-	// 初始化, 首先初始化当前id
-	node->id = ATOM_INC(_st.nowid);
-	timespec_get(&node->tv, TIME_UTC);
-	node->tv.tv_sec += s / 1000;
-	node->tv.tv_nsec += (s % 1000) * 1000000;
-	node->timer = timer;
-	node->arg = arg;
-
-	return node;
-}
-
-// 得到等待的微秒时间, <=0的时候头时间就可以执行了
-static inline int _stlist_sus(struct stlist * st) {
-	struct timespec t[1], * v = &st->head->tv;
-	timespec_get(t, TIME_UTC);
-	return (int)((v->tv_sec - t->tv_sec) * 1000000
-		+ (v->tv_nsec - t->tv_nsec) / 1000);
-}
-
-// 重新调整, 只能在 _stlist_loop 后面调用, 线程安全,只加了一把锁
-static void _stlist_run(struct stlist * st) {
-	struct stnode * sn;
-
-	ATOM_LOCK(st->lock); // 加锁防止调整关系覆盖,可用还是比较重要的
-	sn = st->head;
-	st->head = (struct stnode *)list_next(sn);
-	ATOM_UNLOCK(st->lock);
-
-	sn->timer(sn->arg);
-	free(sn);
-}
-
-// 运行的主loop,基于timer管理器
-static void * _stlist_loop(struct stlist * st) {
-	// 正常轮询,检测时间
-	while (st->head) {
-		int nowt = _stlist_sus(st);
-		if (nowt > 0) {
-			usleep(nowt);
-			continue;
-		}
-		_stlist_run(st);
-	}
-
-	// 已经运行结束
-	st->status = false;
-	return NULL;
-}
-
-// st < sr 返回 < 0, == 返回 0, > 返回 > 0
-static inline int _stnode_cmptime(const struct stnode * sl, const struct stnode * sr) {
-	if (sl->tv.tv_sec != sr->tv.tv_sec)
-		return (int)(sl->tv.tv_sec - sr->tv.tv_sec);
-	return (int)(sl->tv.tv_nsec - sr->tv.tv_nsec);
-}
-
-int 
-st_add_(int intval, node_f timer, void * arg) {
-	struct stnode * now;
-	// 各种前戏操作
-	if (intval <= 0) {
-		timer(arg);
-		return SufBase;
-	}
-
-	now = _stnode_new(intval, timer, arg);
-	if (NULL == now) {
-		RETURN(ErrAlloc, "_new_stnode is error intval = %d.", intval);
-	}
-
-	ATOM_LOCK(_st.lock); //核心添加模块 要等, 添加到链表, 看线程能否取消等
-
-	list_add(&_st.head, _stnode_cmptime, now);
-
-	// 这个时候重新开启线程
-	if(!_st.status) {
-		if (async_run(_stlist_loop, &_st)) {
-			list_destroy(&_st.head, free);
-			RETURN(ErrFd, "pthread_create is error!");
-		}
-		_st.status = true;
-	}
-
-	ATOM_UNLOCK(_st.lock);
-	
-	return now->id;
-}
-
-// 通过id开始查找
-static inline int _stnode_cmpid(int id, const struct stnode * sr) {
-	return id - sr->id;
-}
-
 void 
-st_del(int id) {
-	struct stnode * node;
-	if (!_st.head) return;
+loop_delete(loop_t p) {
+    //
+    // delete 执行必须在 push 之后, C 代码是在刀剑上跳舞 ~ 
+    //
+    if (p) {
+        p->loop = false;
+        sem_post(&p->block);
+        // 等待线程结束, 然后退出
+        pthread_end(p->id);
+        sem_destroy(&p->block);
+        q_delete(p->rq, p->fdie);
+        q_delete(p->wq, p->fdie);
+        free(p);
+    }
+}
 
-	ATOM_LOCK(_st.lock);
-	node = list_findpop(&_st.head, _stnode_cmpid, id);
-	ATOM_UNLOCK(_st.lock);
+//
+// loop_push - 消息压入轮询器
+// p        : 轮询对象
+// m        : 消息
+// return   : void
+//
+void 
+loop_push(loop_t p, void * m) {
+    assert(p && m);
+    atom_lock(p->lock);
+    q_push(p->rq, m);
+    atom_unlock(p->lock);
+    if (p->wait) {
+        p->wait = false;
+        sem_post(&p->block);
+    }
+}
 
-	free(node);
+// loop_run - 轮询器执行的循环体
+static void loop_run(loop_t p) {
+    while (p->loop) {
+        void * m = q_pop(p->rq);
+        if (m) {
+            run(p, m);
+            continue;
+        }
+
+        // read q <- write q
+        atom_lock(p->lock);
+        q_swap(p->rq, p->wq);
+        atom_unlock(p->lock);
+
+        m = q_pop(p->rq);
+        if (m) run(p, m);
+        else {
+            // 仍然没有数据, 开始睡眠
+            p->wait = true;
+            sem_wait(&p->block);
+        }
+    }
+}
+
+//
+// loop_create - 创建轮询对象
+// frun     : node_f 消息处理行为
+// fdie     : node_f 消息销毁行为
+// return   : 轮询对象
+//
+loop_t 
+loop_create(void * frun, void * fdie) {
+    loop_t p = malloc(sizeof(struct loop));
+    p->lock = 0;
+    q_init(p->rq);
+    q_init(p->wq);
+    p->frun = frun;
+    p->fdie = fdie;
+    p->wait = p->loop = true;
+    // 初始化 POSIX 信号量, 进程内线程共享, 初始值 0
+    sem_init(&p->block, 0, 0);
+    if (pthread_run(&p->id, loop_run, p)) {
+        sem_destroy(&p->block);
+        free(p->rq->queue);
+        free(p->wq->queue);
+        free(p); p = NULL;
+    }
+    return p;    
 }
 ```
 
-	其中用到的 usleep 移植到 winds 上面实现为 
+	push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的无上大阵. 下面就带
+	对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些, 那就
+	爽了. 整体思路是乒乓交换, 亮点在于 sem_wait. 分析会, 假如是多线程环境 loop_push 多次
+	并发操作, 并触发相应的 sem_post 会执行多次 P 操作. 但 loop_run 是单线程轮询处理的, 
+	只会触发对应次的 sem_wait V 操作. 所以 push 的 sem_post 不加锁不影响业务正确性. 而且
+	sem_wait 是通用层面阻塞性能最好的选择. 这些都是高效的保证. 武技修炼中, loop 库是继 
+	clog 库之后, 基于最小意外的实现 ~ 感悟到现在, 逐渐进出妖魔战场, 修炼越发坚深. 然而你心
+	中的域外天魔也在逐渐逼近. 它会拷问你的内心, 你为什么修炼编程? 随之进入弥天幻境, 太多太
+	多人在幻境的路中间 ~ 不曾解脱 ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
+
+### 4.3 阅读理解时间, 不妨来个定时器
+
+		对于定式器实现而言无外乎三大套路. 一种是有序链表用于解决, 大量重复轮询的定时节点设
+	计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 还有
+	一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条刻度上的链表. 总的而言定时器
+	的套路不少, 具体看应用的场景. 我们这里带来的阅读理解是基于有序链表, 刚好温故下 list 用
+	. 可以说起缘 list, 终于 list. 
 
 ```C
-// 为 Visual Studio 导入一些 GCC 上优质思路
-#ifdef _MSC_VER
+#ifndef _TIMER_H
+#define _TIMER_H
+
+#include "atom.h"
+#include "list.h"
+#include "times.h"
+#include "thread.h"
 
 //
-// usleep - 微秒级别等待函数
-// usec		: 等待的微秒
-// return	: The usleep() function returns 0 on success.  On error, -1 is returned.
+// timer_del - 删除定时器事件
+// id       : 定时器 id
+// return   : void
 //
-int
-usleep(unsigned usec) {
-	int rt = -1;
-	// Convert to 100 nanosecond interval, negative value indicates relative time
-	LARGE_INTEGER ft = { .QuadPart = -10ll * usec };
+extern void timer_del(int id);
 
-	HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
-	if (timer) {
-		// 负数以100ns为单位等待, 正数以标准FILETIME格式时间
-		SetWaitableTimer(timer, &ft, 0, NULL, NULL, FALSE);
-		WaitForSingleObject(timer, INFINITE);
-		if (GetLastError() == ERROR_SUCCESS)
-			rt = 0;
-		CloseHandle(timer);
-	}
+//
+// timer_add - 添加定时器事件
+// ms       : 执行间隔毫秒, <= 0 表示立即执行
+// ftimer   : node_f 定时器行为
+// arg      : 定时器参数
+// return   : 定时器 id, < 0 标识 error
+//
+extern int timer_add(int ms, void * ftimer, void * arg);
 
-	return rt;
+#endif//_TIMER_H
+```
+
+	设计清晰易懂, 业务只有添加和删除. 实现部分如下, 重点感受数据结构内功的 list 结构的用法. 
+
+```C
+#include "timer.h"
+
+// timer_node 定时器节点
+struct timer_node {
+$LIST
+    int id;            // 定时器 id
+    void * arg;        // 执行函数参数
+    node_f ftimer;     // 执行的函数事件
+    struct timespec t; // 运行的具体时间
+};
+
+// timer_node id compare
+inline static int timer_node_id_cmp(int id, 
+                                    const struct timer_node * r) {
+    return id - r->id;
 }
 
-#endif
+// timer_node time compare 比较
+inline static int timer_node_time_cmp(const struct timer_node * l, 
+                                      const struct timer_node * r) {
+    if (l->t.tv_sec != r->t.tv_sec)
+        return (int)(l->t.tv_sec - r->t.tv_sec);
+    return (int)(l->t.tv_nsec - r->t.tv_nsec);
+}
+
+// timer_list 链表对象管理器
+struct timer_list {
+    int id;                   // 当前 timer node id
+    atom_t lock;              // 自旋锁
+    volatile bool status;     // true is thread loop, false is stop
+    struct timer_node * list; // timer list list
+};
+
+// timer_list_sus - 得到等待的微秒事件, <= 0 表示可以执行
+inline int timer_list_sus(struct timer_list * list) {
+    struct timespec * v = &list->list->t, t[1];
+    timespec_get(t, TIME_UTC);
+    return (int)((v->tv_sec - t->tv_sec) * 1000000 + 
+        (v->tv_nsec - t->tv_nsec) / 1000);
+}
+
+// timer_list_run - 线程安全, 需要再 loop 之后调用
+inline void timer_list_run(struct timer_list * list) {
+    struct timer_node * node;
+    atom_lock(list->lock);
+    node = list->list;
+    list->list = list_next(node);
+    atom_unlock(list->lock);
+
+    node->ftimer(node->arg);
+    free(node);
+}
+
+// 定时器管理单例对象
+static struct timer_list timer;
+
+//
+// timer_del - 删除定时器事件
+// id       : 定时器 id
+// return   : void
+//
+inline void 
+timer_del(int id) {
+    if (timer.list) {
+        atom_lock(timer.lock);
+        free(list_pop(&timer.list, timer_node_id_cmp, (void *)(intptr_t)id));
+        atom_unlock(timer.lock);
+    }
+}
+
+// timer_new - timer_node 定时器节点构建
+static struct timer_node * timer_new(int s, node_f ftimer, void * arg) {
+    struct timer_node * node = malloc(sizeof(struct timer_node));
+    node->id = atom_inc(timer.id);
+    if (node->id < 0)
+        node->id = atom_and(timer.id, INT_MAX);
+    node->arg = arg;
+    node->ftimer = ftimer;
+    timespec_get(&node->t, TIME_UTC);
+    node->t.tv_sec += s / 1000;
+    // nano second
+    node->t.tv_nsec += (s % 1000) * 1000000;
+    return node;
+}
+
+// 运行的主 loop, 基于 timer 管理器 
+static void timer_run(struct timer_list * list) {
+    // 正常轮循, 检查时间
+    while (list->list) {
+        int sus = timer_list_sus(list);
+        if (sus > 0) {
+            usleep(sus);
+            continue;
+        }
+
+        timer_list_run(list);
+    }
+
+    // 已经运行结束
+    list->status = false;
+}
+
+//
+// timer_add - 添加定时器事件
+// ms       : 执行间隔毫秒, <= 0 表示立即执行
+// ftimer   : node_f 定时器行为
+// arg      : 定时器参数
+// return   : 定时器 id, < 0 标识 error
+//
+int 
+timer_add(int ms, void * ftimer, void * arg) {
+    if (ms <= 0) {
+        ((node_f)ftimer)(arg);
+        return 0;
+    }
+
+    struct timer_node * node = timer_new(ms, ftimer, arg);
+    int id = node->id;
+    atom_lock(timer.lock);
+
+    list_add(&timer.list, timer_node_time_cmp, node);
+
+    // 判断是否需要开启新的线程
+    if (!timer.status) {
+        if (!pthread_async(timer_run, &timer))
+            timer.status = true;
+        else {
+            free(node);
+            id = -1;
+        }
+    }
+
+    atom_unlock(timer.lock);
+    return id;
+}
 ```
-    以上 sctime 模块中操作, 无外乎利用 list 构建了一个升序链表, 通过额外异步分离
-	线程 loop 监测下去并执行. 定时器一个通病, 不要放入阻塞函数, 容易失真. 
-	sctimer 使用方面也很简单, 例如一个技能, 吟唱 1s, 持续伤害 2s. 构造如下:
+
+	计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆定执行速度最快. 还有
+    以上 timer.c 模块中操作, 无外乎利用 list 构建了一个升序链表, 通过额外异步分离线程 
+	loop 监测节点链表去并执行. 定时器一个通病, 不要放入阻塞函数, 容易失真. timer 使用方面
+	也很简单, 例如一个技能, 吟唱 1s, 持续伤害 2s. 构造如下:
 
 ```C
 struct skills {
@@ -979,48 +788,46 @@ struct skills fireball = { 007, false };
 
 static void _end(struct skills * kill) {
 	...
-	if (kill.id == 007) {
+	if (kill.id == fireball.id) {
 		puts("火球术持续输出结束...");
 		kill.exist = false;
 	}
 	...
 }
 
-static void _continued(struct skills * kill) {
+static void continued(struct skills * kill) {
 	...
-	if (kill.id == 007) {
+	if (kill.id == fireball.id) {
 		puts("火球术吟唱成功, 开始持续输出...");
 		kill.exist = true;
-		st_add(2000, _end, kill);
+		timer_add(2000, end, kill);
 	}
 	...
 }
 
-static void _start(struct skills * kill) {
+static void start(struct skills * kill) {
 	...
-	if (kill.id == 007) {
+	if (kill.id == fireball.id) {
 		puts("火球术开始吟唱...");
 		kill.exist = false;
-		st_add(1000, _continued, kill);
+		timer_add(1000, continued, kill);
 	}
 	...
 }
 ```
 
-	调用 _start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期
-	根据标识统一绘制显示. 以上是简单到吐的思路说不定也很有效. 有点像优化过的 select
-	特定的时候出其不意 ~
+	调用 start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期根据标识
+	统一绘制显示. 以上是简单到吐的思路说不定也很有效. 有点像优化过的 select 特定的时候出其
+	不意 ~
 
 ***
 
-	过的真快, 修炼之路已经走过小一半了. 从华山剑法练起, 到现在的一步两步三步. 以后
-	自己可以上路了, 单纯的客户端业务的小妖魔, 分分钟可以干掉吧. 本章在实战中会用的最
-	多就是日月轮 sclooprun 模块. 对于定时器, 多数内嵌到主线程轮询模块(update) 中.  
-	此刻应该多出去历练求索, 在血与歌中感受生的洗礼. 聆听心中的道. Thx
+	过的真快, 修炼之路已经走过小一半了. 从华山剑法练起, 到现在的一步两步三步. 以后自己可以
+	上路了, 单纯的客户端业务的小妖精, 分分钟可以干掉吧. 本章在实战中会用的最多就是日月轮 
+	loop 模块. 对于定时器, 多数内嵌到主线程轮询模块(update) 中. 此刻可以多出去历练求索, 
+	在血与歌中感受生的洗礼. 尝悟心中的道. 此景想起宋代大家王安石写的一首小诗.
 
-	元日
-	王安石 - 宋代
-
+	元日(宋-王安石)
 	爆竹声中一岁除，春风送暖入屠苏。
 	千门万户曈曈日，总把新桃换旧符。
 
