@@ -1,23 +1,23 @@
 # 第4章-武技-常见轮子下前仆
 
-        本章是关于系统中常见轮子的介绍. 也是构建框架中最基础的组件. 可以说是咱们参与战斗
-	的生命线. 当前定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套
-	路. 最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 此武技的宗旨就是让你成为战场上
-	苟延残喘的小强 ┗|｀O′|┛ . 嗷那开始出招吧 ~
+        本章是关于系统中常见轮子的介绍. 在构建框架中属于最基础的组件. 算是咱们参与战斗过
+    程中的生命线. 当前定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建
+    的套路. 最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场
+    上苟延残喘的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
 
 ## 4.1 那些年写过的日志库
 
-        用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
-	后展示了 50 行的极小的日志库, 来表达所要的一切美好 ~ 越简单越优美越让人懂的代码总会
-	出彩, 不是吗? 一个高性能的日志库突破点无外乎
-        1. 缓存
-        2. 无锁
-        3. 定位
-    随后会对这个日志武技轮子, 深入剖析
+        用过太多日志库轮子, 也写过不少. 也见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 
+    最后展示核心就 50 行的极短的日志库, 来表达所要的一切美好 ~ 越简单越优美越让人懂的代
+    码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎
+        1' 缓存
+        2' 无锁
+        3' 定位
+    随后会对这个日志武技轮子, 深入剖析.
 
-### 4.1.1 日志库小小
+### 4.1.1 小小日志库
 
-    先看接口 clog.h 设计部分, 感受下三个宏解决一切幺蛾子.
+    先看接口 clog.h 设计部分, 感受下几个宏解决一切幺蛾子.
 
 ```C
 #ifndef _LOG_H
@@ -58,7 +58,7 @@ void log_printf(const char * fmt, ...);
 #endif//_LOG_H
 ```
 
-    clog.h 继承自 times.h 唯一使用的就是 times_fmt 接口得到特定时间格式串.
+    clog.h 继承自 times.h, 唯一需要的就是其中 times_fmt 接口用以得到特定时间格式串.
 
 ```C
 // TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
@@ -86,7 +86,7 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 }
 ```
 
-    填充到日志的头部进行标识. 小小核心构造原理展开如下:
+    填充到日志的头部进行标识. 日志库小小核心构造源码展开:
 
 ```C
 #include "log.h"
@@ -145,14 +145,14 @@ do {                                                              \
 EXTERN_RUN(log_init, LOG_PATH_STR);
 ```
 
-    是不是很恐怖, 一个日志库完了. fputs 是系统内部打印函数, 默认自带缓冲机制. 缓冲说白
-    了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇自带文件锁. 有兴趣的可以
-    详细研究 printf, C 入门最早的学的函数, 也是最复杂的函数之一. 那目前就差生成业务了!
-    也就是第三点定位, 这也是 小小日志库的另一个高明之处, 借天罚来惩戒妖魔鬼怪. 
+    是不是很恐怖, 一个日志库这就完了. fputs 是系统内部打印函数, 默认自带缓冲机制. 缓冲说
+    白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇自带文件锁. 有兴趣的可以
+    详细研究 printf, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业务了! 也就
+    是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
 
 ### 4.1.2 小小日志库 VT 二连
 
-    先构建一下测试环境. 模拟一个妖魔大战的场景~ 嗖 ~ 切换到 linux 平台. 依次看下去
+    先构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 切换到 linux 平台. 依次看下去
 
 ```C
 #include <stdio.h>
@@ -200,7 +200,7 @@ simplec.exe : simplec.c
 ```
 
     通过 make 得到 simplec.exe 运行起来, 就开始在日志文件中持续输出. 有关试炼场的环境
-	已经搭建成功. 那么是时候主角 T logrotate 出场了. 很久前在 centos 测试构建过看图:
+	已经搭建完成. 那么是时候主角 T logrotate 出场了. 很久前在 centos 测试构建过看图:
 
 ![logrotate](./img/logrotate.png)
 
@@ -246,30 +246,31 @@ logrotate -vf /etc/logrotate.d/simplec
 ![logrotate log](./img/createlog.png)
 
     如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双脚的主场. 如果没有那么是时候 -> 
-	冲冲冲, 四驱兄弟在心中 ~ 当然了小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时
-	器了, crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库实战
+	冲冲冲, 四驱兄弟在心中 ~ 以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器了
+    , 例如 crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库实战
 	架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路
-	, 知彼知己才能又吃又喝 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类
+	, 知彼知己才能大口吃喝 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类
 	日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业
 	务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀
 	一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看
-	法它很重. 哪有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层
-	面输出接口来的直接. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一
+	法它很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层
+	面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一
 	环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 
 	到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
-	    1. 无锁编程, 利用 fprintf IO 锁
-	    2. fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
-	    3. 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
+	    1' 无锁编程, 利用 fprintf IO 锁
+	    2' fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
+	    3' 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
 
 ### 4.2 开胃点心, 高效随机数库
 
-        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一样. 顺便嫌
+        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便嫌
 	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
 	类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情, 也可
-	能发生 ~". 还是有点呵呵. 数学的本源不是为了解决具体遇到问题, 多数是人内部思维的升华 
-	-> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷尔曼]渡劫真君, 嗨了一发
-	就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码上拔下来的, redis 是从 
-	pysam 源码上拔下来. 也只能说是薪火相传, 生生不息. 哭 ~ 首先看接口设计
+	能发生 ~". 还是有点呵呵(非标准分析中可能有答案). 数学的本源不是为了解决具体遇到问题,
+    多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷
+    尔曼]渡劫真君, 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码
+    上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息. 哭 ~ 首先看
+    接口设计.
 
 ```C
 #ifndef _RAND_H
@@ -344,7 +345,7 @@ inline int32_t r_rands(int32_t min, int32_t max) {
 #endif//_RAND_H
 ```
 
-    最核心是 rand_rand 函数实现, 阅读理解来了, 感受下离散数学的魅力
+    最核心是 rand_rand 函数实现, 小阅读理解来了, 感受下离散数学的魅力
 
 scrand.c
 
@@ -405,18 +406,18 @@ r_rand(void) {
 }
 ```
 
-	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
     (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~) 代码都
-	懂, rand_next 计算复杂点. 之后就看自己悟了, 毕竟世界也是咱们的. r_randk, r_rands
-    思路很浅显分别根据位随机和区间范围. 从上面 r_r 可以看出来随机函数并不是线程安全的. 
-	在多线程环境中就会出现未知行为了(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机才
-	会有点随机吗? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数. 不怕折腾可以把上
-	面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前 winds 和 linux 测试良好.
+	懂, rand_next 计算复杂点. 之后靠看自己悟了, 毕竟世界也是咱们的. r_randk, r_rands
+    思路很浅显分别根据位随机和区间范围. 从上面 r_r 能够看出来随机函数并不是线程安全的. 
+	在多线程环境中就会出现未知行为(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机才
+	会有点真随机味道吧? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数. 不怕折腾
+    可以把上面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前 winds 和 linux 测
+    试良好.
 
 ```C
 /*
  describe:
-	1亿的数据量, 测试随机生成函数
+	1 亿的数据量, 测试随机生成函数
 	front system rand, back r_rand rand
  
  test code
@@ -449,8 +450,7 @@ r_rand(void) {
 	The current code block running time:0.671887 seconds
  */
 ``` 
-
-	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人	
+	
     到这基本前戏做的够足了. 这里不妨带大家去武当山抓个宝宝.
 
 ```C
@@ -461,7 +461,7 @@ r_rand(void) {
 #define F_INT         (100000000)
 
 // getr - 得到 rand() 返回值, 并写入到文件中
-static int getr(long long *pnt) {
+static int getr(long long * pnt) {
     static int cnt;
 
     int r = rand();
@@ -626,10 +626,12 @@ extern int getawd(char * buf, size_t size);
 #endif//_FILE_H
 ```
 
-	removes, mkdirs, mkfdir, getawd 是不是有了这些接口, 以后程序操作目录方便了很多. 其
-	中 removes 省力的通过系统 shell 的能力来实现的.
+	removes, mkdirs, mkfdir, getawd 是不是有了这些接口, 以后写代码操作目录方便了很多. 
+    其中 removes 借力的通过系统 shell 的能力来实现的.
 
 ```C
+#include "file.h"
+
 //
 // removes - 删除非空目录 or 文件
 // path     : 文件路径
@@ -638,13 +640,13 @@ extern int getawd(char * buf, size_t size);
 inline int removes(const char * path) {
     char s[BUFSIZ];
 
-#ifndef RMRF_STR
-#   ifdef _MSC_VER
-#       define RMRF_STR    "rmdir /s /q \"%s\""
-#   else
-#       define RMRF_STR    "rm -rf '%s'"
-#   endif
-#endif
+#  ifndef RMRF_STR
+#    ifdef _MSC_VER
+#      define RMRF_STR    "rmdir /s /q \"%s\""
+#    else
+#      define RMRF_STR    "rm -rf '%s'"
+#    endif
+#  endif
 
     // path 超过缓冲区长度, 返回异常
     if (snprintf(s, sizeof s, RMRF_STR, path) == sizeof s) 
@@ -767,13 +769,13 @@ int
 getawd(char * buf, size_t size) {
     char * tail;
 
-#ifndef getawe
-#   ifdef _MSC_VER
-#       define getawe(b, s)    (int)GetModuleFileName(NULL, b, (DWORD)s);
-#   else
-#       define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
-#   endif
-#endif
+#  ifndef getawe
+#    ifdef _MSC_VER
+#      define getawe(b, s)    (int)GetModuleFileName(NULL, b, (DWORD)s);
+#    else
+#      define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
+#    endif
+#  endif
 
     int r = getawe(buf, size);
     if (r <= 0 || r >= size)
@@ -807,8 +809,8 @@ EXTERN_RUN(log_init, r);
 
 ### 4.3.1 file 监控
 
-    很多时候有这样一个需求, 某个配置是可刷新的. 完成这个功能也很简单, 无外乎外部触发或者内部
-    监控. 两种方式内部触发是最省力, 我们也想这种能力包含到 file.h 接口设计中.
+    很多时候有这样一个需求, 某个配置需要可刷新. 完成这个功能也很简单, 无外乎外部触发或者内部
+    监控. 两种方式, 内部触发是最省力, 我们也想把这种能力包含到 file.h 接口设计中.
 
 ```C
 #ifndef _FILE_H
@@ -898,7 +900,7 @@ static struct file * f_s_get(const char * p, unsigned * r) {
 
     file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行
     对于每个要监控的文件, 我们记录了最后一次修改时间 last, 文件全路径 path, 执行体 func 和 
-    arg. 有了这些基本上就查码代码了. 其中 file_set 设计包含了 del 操作, 即当 file_f 设置为空
+    arg. 有了这些基本上就差码代码了. 其中 file_set 设计包含了 del 操作, 即当 file_f 设置为空
     NULL 就认为是 file_del(path) 操作. 
 
 ```C
@@ -968,15 +970,15 @@ file_update(void) {
 ```
 
     file_update 做的工作就是循环遍历 struct files::head 链表, 挨个检查文件最后一次修改时间
-    mtime 是否发生变化. 如果发生了就触发 file_f 注册行为. 当然也会清除待删除的注册行为. 到这
+    mtime 是否发生变化. 如果不一样就触发 file_f 注册行为. 当然也会清除待删除的注册文件. 到这
     里我们的文件操作就讲完了. 很枯燥, 但是是你的鲤鱼跃龙门的阶梯.
 
 ## 4.4 C 来个 json 轮子
 
         在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 在国内刚
     兴起, 所以一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当初写的那个删了.
-    用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行, 就琢磨写了个简单的 c json. 这小节, 就带大
-    家写写这个 c json 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON 好学习.
+    用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行的, 就琢磨写了个简单的 c json. 这小节, 就带
+    大家写写这个 c json 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON 好学习.
 
 ### 4.4.1 c json 设计布局 
 
@@ -986,8 +988,8 @@ file_update(void) {
 ![c json 内存布局](./img/json内存布局.png)
 
     str 指向内存常量, tstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个中转站. 
-    因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 这就是引入目的.
-    再看看 c json 结构代码设计:
+    因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 这就是引入目的
+    . 再看看 c json 结构代码设计:
 
 ```C
 struct json {
@@ -1657,16 +1659,80 @@ static const char * parse_object(json_t item, const char * str) {
 }
 ```
 
-    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带给你不一样
     关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演示的思路
-    , 花些心思也可以构建出 json 对象转 json 串的套路. 或者写个小型计算器等等. 有了 json 的处
-    理库, 有没有感觉基础的业务配置就很轻松了. 
+    , 花些心思也可以构建出 json 对象转 json 串的套路. 麻烦点有 JSON_STRING 转换, 我们简单提
+    提, 有心人可以作为拓展修炼. 有了 json 的处理库, 有没有感觉基础的业务配置就很轻松了. 
+
+```C
+/ print_string - string 编码
+static char * print_string(char * str, tstr_t p) {
+    unsigned char c;
+    const char * ptr;
+    char * ntr, * out;
+    // 什么都没有 返回 "" empty string
+    if (!str || !*str) {
+        out = tstr_expand(p, 3);
+        out[0] = out[1] = '"'; out[2] = '\0';
+        return out;
+    }
+
+    // 获取最终字符输出长度
+    size_t len = 0;
+    for (ptr = str; (c = *ptr); ++ptr) {
+        ++len;
+        switch (c) {
+        case '\b': case '\t': case '\n':
+        case '\f': case '\r':
+        case '\\': case '"': ++len; break;
+        default:
+            if (c < 32) {
+                // UTF-16 escape sequence uXXXX
+                len += 5;
+            }
+        }
+    }
+
+    // 开始分配内存
+    ntr = out = tstr_expand(p, len + 3);
+    *ntr++ = '"';
+    ntr[len+1] = '\0';
+
+    // 没有特殊字符直接返回
+    if (len == ptr - str) {
+        memcpy(ntr, str, len);
+        goto ret_out;
+    }
+
+    // 存在特殊字符挨个处理
+    for (ptr = str; (c = *ptr); ++ptr) {
+        if (c >= 32 && c != '"' && c != '\\') {
+            *ntr++ = c;
+            continue;
+        }
+        *ntr++ = '\\';
+        switch(c) {
+        case '\b': *ntr++ = 'b'; break;
+        case '\t': *ntr++ = 't'; break;
+        case '\n': *ntr++ = 'n'; break;
+        case '\f': *ntr++ = 'f'; break;
+        case '\r': *ntr++ = 'r'; break;
+        case '"': case '\\': *ntr++ = c; break;
+        // escape and print as unicode codepoint
+        default: sprintf(ntr, "u%04x", c); ntr += 5;
+        }
+    }
+
+ret_out:
+    out[len+1] = '"';
+    return out;
+}
+```
 
 ## 4.5 config 配置库
 
-        有了上面 json 解析库, 我们不妨运用 c json 解析库, 构建配置解析库. 这年头配置解析库有
-    不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 我最推荐是 json 和 toml. json
-    推荐原因在于当前年代通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看
+        有了上面 json 解析库, 我们不妨运用 c json 解析能力, 构建配置解析库. 这年头配置解析库
+    有不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 我最推荐是 json 和 toml. 
+    json 推荐原因在于至今通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看
     待解析的配置文件 conf/conf.conf.
 
 ```json
@@ -1749,7 +1815,7 @@ bool conf_init(const char * path);
 
 ```
 
-    实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 可以从 locals 实现中看出来.
+    实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 具体见 locals 实现代码.
 
 ```C
 #include "conf.h"
@@ -1815,8 +1881,8 @@ conf_init(const char * path) {
 }
 ```
 
-    使用的时候先要在 main 中 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容. 经
-    过这些是不是觉得, 筑基也不过如此. 心随意动.
+    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容.
+    经过这些是不是觉得, 到筑基也不过如此. 心随意动.
 
 ## 4.6 奥特曼, 通用头文件
 
@@ -1938,9 +2004,9 @@ do {                                                              \
 #endif//_HEAD_H
 ```
 
-    head.h 相关内容是不是看上去很熟悉, 很简单. cls -> getch -> epause 想想有了也挺好的.
-    而 check.h 主要放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只是
-    加了个 ipv4 和 email 校验操作.
+    head.h 相关内容是不是很简单, 很熟悉. cls -> getch -> epause 想想有了也挺好的. 而 
+    check.h 会放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只是加了个 
+    ipv4 和 email 校验操作.
 
 ```C
 #include "check.h"
@@ -2051,18 +2117,18 @@ is_email(const char * mail) {
 }
 ```
 
-    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如果有问题
-    也可以在修真岁月中道友间互相探讨补充. getch 这个函数可以重点关注下. 很久以前一位化神期
-    巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是
-    挺喜欢 getch 的, 写立即交互就轻松了一些. 所以就顺手补上了. 继承 head.h 让你的业务轻装
-    上阵. 美好从此刻开始 ~ 新的风暴已经出现, 怎么能够停滞不前. 穿越时空竭尽全力, 我会来到
-    你身边 ~
+    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容.
+    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如果有问题也可
+    以在修真岁月中道友间互相探讨补充. getch 函数可以重点关注下. 很久以前一位化神期巨擘说过: 由
+    于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是挺喜欢 getch 的,
+    让立即交互变得轻松. 所以就顺手补上了. 继承 head.h 让你的业务轻装上阵. 美好从此刻开始 ~ 新
+    的风暴已经出现, 怎么能够停滞不前. 穿越时空竭尽全力, 我会来到你身边 ~
 
 ## 4.6 阅读理解, csv 解析库
 
-        很久以前桌面项目配置文件基本都走 csv 文件配置. 采用 ',' 分隔. 同 excel 表格形式.
-    维护人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己写的解决方
-    案, 灰常节约内存. 首先展示 interface:
+        很久以前桌面项目配置文件基本都走 csv 文件配置. 采用 ',' 分隔. 同 excel 表格形式. 维护
+    人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己写的解决方案, 灰常节
+    约内存. 首先展示 interface:
 
 ```C
 #ifndef _CSV_H
@@ -2121,7 +2187,7 @@ extern csv_t csv_create(const char * path);
 #endif//_CSV_H
 ```
 
-    这里我们只提供了读接口, 比较有特色的思路是 csv_t 采用一整块内存构建. 非常爽. 
+    我们这里只提供了读接口, 比较有特色的思路是 csv_t 采用一整块内存构建. 非常干净. 
 
 ```C
 #include "csv.h"
