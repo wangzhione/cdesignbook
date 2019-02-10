@@ -247,18 +247,13 @@ void * arg = NULL;
     演示 :
 
 ```C
-// flag_e - 全局操作基本行为返回的枚举, 用于判断返回值状态的状态码
-// >= 0 标识 Success 状态, < 0 标识 Error 状态
-typedef enum {
-    Success_Exist    = +2,           //希望存在, 设置之前已经存在了.
-    Success_Close    = +1,           //文件描述符读取关闭, 读取完毕也会返回这个
-    Success_Base     = +0,           //结果正确的返回宏
+// flag_e - 函数状态枚举
+enum flag {
+    SuccessBase     = +0,       // 结果正常
+    ErrorBase       = -1,       // 错误基类型
+};
 
-    Error_Base       = -1,           //错误基类型, 所有错误都可用它, 在不清楚的情况下
-    Error_Param      = -2,           //调用的参数错误
-    Error_Alloc      = -3,           //内存分配错误
-    Error_Fd         = -4,           //文件打开失败
-} flag_e;
+typedef enum flag flag_e;
 ```
 
     枚举变量完全可以等同于 int 变量使用, 枚举值等同于宏 INT 常量使用. 枚举的默认值是以 0
@@ -1123,21 +1118,20 @@ extern void * __cdecl pthread_getspecific (pthread_key_t key);
     网络理论速成班. 哦, 忘记告诉你关于路由的事情了. 但是我不准备谈它, 如果你真的关心, 那
     你可以自行搜阅 RFC 相关的协议定义部分.
 
-### 7.2.2 socket 编程前奏
+### 7.2.2 编程前奏
 
 **结构体**
 
-    终于谈到编程了. 在这小节, 我将谈到被套接字用到的各种数据类型. 因为它们中的一些
-    内容很重要. 首先是简单的一个: socket 描述符. 它是下面的类型: int, 仅仅是一个
-    常见的 int. 从现在起, 事情变得不可思议了, 而你所需做的就是继续看下去. 注意这
-    样的事实:
+    终于快谈到编码了. 在这小节, 我将谈到被套接字用到的各种数据类型. 因为它们中的一些内容
+    很重要. 首先是简单的一个 socket 描述符. 它在 unix 类系统的类型是 int, 仅仅是一个常
+    见的 int. 从现在起, 事情变得不可思议了, 而你所需做的就是继续看下去. 注意这样的事实:
     
-    有两种字节排列顺序: 重要的字节 (有时叫"octet", 即八位位组) 在前面, 或者不重要
-    的字节在前面. 前一种叫"网络字节顺序 (Network Byte Order)". 有些机器在内部是
-    按照这个顺序储存数据, 而另外一些则不然. 当我说某数据必须按照 NBO 顺序, 那么你
-    要调用函数(例如 htons())来将它从本机字节顺序 (Host Byte Order) 转换过来. 如
-    果我没有提到 NBO, 那么就让它保持本机字节顺序. 我的第一个结构(在这个技术手册TM
-    中) -- struct sockaddr. 这个结构为许多类型的套接字储存套接字地址信息：
+    有两种字节排列顺序: 重要的字节(有时叫 octet, 即八位位组)在前面, 或者不重要的字节在
+    前面. 前一种叫"网络字节顺序(Network Byte Order)". 有些机器在内部是按照这个顺序储存
+    数据, 而另外一些则不然. 当我说某数据必须按照 NBO 顺序, 那么你要调用函数(例如 htons)
+    来将它从本机字节顺序(Host Byte Order)转换过来. 如果我没有提到 NBO, 那么就让它保持本
+    机字节顺序. 介绍的第一个结构 struct sockaddr. 这个结构为许多类型的套接字储存套接字
+    地址信息:
 
 ```C
 struct sockaddr {
@@ -1145,9 +1139,9 @@ struct sockaddr {
     char sa_data[14];
 };
 ```
-    sa_family 能够是各种各样的类型, 但是在这篇文章中都是 "AF_INET". sa_data 包
-    含套接字中的目标地址和端口信息. 这好像有点不明智. 为了处理 struct sockaddr,
-    程序员创造了一个并列的结构: struct sockaddr_in ("in" 代表 "Internet".)
+    sa_family 能够是各种各样的类型, 但是在这篇文章中都是 AF_INET. sa_data 包含套接字中
+    的目标地址和端口信息. 这好像有点不明智. 为了处理 struct sockaddr, 程序员创造了一个
+    并列的结构: struct sockaddr_in("in" 代表 "Internet")
 
 ```C
 struct sockaddr_in {
@@ -1158,131 +1152,161 @@ struct sockaddr_in {
 };
 ```
 
-    用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这
-    个结构, 并且长度和 struct sockaddr 一样) 应该使用函数 bzero() 或 memset()
-    来全部置零. 同时, 这一重要的字节, 一个指向 sockaddr_in 结构体的指针也可以被
-    指向结构体 sockaddr 并且代替它. 这样的话即使 socket 想要的是 
-    struct sockaddr, 你仍然可以使用 struct sockaddr_in, 并且在最后转换. 同时,
-    注意 sin_family 和 struct sockaddr 中的 sa_family 一致并能够设置为 
-    "AF_INET". 最后, sin_port 和 sin_addr 必须是网络字节顺序 
-    (Network Byte Order)!
+    用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中, 
+    主要为了 struct sockaddr_in 长度和 struct sockaddr 保持一样) 应该使用函数 memset
+    来全部置零. 同时, 这一重要的字节, 一个指向 sockaddr_in 结构体的指针也可以被指向结构
+    体 sockaddr 并且代替它. 这样的话即使 socket 想要的是 struct sockaddr, 你仍然可以
+    使用 struct sockaddr_in, 函数内部会转换. 同时, 注意 sin_family 要一致并能够设置为 
+    "AF_INET". 最后, sin_port 和 sin_addr 必须是网络字节顺序 (Network Byte Order)!
 
-    你也许会反对道: "但是, 怎么让整个数据结构 struct in_addr sin_addr 按照网
-    络字节顺序呢?" 要知道这个问题的答案, 我们就要仔细的看一看这个数据结构: 
+    你也许会反驳道: "但是, 怎么让整个数据结构 struct in_addr sin_addr 按照网络字节顺
+    序呢?" 要知道这个问题的答案, 我们就要仔细的看一看这个数据结构: 
 
 ```C
+/* Internet address.  */
+typedef uint32_t in_addr_t;
+
 struct in_addr {
-    unsigned long s_addr;
+    in_addr_t s_addr;
 };
 ```
 
-    它曾经是个最坏的联合(知道的都是有点年头了, 哎), 但是现在那些日子过去了. 如果
-    你声明 ina 是数据结构 struct sockaddr_in 的实例, 那么 ina.sin_addr.s_addr
-    就储存 4 字节的 IP 地址(使用网络字节顺序). 如果你不幸的系统使用的还是恐怖的
-    联合 struct in_addr , 你还是可以放心 4 字节的 IP 地址并且和上面我说的一样.
-    (这是因为使用了 #define 辅助定义)
+    它曾经是个最坏的联合(知道的都是有点年头了, 哎), 但是现在那些日子过去了. 如果你声明 
+    ina 是数据结构 struct sockaddr_in 的实例, 那么 ina.sin_addr.s_addr 就储存 4 字
+    节的 IP 地址(使用网络字节顺序). 如果你不幸的系统使用的还是同下面相似的恐怖联合 
+    struct in_addr, 你还是可以放心 4 字节的 IP 地址并且和上面我说的一样.
+
+```C
+#ifndef s_addr
+/*
+ * Internet address (old style... should be updated)
+ */
+struct in_addr {
+        union {
+                struct { u_char s_b1,s_b2,s_b3,s_b4; } S_un_b;
+                struct { u_short s_w1,s_w2; } S_un_w;
+                u_long S_addr;
+        } S_un;
+#define s_addr  S_un.S_addr
+                                /* can be used for most tcp & ip code */
+#define s_host  S_un.S_un_b.s_b2
+                                /* host on imp */
+#define s_net   S_un.S_un_b.s_b1
+                                /* network */
+#define s_imp   S_un.S_un_w.s_w2
+                                /* imp */
+#define s_impno S_un.S_un_b.s_b4
+                                /* imp # */
+#define s_lh    S_un.S_un_b.s_b3
+                                /* logical host */
+};
+#endif
+```
 
 **本机转换**
 
-    我们现在到了新的章节. 我们曾经讲了很多网络到本机字节顺序的转换, 现在可以实
-    践了! 你能够转换两种类型: short (两个字节) 和 long (四个字节). 这个函数对
-    于变量类型 unsigned 也适用. 假设你想将 short 从本机字节顺序转换为网络字节
-    顺序. 用 "h" 表示 "本机 (host)", 接着是 "to", 然后用 "n" 表示 " 网络 
-    (network)", 最后用 "s" 表示 "short": h-to-n-s, 或者 htons() 
-    ("Host to Network Short"). 太简单了...
+    用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中,
+    我们现在讲了很多网络到本机字节顺序的转换, 现在可以实践了! 你能够转换两种类型: short 
+    (两个字节) 和 uint32_t (四个字节). 假设你想将 short 从本机字节顺序转换为网络字节顺
+    序. 用 "h" 表示 "本机 (host)", 接着是 "to", 然后用 "n" 表示 " 网络 (network)", 最
+    后用 "s" 表示 "short": h-to-n-s, 或者 htons() ("Host to Network Short"). 是不是
+    太简单了.
 
-    如果不是太傻的话, 你一定想到了由 "n", "h", "s", 和 "l" 形成的正确组合, 
-    例如这里肯定没有 stolh() ("Short to Long Host") 函数, 不仅在这里没有, 
-    所有场合都没有. 但是这里有:
+    如果不是太傻的话, 你一定想到了由 "n", "h", "s", 和 "l" 形成的正确组合, 例如这里肯定
+    没有 stolh() ("Short to Long Host") 函数, 不仅在这里没有, 所有场合都没有. 但是这里
+    有:
         htons() -- "Host to Network Short"
         htonl() -- "Host to Network Long"
         ntohs() -- "Network to Host Short"
         ntohl() -- "Network to Host Long"
-    现在, 你可能想你已经知道它们了. 你也可能想: "如果我想改变 char 的顺序要
-    怎么办呢?" 但是你也许马上就想到, "用不着考虑的". 你也许会想到: 我的 IBM
-    机器已经使用了网络字节顺序, 我没有必要去调用 htonl() 转换 IP 地址. 你可
-    能是对的, 但是当你移植你的程序到别的机器上的时候, 你的程序将失败. 可移植
-    性! 这里是 linux 世界! 记住: 在你将数据放到网络上的时候, 确信它们是网络字
-    节顺序的. 最后一点: 为什么在数据结构 struct sockaddr_in 中, sin_addr 
-    和 sin_port 需要转换为网络字节顺序, 而 sin_family 需不需要呢? 答案是: 
-    sin_addr 和 sin_port 分别封装在包的 IP 和 UDP 层. 因此, 它们必须要是网
-    络字节顺序. 但是 sin_family 域只是被内核 (kernel) 使用来决定在数据结构
-    中包含什么类型的地址, 所以它必须是本机字节顺序. 同时, sin_family 没有发
-    送到网络上, 它们可以是本机字节顺序.
+    现在, 你可能想你已经知道它们了. 你也可能想: "如果我想改变 char 的顺序要怎么办呢?" 但
+    是你也许马上就意识到这用不着考虑的, 因为只有一个字节. 你也许会想到: 我的 IBM 机器已经
+    使用了网络字节顺序, 我没有必要去调用 htonl() 转换 IP 地址. 此刻你可能是对的, 但是当
+    你移植你的程序到别的机器上的时候, 你的程序将失败. 可移植性! 这里是 linux 世界! 记住: 
+    在你将数据放到网络上的时候, 确信它们是网络字节顺序的. 最后一点: 为什么在数据结构 
+    struct sockaddr_in 中 sin_addr 和 sin_port 需要转换为网络字节顺序, 而 sin_family 
+    需不需要呢? 答案是: sin_addr 和 sin_port 分别封装在包的 IP 和 UDP 层. 因此, 它们必
+    须要是网络字节顺序. 但是 sin_family 没有发送到网络上, 它们可以是本机字节顺序. 最主要
+    的是 sin_family 域只是被内核(kernel)使用来决定在数据结构中包含什么类型的地址, 所以它
+    必须是本机字节顺序.
 
-**IP 地址和如何处理它们**
+**如何处理 IP 地址**
 
-    现在我们很幸运, 因为我们有很多的函数来方便地操作 IP 地址. 没有必要用手工
-    计算它们, 也没有必要用 "<<" 操作来储存成长整字型. 首先, 假设你已经有了一
-    个 sockaddr_in 结构体 ina, 你有一个 IP 地址 "202.113.96.11" 要储存在其
-    中, 你就要用到函数 inet_addr(), 将 IP 地址从点数格式转换成无符号长整型. 
-    使用方法如下：
-        ina.sin_addr.s_addr = inet_addr("202.113.96.11");
-    注意, inet_addr() 返回的地址已经是网络字节格式, 所以你无需再调用函数 
-    htonl(). 我们现在发现上面的代码片断不是十分完整的, 因为它没有错误检查. 显
-    而易见, 当 inet_addr() 发生错误时返回-1. 记住这些二进制数字? (无符号数)
-    -1 仅仅和 IP 地址 255.255.255.255 相符合! 这可是广播地址! 大错特错! 记住
-    要先进行错误检查. 好了, 现在你可以将 IP 地址转换成长整型了. 有没有其相反的
-    方法呢? 它可以将一个in_addr 结构体输出成点数格式? 这样的话, 你就要用到函数
-    inet_ntoa()("ntoa"的含义是"network to ascii"), 就像这样:
-        printf("%s",inet_ntoa(ina.sin_addr));
-    它将输出 IP 地址. 需要注意的是 inet_ntoa() 将结构体 in_addr 作为一个参数,
-    不是长整形. 同样需要注意的是它返回的是一个指向一个字符的指针. 它是一个由 
-    inet_ntoa() 控制的静态的固定的指针, 所以每次调用 inet_ntoa(), 它就将覆
-    盖上次调用时所得的 IP 地址. 例如:
-        char * a1, * a2;
-        a1 = inet_ntoa(ina1.sin_addr);
-        a2 = inet_ntoa(ina2.sin_addr);
-        printf("address 1: %s/n",a1);
-        printf("address 2: %s/n",a2);
-    输出如下：
-    address 1: 202.113.96.11
-    address 2: 202.113.96.11
-
-    以上在学习阶段或者是单线程程序中是没有任何问题的. 然而真实环境开发中使用
-    的是
+    现在我们很幸运, 因为我们有很多的函数来方便地操作 IP 地址. 没有必要用手工计算它们, 也
+    没有必要用 "<<" 操作来储存成长整字型. 首先, 假设你已经有了一个 sockaddr_in 结构体 
+    ina, 你有一个 IP 地址 "8.8.8.8" 要储存在其中, 你就要用到函数 inet_addr(), 将 IP 
+    地址从点数格式转换成无符号长整型. 使用方法如下：
+        ina.sin_addr.s_addr = inet_addr("8.8.8.8");
+    注意, inet_addr() 返回的地址已经是网络字节格式, 所以你无需再调用函数 htonl(). 我们
+    现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr() 发
+    生错误时返回 -1. 记住这些二进制数字? (无符号数) -1 仅仅和 IP 地址 255.255.255.255 
+    相符合! 这可是广播地址! 这将会发生大错误! 记住要先进行错误检查. 好了, 现在你可以将 
+    IP 地址转换成长整型了. 有没有其相反的方法呢? 它可以将一个 in_addr 结构体输出成点数格
+    式? 这样的话, 你就要用到函数 inet_ntoa()("ntoa" 的含义是 "network to ascii"), 就
+    像这样:
+        printf("%s", inet_ntoa(ina.sin_addr));
+    它将输出 IP 地址. 需要注意的是 inet_ntoa() 将结构体 in_addr 作为一个参数, 不是长整
+    形. 同样需要注意的是它返回的是一个指向一个字符的指针. 它是一个由 inet_ntoa() 控制的
+    静态的指向固定内存的指针, 所以每次调用 inet_ntoa(), 它就将覆盖上次调用时所得的 IP 地
+    址. 例如:
+        char * a, * b;
+        a = inet_ntoa(ina.sin_addr);
+        b = inet_ntoa(inb.sin_addr);
+        printf("address a: %s/n", a);
+        printf("address b: %s/n", a);
+    输出如下:
+    address a: 8.8.8.8
+    address b: 8.8.8.8
+    以上在学习阶段或者是单线程程序中是没有任何问题的. 然而真实环境更加友好的推荐是:
 
 ```C
 #include <arpa/inet.h>
-// return : 1 - 成功, 0 - 输入不是有效的表达式, -1 - 出错
-int inet_pton(int family, const char * strptr, void * addrptr);         
-// return : 指向结果的指针 - 成功, NULL - 出错
-const char * inet_ntop(int family, const void * addrptr, char * strptr, size_t len);
+
+// inet_pton 若成功返回1, 0 表示输入不是有效的表达式, -1 表示出错
+int inet_pton(int family, const char * strptr, void * addrptr);
+      
+// inet_ntop 若成功返回指向结果的指针, NULL 表示出错
+const char * inet_ntop(int family, 
+                       const void * addrptr, 
+                       char * strptr, size_t len);
 ```
 
-    上面就是关于这个主题的介绍. 
+    好了, 那这个主题就介绍这些, 随后逐步开展编程工作. 
 
 ### 7.2.3 编程中常见 API
 
 **socket() 函数**
 
-    我想我不能再不提这个了－下面我将讨论一下 socket() 系统调用. 下面是详细介绍:
+    我想我不能再不提这个了, 下面我将讨论一下 socket() 系统调用详细介绍.
 
 ```C
 #include <sys/types.h>
 #include <sys/socket.h>
+
+#define PF_UNIX         AF_UNIX
+#define PF_INET         AF_INET
+
 int socket(int domain, int type, int protocol);
 ```
 
-    但是它们的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据
-    结构 struct sockaddr_in 中一样. 然后, 参数 type 告诉内核是 SOCK_STREAM
-    类型还是 SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意: 有很多种
-    domain, type, 我不可能一一列出了, 请看 socket() 的 man 帮助. 当然, 还有
-    一个"更好"的方式去得到 protocol. 同时请查阅 getprotobyname() 的 man 帮
-    助) 常用例子
+    现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr() 发
+    那其中的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据结构 
+    struct sockaddr_in 中一样. 然后, 参数 type 告诉内核是 SOCK_STREAM 类型还是 
+    SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意: 有很多种 domain, type, 我
+    不可能一一列出了, 请看 socket() 的 man 帮助. 当然, 还有一个更好的方式去得到 
+    protocol. 同时请查阅 getprotobyname() 的 man 帮助) 常用例子
 
 ```C
 // 使用系统针对 IPv4 与字节流的默认的协议，一般为 TCP
-int sockfd=socket(PF_INET, SOCK_STRAM, IPPROTO_TCP);
+int sockfd = socket(PF_INET, SOCK_STRAM, IPPROTO_TCP);
 // 使用 STCP 作为协议
-int sockfd=socket(PF_INET, SOCK_STRAM, IPPROTO_SCTP);
-// 使用数据报
-int sockfd=socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+int sockfd = socket(PF_INET, SOCK_STRAM, IPPROTO_SCTP);
+// 使用数据报 作为协议
+int sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 ```
 
-    socket() 只是返回你以后在系统调用种可能用到的 socket 描述符, 或者在错误
-    的时候返回-1. 全局变量 errno 中将储存返回的错误值. (请参考 perror() 的
-    man 帮助.)
+    socket() 只是返回你以后在系统调用种可能用到的 socket 描述符, 在错误的时候返回-1. 
+    全局变量 errno 中将储存返回的错误值. (请参考 perror() 的man 帮助)
 
 **bind() 函数**
 
