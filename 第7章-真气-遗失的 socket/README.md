@@ -6,16 +6,16 @@
     阻挡了一批又一批想操手服务器网络开发的生源. 好在江湖中有不少巅峰的网络库吼住了互联网
     的基石. 导致重新搭建网络轮子价值变低. 但如果想飞的更高, 或许 ~ 此刻不妨随我翻开远古
     大能们遗留(抄袭)的书章, 感受下那些年可以吹的 NB. 友情提示, 本书写到这, 可以发现非常
-    注重实战技巧, 忽略缘由. 因为授之以渔, 你还要有欲望, 才能驱动. 倒不如授之以臭鳜鱼, 说
-    不定还能爽一口. 
-        文末极有可能, 分享江湖中一个化神前辈的元婴功法, 网络 IO poll 模型. 全章流程迂回
-    递进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不可说的秘密就是, 时间有了
-    就拥有了全世界. 例如 <<无尽剑装>> 小说主角结局无不是靠寿元兑磨求道 ~
-        不妨扯一下以前修炼的经验, 当初刚做开发时候. 公司朴实的前辈说, 搞个 TCP 估计 1 年
-    就过去了. 后来想想还真是, 虽然到现在还是水经验. 但有一点可以确定, 编程, 修炼并不是一
-    个青春饭. 很需要底蕴和积累. 投机倒把很难干成一件需要长时间心力体力投入的事情. 大佬赠
-    我越努力越幸运. 也有个小确幸送给修真路上的道友们. 当有一天, 打游戏了累了, 刚好没对象
-    . 那就打开笔记本, 秀出你的神之一技吧 ~ 山中不知岁月, 一切刚刚开始 ~
+    注重实战技巧, 忽略缘由. 因为授之以渔, 你还要有欲望, 才能驱动. 倒不如授之以臭鳜鱼, 
+    说不定还能爽一口. 
+        文末极有可能, 分享江湖中一个化神前辈的元婴功法, 网络 IO poll 模型. 全章流程迂
+    回递进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不可说的秘密就是, 时间
+    有了就拥有了全世界. 例如 <<无尽剑装>> 小说主角结局无不是靠寿元兑磨求道 ~
+        不妨扯一下以前修炼的经验, 当初刚做开发时候. 公司朴实的前辈说, 搞个 TCP 估计 1 
+    年就过去了. 后来想想还真是, 虽然到现在还是水经验. 但有一点可以确定, 编程, 修炼并不是
+    一个青春饭. 很需要底蕴和积累. 投机倒把很难干成一件需要长时间心力体力投入的事情. 大佬
+    赠我越努力越幸运. 也有个小确幸送给修真路上的道友们. 当有一天, 打游戏了累了, 刚好没对
+    象. 那就打开笔记本, 秀出你的神之一技吧 ~ 山中不知岁月, 一切刚刚开始 ~
 
 ## 7.1 回忆哈 C, 那些年筑过的基
 
@@ -1289,11 +1289,11 @@ const char * inet_ntop(int family,
 int socket(int domain, int type, int protocol);
 ```
 
-    现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr() 发
-    那其中的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据结构 
+    现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr() 
+    发那其中的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据结构 
     struct sockaddr_in 中一样. 然后, 参数 type 告诉内核是 SOCK_STREAM 类型还是 
-    SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意: 有很多种 domain, type, 我
-    不可能一一列出了, 请看 socket() 的 man 帮助. 当然, 还有一个更好的方式去得到 
+    SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意: 有很多种 domain, type
+    , 我不可能一一列出了, 请看 socket() 的 man 帮助. 当然, 还有一个更好的方式去得到 
     protocol. 同时请查阅 getprotobyname() 的 man 帮助) 常用例子
 
 ```C
@@ -1305,72 +1305,71 @@ int sockfd = socket(PF_INET, SOCK_STRAM, IPPROTO_SCTP);
 int sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 ```
 
-    socket() 只是返回你以后在系统调用种可能用到的 socket 描述符, 在错误的时候返回-1. 
-    全局变量 errno 中将储存返回的错误值. (请参考 perror() 的man 帮助)
+    socket() 只是返回你以后在系统调用种可能用到的 socket 描述符, 错误的时候返回 -1. 
+    全局变量 errno 中将储存返回的错误值(请参考 perror() 的man 帮助).
 
 **bind() 函数**
 
-    一旦你有一个套接字, 你可能要将套接字和机器上的一定的端口关联起来. (如果
-    你想用 listen() 来侦听固定端口的数据, 这是必要一步 -- MUD 告诉你说用命
-    令 "telnet x.y.z 6969".) 如果你只想用 connect(), 那么这个步骤没有必要.
-    但是无论如何, 请继续读下去. 这里是系统调用 bind() 的大概: 
+    一旦你有一个套接字, 你可能要将套接字和机器上的固定的端口关联起来. (如果你想用 
+    listen() 来侦听固定端口的数据, 这是必要一步 -- MUD 告诉你说用命令 
+    "telnet x.y.z.w 6969".) 如果你只想用 connect(), 那么这个步骤将没有必要. 但是
+    无论如何, 请继续读下去. 这里是系统调用 bind() 的大概:
 
 ```C
 #include <sys/types.h>
 #include <sys/socket.h>
+
 int bind(int sockfd, struct sockaddr * my_addr, int addrlen);
 ```
 
-    sockfd 是调用 socket 返回的文件描述符. my_addr 是指向数据结构 
-    struct sockaddr 的指针, 它保存你的地址(即端口和 IP 地址)信息. addrlen
-    设置为 sizeof(struct sockaddr). 很简单不是吗? 再看看例子:
+    sockfd 是调用 socket 返回的文件描述符. my_addr 是指向 struct sockaddr 数据
+    结构的指针, 它保存你的地址(即端口和 IP)信息. addrlen 设置为 
+    sizeof(struct sockaddr). 很简单不是吗? 再看看例子:
 
 ```C
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#define _INT_PORT	(3490)
+#define PORT_SHORT	(8088)
 
 int main(void) {
-    struct sockaddr_in my_addr;
     int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    struct sockaddr_in my_addr;
     my_addr.sin_family = AF_INET;
-    my_addr.sin_port = htons(_INT_PORT);
-    my_addr.sin_addr.s_addr = inet_addr("202.113.96.11");
-    bzero(&my_addr.sin_zero, sizeof(my_addr.sin_zero));
-    bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr));
+    my_addr.sin_port = htons(PORT_SHORT);
+    my_addr.sin_addr.s_addr = inet_addr("8.8.8.8");
+    memset(&my_addr.sin_zero, 0, sizeof(my_addr.sin_zero));
+    bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in));
     ... ...
 }
 ```
 
-    这里也有要注意的几件事情. my_addr.sin_port 是网络字节顺序, 
-    my_addr.sin_addr.s_addr 也是的. 另外要注意到的事情是因系统的不同, 包含的头
-    文件也不尽相同, 请查阅本地的 man 帮助文件. 上面 bzero 是 Linux 上独有的, 在
-    string.h 下. 等同于
-        memset(&my_addr.sin_zero, 0, sizeof(my_addr.sin_zero));
-    在 bind() 主题中最后要说的话是, 在处理自己的 IP 地址和/或端口的时候, 有些工
-    作是可以自动处理的.
-        my_addr.sin_port = 0;
-        my_addr.sin_addr.s_addr = INADDR_ANY;
-    通过将 0 赋给 my_addr.sin_port, 你告诉 bind() 自己选择合适的端口. 同样, 
-    将 my_addr.sin_addr.s_addr 设置为 INADDR_ANY, 你告诉它自动填上它所运行的
-    机器的 IP 地址. 如果你一向小心谨慎, 那么你可能注意到我没有将 INADDR_ANY 转
-    换为网络字节顺序! 这是因为我知道内部的东西: INADDR_ANY 实际上就是 0! 即使你
-    改变字节的顺序, 0 依然是 0. 但是完美主义者说应该处处一致, INADDR_ANY 或许是
-    12 呢? 你的代码就不能工作了, 那么就看下面的代码:
-        my_addr.sin_port = htons(0);
-        my_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    你或许不相信, 上面的代码将可以随便移植. 我只是想指出, 既然你所遇到的程序不会
-    都运行使用 htonl 的 INADDR_ANY.
+    这里也有要注意的点. my_addr.sin_port 是网络字节顺序, my_addr.sin_addr.s_addr
+    也是的, 其中 my_addr.sin_zero 需要置零防止脏数据污染, 其实是一种历史约束约束. 在
+    bind() 主题中最后要说的话是, 如果自己不想绑定固定地址, 让操作系统自行分配. 可以用
+    下面方式处理.
+        my_addr.sin_port = 0;                   // 自行分配绑定的端口
+        my_addr.sin_addr.s_addr = INADDR_ANY;   // 绑定所有网卡
+    通过将 0 赋给 my_addr.sin_port, 会告诉 bind() 自己选择合适的端口. 相似的服务器
+    将 my_addr.sin_addr.s_addr 设置为 INADDR_ANY 后,
 
-    bind() 在错误的时候依然是返回-1, 并且设置全局错误变量 errno. 在你调用 bind()
-    的时候, 你要小心的另一件事情是: 不要采用小于 1024 的端口号. 所有小于 1024 的
-    端口号都被系统保留! 你可以选择从 1024 到 65535 的端口(如果它们没有被别的程序
-    使用的话). 你要注意的另外一件小事是: 有时候你根本不需要调用它. 如果你使用 
-    connect() 来和远程机器进行通讯, 你不需要关心你的本地端口号(就像你在使用 telnet
-    的时候), 你只要简单的调用 connect() 就可以了, 它会检查套接字是否绑定端口, 如果
-    没有, 它会自己绑定一个没有使用的本地端口.
+```C
+/* Address to accept any incoming messages. */
+#define INADDR_ANY  ((in_addr_t) 0x00000000)
+```
+
+    会告诉操作系统: "我需要在 prot 端口上侦听, 所有发送到服务器的这个端口, 不管是哪个
+    网卡/哪个 IP 地址接收到的数据, 都是我处理的." 
+
+    bind() 出错的时候依然是返回 -1, 并且设置全局错误变量 errno. 在你调用 bind() 的
+    时候, 你要小心的另一件事情是: 不要绑定小于 1024 和大于 49151 的端口号. 所有小于 
+    1024 的端口号都被系统保留! 更加详细的参照资料是系统端口号分为三大类, 一已知端口
+    [0, 1023], 二注册端口[1024, 49151], 三动态专用端口[49152, 65535]. 理论上我
+    们服务器业务程序只能绑定注册端口[1024, 49151]中尚未被别的程序使用的. 当然我们一直
+    在说服务器, 如果是客户端在和远端机器进行通讯. 你完全没有必要 bind() 操作, 只需要
+    轻轻 connect() 它一下就可以了啦.
 
 **connect() 程序**
 
