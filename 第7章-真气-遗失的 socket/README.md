@@ -1371,21 +1371,21 @@ int main(void) {
     在说服务器, 如果是客户端在和远端机器进行通讯. 你完全没有必要 bind() 操作, 只需要
     轻轻 connect() 它一下就可以了啦.
 
-**connect() 程序**
+**connect() 函数**
 
-    现在我们假设你是个 telnet 程序. 你的用户命令你得到套接字的文件描述符. 你听
-    从命令调用了 socket(). 下一步, 你的用户告诉你通过端口 23(标准 telnet 端口)
-    连接到"202.113.96.11". 你该怎么做呢? 幸运的是, 你正在阅读 connect() -- 如
-    何连接到远程主机这一章. 你可不想让你的用户失望. connect() 系统调用是这样的：
+        华山派除了练气的华山剑法, 还曾有一本被遗忘的神功, 紫霞神功. 也许正是靠它, 当年
+    你正在阅读的 connect() 能够帮我们连接到远程主机. 希望不会让你的用户失望. 
+    connect() 系统调用是这样的: 
 
 ```C
 #include <sys/types.h>
 #include <sys/socket.h>
+
 int connect(int sockfd, struct sockaddr * serv_addr, int addrlen);
 ```
 
-    sockfd 是系统调用 socket() 返回的套接字文件描述符. serv_addr 是保存着目
-    的地端口和 IP 地址的数据结构 struct sockaddr. addrlen 设置为 
+    sockfd 是系统调用 socket() 返回的套接字文件描述符. serv_addr 是保存着目的地端口
+    和 IP 地址的数据结构 struct sockaddr. addrlen 设置为你采用的地址结构长度, 例如 
     sizeof(struct sockaddr). 想知道得更多吗? 让我们来看个例子:
 
 ```C
@@ -1393,91 +1393,119 @@ int connect(int sockfd, struct sockaddr * serv_addr, int addrlen);
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#define _STR_IP		"202.113.96.11"
-#define _INT_PORT	(23)
+#define IP_STR		"8.8.8.8"
+#define PORT_SHORT	(8088)
 
 int main(void) {
-    struct sockaddr_in addr;
     int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(_INT_PORT);
-    addr.sin_addr.s_addr = inet_addr(_STR_IP);
-    bzero(&addr.sin_zero, sizeof(addr.sin_zero));
-    connect(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+    addr.sin_port = htons(PORT_SHORT);
+    addr.sin_addr.s_addr = inet_addr(IP_STR);
+    memset(&addr.sin_zero, 0, sizeof(addr.sin_zero));
+
+    connect(sockfd, (struct sockaddr *)&addr, sizeof addr);
     ... ...
 }
 ```
 
-    再一次，你应该检查 connect() 的返回值 - 它在错误的时候返回-1, 并设置全局
-    错误变量 errno. 
+    再一次，你应该检查 connect() 的返回值 - 它在错误的时候返回 -1, 并设置全局错误变
+    量 errno. 
     
-    同时, 你可能看到, 我没有调用 bind(). 因为我不在乎本地的端口号. 我只关心我
-    要去那. 内核将为我选择一个合适的端口号, 而我们所连接的地方也自动地获得这些
-    信息. 一切都不用担心.
+    同时, 你可能看到, 我没有调用 bind(). 因为我不在乎本地的端口号. 我只关心我要去那.
+    内核将为我选择一个合适的端口号, 而我们所连接的地方也自动地获得这些信息. 一切都不用
+    担心.
 
 **listen() 函数**
 
-    是换换内容得时候了. 假如你不希望与远程的一个地址相连, 或者说, 仅仅是将它
-    踢开, 那你就需要等待接入请求并且用各种方法处理它们. 处理过程分两步: 首先, 
-    你监听 - listen(), 然后, 你接受 - accept() (请看下面的内容).
-    除了要一点解释外，系统调用 listen 也相当简单.
-        int listen(int sockfd, int backlog);
-    sockfd 是调用 socket() 返回的套接字文件描述符. backlog 是在进入队列中
-    允许的连接数目. 什么意思呢? 进入的连接是在队列中一直等待直到你接受 
-    (accept() 请看下面的文章)连接. 它们的数目限制于队列的允许. 大多数系统的
-    允许数目是 20, 你也可以设置为 5 到 10 甚至最大, 但是最终用不用系统决定.
-    和别的函数一样, 在发生错误的时候返回-1, 并设置全局错误变量 errno.
-    你可能想象到了, 在你调用 listen() 前你或者要调用 bind() 或者让内核随便
-    选择一个端口. 如果你想侦听进入的连接, 那么系统调用的顺序可能是这样的:
+    是换换内容的时候了. 假如你不希望与远程的一个地址相连, 或者说, 仅仅是将它踢开, 那
+    你就需要等待接入请求并且用各种方法处理它们. 处理过程分两步: 首先, 你监听 
+    listen(), 然后, 你接收 accept(). 除了要些解释外, 系统调用 listen 也简单.
+
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+/* Prepare to accept connections on socket FD.
+   N connection requests will be queued before 
+   further requests are refused.
+   Returns 0 on success, -1 for errors. 
+ */
+extern int listen (int sockfd, int backlog);
+```
+
+    sockfd 是调用 socket() 返回的套接字文件描述符. backlog 是在进入队列中允许的
+    连接数目. 什么意思呢? 进入的连接是在队列中一直等待直到你接收 (accept() 请看下
+    面内容)连接. 它们的数目限制于已经完成三次握手队列的允许. 你可以设置这个值, 但是
+    最终用不用是系统决定. 和别的函数一样, 在发生错误的时候返回 -1, 并设置全局错误变
+    量 errno. 你可能想象到了, 在你调用 listen() 前你或者要调用 bind() 或者让内
+    核选择一个自动端口. 如果你想侦听进入的连接, 那么系统调用的顺序可能是这样的:
         socket();
         bind();
         listen();
-    因为它相当的明了, 我将在这里不给出例子了. (在 accept() 的代码将更加完全)
-    真正麻烦的部分在 accept().
+    因为它相当的明了, 我将在这里不给出例子了.
 
 **accept() 函数**
 
-    准备好了, 系统调用 accept() 会有点古怪的地方的! 你可以想象发生这样的事情:
-    有人从很远的地方通过一个你在侦听 (listen()) 的端口连接 (connect()) 到你
-    的机器. 它的连接将加入到等待接受 (accept()) 的队列中. 你调用 accept() 告
-    诉它你有空闲的连接. 它将返回一个新的套接字文件描述符! 这样你就有两个套接字
-    了, 原来的一个还在侦听你的那个端口, 新的在准备发送 (send()) 和接收 
-    (recv()) 数据. 这就是这个过程! 函数是这样定义的:
+    准备好了, 系统调用 accept() 会有点古怪的地方的! 你可以想象发生这样的事情: 有
+    人从很远的地方通过一个你在侦听 listen() 的端口连接 connect() 到你的机器. 它
+    的连接将加入到等待接收 accept() 的队列中. 你调用 accept() 告诉它你有空闲的
+    连接. 它将返回一个新的套接字文件描述符! 这样你就多了个套接字了, 原来的一个还在
+    侦听你的那个端口, 新的在准备发送 send() 和接收 recv() 数据. 这就是进行的过
+    程! 函数是这样定义的:
 
 ```C
+#include <sys/types.h>
 #include <sys/socket.h>
-int accept(int sockfd, void * addr, int * addrlen);
+
+/* Await a connection on socket FD.
+   When a connection arrives, open a new socket 
+   to communicate with it, set *ADDR (which is *ADDR_LEN bytes long) 
+   to the address of the connecting peer and *ADDR_LEN to 
+   the address's actual length, and return the
+   new socket's descriptor, or -1 for errors.
+
+   This function is a cancellation point and therefore not 
+   marked with __THROW.  
+ */
+extern int accept (int sockfd, 
+                   struct sockaddr * addr,
+		           socklen_t * restrict addr_len);
 ```
 
-    sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 是个指向局部的
-    数据结构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方(你可以测定那
-    个地址在那个端口呼叫你). 在它的地址传递给 accept 之 前, addrlen 是个局部
-    的整形变量, 设置为 sizeof(struct sockaddr_in). accept 将不会将多余的字
-    节给 addr. 如果你放入的少些, 那么它会通过改变 addrlen 的值反映出来. 需要
-    注意的是 addrlen 即是输入也是输出参数, 开始之前需要写成
-        int sin_size = sizeof(struct sockaddr_in); 
-    后面传入 &sin_size. 同样, 在错误时返回-1, 并设置全局错误变量 errno.
-    现在是你应该熟悉的代码片段.
+    sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 可以是个指向局
+    部的数据结构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方. 在它的地址
+    传递给 accept 之前, addr_len 是指向局部的整形变量, 且指向的变量值为 
+    sizeof(struct sockaddr_in). accept 将不会将多余的字节给 addr. 如果你放
+    入的少些, 那么它会通过改变 addr_len 的值反映出来. 需要注意的是 addr_len 即
+    是输入也是输出参数, 开始之前可以写成
+        int addrlen = sizeof(struct sockaddr_in); 
+    后面传入 &addrlen. 同样, 在错误时返回 -1, 并设置全局错误变量 errno. 现在是
+    你应该熟悉的代码片段.
 
 ```C
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#define _INT_PORT		(3490)
+#define PORT_SHORT		(8088)
 
 int main(void) {
-    int sockfd, nfd;
     struct sockaddr_in saddr, caddr;
     int clen = sizeof(struct sockaddr_in);
-    sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+
     saddr.sin_family = AF_INET;
-    saddr.sin_port = htons(_INT_PORT);
+    saddr.sin_port = htons(PORT_SHORT);
     saddr.sin_addr.s_addr = INADDR_ANY;
-    bzero(&saddr.sin_zero, sizeof(saddr.sin_zero));
+    memset(&saddr.sin_zero, 0, sizeof(saddr.sin_zero));
+
     bind(sockfd, (struct sockaddr *)&saddr, clen);
     listen(sockfd, SOMAXCONN);
-    nfd = accept(sockfd, &caddr, &clen);
+
+    int nfd = accept(sockfd, &caddr, &clen);
     ... ...
 }
 ```
