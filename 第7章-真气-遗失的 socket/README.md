@@ -1474,14 +1474,13 @@ extern int accept (int sockfd,
 		           socklen_t * restrict addr_len);
 ```
 
-    sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 可以是个指向局
-    部的数据结构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方. 在它的地址
-    传递给 accept 之前, addr_len 是指向局部的整形变量, 且指向的变量值为 
-    sizeof(struct sockaddr_in). accept 将不会将多余的字节给 addr. 如果你放
-    入的少些, 那么它会通过改变 addr_len 的值反映出来. 需要注意的是 addr_len 即
-    是输入也是输出参数, 开始之前可以写成
+    sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 可以是个指向局部的数据结
+    构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方. 在它的地址传递给 accept 之
+    前, addr_len 是指向局部的整形变量, 且指向的变量值为 sizeof(struct sockaddr_in). 
+    accept 将不会将多余的字节给 addr. 如果你放入的少些, 那么它会通过改变 addr_len 的值
+    反映出来. 需要注意的是 addr_len 即是输入也是输出参数, 开始之前可以写成
         int addrlen = sizeof(struct sockaddr_in); 
-    后面传入 &addrlen. 同样, 在错误时返回 -1, 并设置全局错误变量 errno. 现在是
+    后面传入 &addrlen. 同样, 在错误时返回 -1, 并设置全局错误变量 errno. 现在要展示的是
     你应该熟悉的代码片段.
 
 ```C
@@ -1510,36 +1509,33 @@ int main(void) {
 }
 ```
 
-    注意, 在系统调用 send() 和 recv() 中你应该使用新的套接字描述符 nfd. 
-    如果你只想让一个连接进来, 那么你可以使用 close() 去关闭原来的文件描述符
-    sockfd 来避免同一个端口更多的连接.
+    注意, 此后的系统中可以调用 send() 和 recv() . 如果你只想让一个连接进来, 那么你可以
+    使用 close() 去关闭原来的文件描述符 sockfd 来避免同一个端口更多的连接.
 
-**send() and recv() 函数**
+**send() 和 recv() 函数**
 
-    这两个函数用于流式套接字或者数据报套接字的通讯. 如果你喜欢使用无连接的数据
-    报套接字, 你应该看一看下面关于 sendto() 和 recvfrom() 的章节. send() 是
-    这样的:
+    这两个函数用于流式套接字或者数据报套接字的通讯. 如果你喜欢使用无连接的数据报套接字, 
+    你应该看一看下面关于 sendto() 和 recvfrom() 的章节. send() 是这样的:
         int send(int sockfd, const void * msg, int len, int flags);
-    sockfd 是你想发送数据的套接字描述符(或者是调用 socket() 或者是 accept()
-    返回的.) msg 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置
-    为 0 就可以了. (详细的资料请看 send() 的 man page). 这里是可能的例子：
-        char * msg = "Beej was here!";
+    sockfd 是你想发送数据的套接字描述符(或者是调用 socket() 或者是 accept()返回的) 
+    msg 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置为 0 就可以了. (
+    详细的资料请看 send() 的 man page). 这里是可能的例子：
+        char * msg = "I am here!";
         int len, bytes_sent;
-        len = strlen(msg);
+        len = (int)strlen(msg);
         bytes_sent = send(sockfd, msg, len, 0);
-    send() 返回实际发送的数据的字节数 - 它可能小于你要求发送的数目! 注意, 有时
-    候你告诉它要发送一堆数据可是它不能处理成功. 它只是发送它可能发送的数据, 然
-    后希望你能够发送其它的数据. 记住, 如果 send() 返回的数据和 len 不匹配, 你
-    就应该发送其它的数据. 但是这里也有个好消息: 如果你要发送的包很小(小于大约 
-    1K), 它可能处理让数据一次发送完. 最后要说得就是, 它在错误的时候返回-1, 并
-    设置 errno. recv() 函数很相似:
+    send() 返回实际发送的数据的字节数 - 它可能小于你要求发送的数目! 注意, 有时候你告诉
+    它要发送一堆数据可是它不能处理成功. 它只是发送它可能发送的数据, 然后希望你能够发送其
+    它的数据. 记住, 如果 send() 返回的数据和 len 不匹配, 你就应该发送其它的数据. 但是
+    这里也有个好消息: 如果你要发送的包很小(小于大约 1K), 它可能处理让数据一次发送完. 最
+    后要说得就是, 它在错误的时候返回 -1, 并设置 errno. recv() 函数很相似:
         int recv(int sockfd, void *buf, int len, unsigned int flags);
-    sockfd 是要读的套接字描述符. buf 是要读的信息的缓冲. len 是缓冲的最大长度.
-    flags 可以设置为 0. (请参考 recv() 的 man page) recv() 返回实际读入缓冲
-    的数据的字节数. 或者在错误的时候返回-1, 同时设置 errno.
+    sockfd 是要读的套接字描述符. buf 是要读的信息的缓冲. len 是缓冲的最大长度. flags 
+    可以设置为 0. (请参考 recv() 的 man page) recv() 返回实际读入缓冲的数据的字节数. 
+    或者在错误的时候返回-1, 同时设置 errno.
     
-    很简单，不是吗? 你现在可以在流式套接字上发送数据和接收数据了. 
-    你现在是 linux 网络程序员了!
+    很简单，不是吗? 你现在可以在流式套接字上发送数据和接收数据了. 此刻你就是是 linux 网
+    络程序员了!
 
 **sendto() 和 recvfrom() 函数**
 
