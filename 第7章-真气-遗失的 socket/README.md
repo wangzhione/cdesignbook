@@ -1516,20 +1516,43 @@ int main(void) {
 
     这两个函数用于流式套接字或者数据报套接字的通讯. 如果你喜欢使用无连接的数据报套接字, 
     你应该看一看下面关于 sendto() 和 recvfrom() 的章节. send() 是这样的:
-        int send(int sockfd, const void * msg, int len, int flags);
+
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+/* Send N bytes of BUF to socket FD.  Returns the number sent or -1.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t send (int sockfd, const void * buf, size_t len, int flags);
+```
+
     sockfd 是你想发送数据的套接字描述符(或者是调用 socket() 或者是 accept()返回的) 
-    msg 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置为 0 就可以了. (
+    buf 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置为 0 就可以了. (
     详细的资料请看 send() 的 man page). 这里是可能的例子：
-        char * msg = "I am here!";
-        int len, bytes_sent;
-        len = (int)strlen(msg);
-        bytes_sent = send(sockfd, msg, len, 0);
+
+```C
+char * msg = "I am here!";
+int len = (int)strlen(msg);
+int size = (int)send(sockfd, msg, len, 0);
+```
+
     send() 返回实际发送的数据的字节数 - 它可能小于你要求发送的数目! 注意, 有时候你告诉
     它要发送一堆数据可是它不能处理成功. 它只是发送它可能发送的数据, 然后希望你能够发送其
     它的数据. 记住, 如果 send() 返回的数据和 len 不匹配, 你就应该发送其它的数据. 但是
     这里也有个好消息: 如果你要发送的包很小(小于大约 1K), 它可能处理让数据一次发送完. 最
     后要说得就是, 它在错误的时候返回 -1, 并设置 errno. recv() 函数很相似:
-        int recv(int sockfd, void *buf, int len, unsigned int flags);
+
+```C
+/* Read N bytes into BUF from socket FD.
+   Returns the number read or -1 for errors.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t recv (int sockfd, void * buf, size_t len, int flags);
+```
+
     sockfd 是要读的套接字描述符. buf 是要读的信息的缓冲. len 是缓冲的最大长度. flags 
     可以设置为 0. (请参考 recv() 的 man page) recv() 返回实际读入缓冲的数据的字节数. 
     或者在错误的时候返回-1, 同时设置 errno.
@@ -1539,86 +1562,141 @@ int main(void) {
 
 **sendto() 和 recvfrom() 函数**
 
-    "这很不错啊", 你说, "但是你还没有讲无连接数据报套接字呢?" 没问题, 现在我
-    们开始这个内容. 既然数据报套接字不是连接到远程主机的, 那么在我们发送一个包
-    之前需要什么信息呢? 不错, 是目标地址! 看看下面的:
-    int sendto(int sockfd, const void * msg, int len, unsigned int flags,
-    const struct sockaddr * to, int tolen);
-    你已经看到了, 除了另外的两个信息外, 其余的和函数 send() 是一样的. to 是个
-    指向数据结构 struct sockaddr 的指针, 它包含了目的地的 IP 地址和端口信息. 
-    tolen 可以简单地设置为 sizeof(struct sockaddr). 和函数 send() 类似, 
-    sendto() 返回实际发送的字节数(它也可能小于你想要发送的字节数!), 或者在错误
-    的时候返回 -1. 相似的还有函数 recv() 和 recvfrom(). recvfrom() 的定义是
-    这样的:
-    int recvfrom(int sockfd, void * buf, int len, unsigned int flags,
-    struct sockaddr * from, int * fromlen);
-    又一次, 除了两个增加的参数外, 这个函数和 recv() 也是一样的. from 是一个指
-    向局部数据结构 struct sockaddr 的指针, 它的内容是源机器的 IP 地址和端口信
-    息. fromlen 是个 int 型的局部指针, 它的初始值为 sizeof(struct sockaddr).
-    函数调用返回后, fromlen 保存着实际储存在 from 中的地址的长度. recvfrom()
-    返回收到的字节长度, 或者在发生错误后返回 -1. 记住, 如果你用 connect() 连接
-    一个数据报套接字, 你可以简单的调用 send() 和 recv() 来满足你的要求. 这个时
-    候依然是数据报套接字, 依然使用 UDP, 系统套接字接口会为你自动加上了目标和源
-    的信息.
+    "这很不错啊", 你说, "但是你还没有讲无连接数据报套接字呢?" 没问题, 现在我们开始这个
+    内容. 既然数据报套接字不是连接到远程主机的, 那么在我们发送一个包之前需要什么信息呢?
+    不错, 是目标地址! 看看下面的:
+
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+/* Send N bytes of BUF on socket FD to peer at address ADDR (which is
+   ADDR_LEN bytes long).  Returns the number sent, or -1 for errors.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t sendto (int sockfd, const void * buf, size_t len,
+                       int flags, 
+                       const struct sockaddr * addr, 
+                       socklen_t addr_len);
+
+/* Read N bytes into BUF through socket FD.
+   If ADDR is not NULL, fill in *ADDR_LEN bytes of it with tha address of
+   the sender, and store the actual size of the address in *ADDR_LEN.
+   Returns the number of bytes read or -1 for errors.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern ssize_t recvfrom (int sockfd, const void * restrict buf, size_t len,
+                         int flags, 
+                         struct sockaddr * restrict addr, 
+                         socklen_t * restrict addr_len);
+```
+
+    你已经看到了, 除了另外的两个信息外, 其余的和函数 send() 是一样的. addr 是个指向数
+    据结构 struct sockaddr 的指针, 它包含了目的地的 IP 地址和端口信息. addr_len 可以
+    简单地设置为 sizeof(struct sockaddr). 和函数 send() 类似, sendto() 返回实际发送
+    的字节数(它也可能小于你想要发送的字节数!), 或者在错误的时候返回 -1. 相似的还有函数
+    recv() 和 recvfrom(). recvfrom() 的定义也在上面. 又一次, 除了两个增加的参数外, 
+    这个函数和 recv() 也是一样的. addr 也是个指向局部数据结构 struct sockaddr 的指针,
+    它的内容是源机器的 IP 地址和端口信息. addr_len 是个 socklen_t 型的局部指针, 它的
+    初始值为 sizeof(struct sockaddr). 函数调用返回后, addr_len 保存着实际储存在 addr
+    中的地址的长度. recvfrom() 返回收到的字节长度, 或者在发生错误后返回 -1. 记住, 如果
+    你用 connect() 连接一个数据报套接字, 你可以简单的调用 send() 和 recv() 来满足你的
+    要求. 这个时候依然是数据报套接字, 依然使用 UDP, 系统套接字接口会为你自动加上了目标
+    和源的信息.
 
 **close() 和 shutdown() 函数**
 
-    你已经整天都在发送 (send()) 和接收 (recv()) 数据了, 现在你准备关闭你的
-    套接字描述符了. 这很简单, 你可以使用一般的 linux 文件描述符 的 close() 函
-    数：
-        close(sockfd);
-    它将防止套接字上更多的数据的读写. 任何在另一端读写套接字的企图都将返回错误
-    信息. 如果你想在如何关闭套接字上有多一点的控制, 你可以使用函数 shutdown().
-    它允许你将一定方向上的通讯或者双向的通讯(就象 close() 一样)关闭, 你可以使
-    用:
-        int shutdown(int sockfd, int how);
+    你已经整天都在发送 send() 和接收 recv() 数据了, 现在你准备关闭你的套接字描述符了. 
+    这很简单, 你可以使用一般的 linux 文件描述符 的 close() 函数：
+
+```C
+#include <unistd.h>
+
+/* Close the file descriptor FD.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern int close (int fd);
+```
+
+    它将防止套接字上更多的数据的读写. 任何在另一端读写套接字的企图都将返回错误信息. 如
+    果你想在如何关闭套接字上有多一点的控制, 你可以使用函数 shutdown(). 它允许你将一定
+    方向上的通讯或者双向的通讯(就象 close() 一样)关闭, 你可以使用:
+
+```C
+#include <sys/types.h>
+#include <sys/socket.h>
+
+/* Shut down all or part of the connection open on socket FD.
+   HOW determines what to shut down:
+     SHUT_RD   = No more receptions;
+     SHUT_WR   = No more transmissions;
+     SHUT_RDWR = No more receptions or transmissions.
+   Returns 0 on success, -1 for errors.  */
+extern int shutdown (int sockfd, int how);
+```
+
     sockfd 是你想要关闭的套接字文件描述复. how 的值是下面的其中之一:
 
 ```C
-#define SD_RECEIVE      0x00
-#define SD_SEND         0x01
-#define SD_BOTH         0x02
+/* The following constants should be used for the second parameter of
+   `shutdown'.  */
+enum
+{
+  SHUT_RD = 0,		/* No more receptions.  */
+#define SHUT_RD		SHUT_RD
+  SHUT_WR,		/* No more transmissions.  */
+#define SHUT_WR		SHUT_WR
+  SHUT_RDWR		/* No more receptions or transmissions.  */
+#define SHUT_RDWR	SHUT_RDWR
+};
 ```
     其实含义如下
     0 - 不允许接受
     1 - 不允许发送
-    2 - 不允许发送和接受(和 close() 一样)
-    shutdown() 成功时返回 0, 失败时返回 -1(同时设置 errno) 如果在无连接的数
-    据报套接字中使用 shutdown(), 那么只不过是让 send() 和 recv() 不能使用(记
-    住你在数据报套接字中使用了 connect 后是可以使用它们的)
+    2 - 不允许发送和接受 (内部资源会保留直到 close())
+    shutdown() 成功时返回 0, 失败时返回 -1 (同时设置 errno) 如果在无连接的数据报套接
+    字中使用 shutdown(), 那么只不过是让 send() 和 recv() 不能使用(记住你在数据报套接
+    字中使用了 connect() 后是可以使用它们哦)
 
 **getpeername() and gethostname() 函数**
 
-    这个函数太简单了. 它太简单了, 以至我只想简单说说. 函数 getpeername() 告
-    诉你在连接的流式套接字上谁在另外一边. 函数是这样的:
+    这个函数太简单了. 它太简单了, 以至我只想简单说说. 函数 getpeername() 告诉你在连接
+    的流式套接字上谁在另外一边. 函数是这样的:
 
 ```C
 #include <sys/socket.h>
-int getpeername(int sockfd, struct sockaddr * addr, int * addrlen);
+
+/* Put the address of the peer connected to socket FD into *ADDR
+   (which is *LEN bytes long), and its actual length into *LEN.  */
+extern int getpeername (int sockfd, 
+                        struct sockaddr * restrict addr,
+			            socklen_t * restrict addr_len);
 ```
-    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 
-    内存布局的的指针, 它保存着连接的另一边的信息. addrlen 是一个 int 型的指针,
-    它初始化为 sizeof(struct sockaddr). 函数在错误的时候返回-1, 设置相应的 
-    errno. 一旦你获得它们的地址, 你可以使用 inet_ntoa() 或者 gethostbyaddr()
-    来打印或者获得更多的信息. 但是你不能得到它的帐号. (如果它运行着愚蠢的守护进
-    程, 这是可能的, 但是它的讨论已经超出了本文的范围, 可自行上路)
-    
-    甚至比 getpeername() 还简单的函数是 gethostname(). 它返回你程序所运行的
-    机器的主机名字. 然后你可以使用 gethostbyname() 以获得你的机器的 IP 地址.
-    下面是定义:
+    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
+    的的指针, 它保存着连接的另一边的信息. addr_len 是一个 int 型的指针, 它初始化值为 
+    sizeof(struct sockaddr). 函数在错误的时候返回 -1, 设置相应的 errno. 一旦你获得
+    它们的地址, 你就可以用 inet_ntop(), getnameinfo() 或 gethostbyaddr() 打印或取
+    得更多信息 (多自行 Search, 别打作者 :). 此刻比 getpeername() 还简单的函数是 
+    gethostname(). 它返回你程序所运行的机器的主机名字. 
 
 ```C
 #include <unistd.h>
-int gethostname(char * hostname, size_t size);
+
+/* Put the name of the current host in no more than LEN bytes of NAME.
+   The result is null-terminated if LEN is large enough for the full
+   name and the terminator.  */
+extern int gethostname (char * name, size_t len);
 ```
 
-    参数很简单: hostname 是一个字符数组指针, 它将在函数返回时保存主机名. 
-    size 是 hostname 数组的字节长度. 函数调用成功时返回 0, 失败时返回 -1, 
-    并设置 errno.
+    参数很简单: name 是一个字符数组指针, 它将在函数返回时保存主机名. len 是 name 数
+    组的字节长度. 函数调用成功时返回 0, 失败时返回 -1, 并设置 errno.
 
-### 7.2.4 编程演练
+### 7.2.4 编程操练, 道阻且长
 
-**域名服务(DNS)**
+**DNS 域名服务**
 
     如果你不知道 DNS 的意思, 那么我告诉你, 它代表域名服务 (Domain Name Service)
     . 它主要的功能是: 你给它一个容易记忆的某站点的地址, 它给你 IP 地址(然后你就
