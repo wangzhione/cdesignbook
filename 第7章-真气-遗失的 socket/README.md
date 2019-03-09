@@ -1675,6 +1675,7 @@ extern int getpeername (int sockfd,
                         struct sockaddr * restrict addr,
 			            socklen_t * restrict addr_len);
 ```
+
     sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
     的的指针, 它保存着连接的另一边的信息. addr_len 是一个 int 型的指针, 它初始化值为 
     sizeof(struct sockaddr). 函数在错误的时候返回 -1, 设置相应的 errno. 一旦你获得
@@ -1698,138 +1699,125 @@ extern int gethostname (char * name, size_t len);
 
 **DNS 域名服务**
 
-    如果你不知道 DNS 的意思, 那么我告诉你, 它代表域名服务 (Domain Name Service)
-    . 它主要的功能是: 你给它一个容易记忆的某站点的地址, 它给你 IP 地址(然后你就
-    可以使用 bind(), connect(), sendto() 或者其它函数). 当一个人输入(只是演示,
-    墙过不去):
+    如果你不知道 DNS 的意思, 那么我告诉你, 它代表域名服务 (Domain Name Service). 它
+    主要的功能是: 你给它一个容易记忆的某站点的地址, 它给你 IP 地址(然后你就可以使用 
+    bind(), connect(), sendto() 或者其它函数). 当一个人输入:
     $ telnet www.google.com
-    (可以用 dig 指令来看域名的 ip [dig url])
-    telnet 能知道它将连接(connect()) 到 "93.46.8.89".
- 
-    但是这是如何工作的呢? 你可以调用函数 gethostbyname()：
+    (可以用 dig 指令来看域名的 ip [dig uri])
+    telnet 能知道它将连接(connect()) 到 "31.13.74.1". 但是这是如何工作的呢? 你可以研
+    究 getaddrinfo() 这类函数, 先看演示吧.
 
 ```C
-#include <netdb.h>
-struct hostent * gethostbyname(const char *name);
-```
-
-    很明白的是, 它返回一个指向 struct hostent 的指针. 这个数据结构是这样的:
-
-```C
-    // The hostent structure is defined in <netdb.h> as follows:
-    struct hostent {
-        char *  h_name;           /* official name of host */
-        char ** h_aliases;        /* alias list */
-        int     h_addrtype;       /* host address type */
-        int     h_length;         /* length of address */
-        char ** h_addr_list;      /* list of addresses */
-    }
-    #define h_addr h_addr_list[0] /* for backward compatibility */
-```
-
-    这里是这个数据结构的详细资料:
-    struct hostent:
-    h_name			- 地址的正式名称.
-    h_aliases		- 空字节-地址的预备名称的指针.
-    h_addrtype		- 地址类型; 通常是 AF_INET.
-    h_length		- 地址的比特长度.
-    h_addr_list		- 零字节-主机网络地址指针.网络字节顺序.
-    h_addr			- h_addr_list 中的第一地址.
-
-    gethostbyname() 成功时返回一个指向结构体 hostent 的指针, 或者是个NULL
-    指针. (但是和以前不同, 不设置 errno, 用 h_errno 设置错误信息, 请看下面
-    的herror()) 扩展一下关于 gethostbyname 返回值是内部 static 维护的内存
-    空间, 不需要释放. 对于多线程要求的程序使用 gethostbyname_r. 更高性能要
-    求的领域使用开源的 dns 解析函数吧! 但是如何使用呢? 有时候(我们可以从电脑
-    手册中发现) 向读者灌输信息是不够的. 这个函数可不象它看上去那么难用. 这里
-    是个例子:
-
-文件名 : getip.c
-
-```C
-#include <stdio.h>
-#include <netdb.h>
-#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netdb.h>
+#include <stdio.h>
+
+// test getaddrinfo 地址打印
+static void test(const char * restrict name) {
+    struct addrinfo * a = NULL;
+    int r = getaddrinfo(name, NULL, NULL, &a);
+    if (r < 0) {
+        fprintf(stderr, "%s error(%d) = %s\n", name, r, gai_strerror(r));
+        return;
+    }
+
+    char ip[INET6_ADDRSTRLEN];
+    for (struct addrinfo * u = a; (u) ; u = u->ai_next) {
+        void * addr;
+
+        if (u->ai_family == AF_INET)
+            addr = &((struct sockaddr_in *)(u->ai_addr))->sin_addr;
+        else
+            addr = &((struct sockaddr_in6 *)(u->ai_addr))->sin6_addr;
+        
+
+        if (!inet_ntop(u->ai_family, addr, ip, sizeof ip)) {
+            fprintf(stderr, "%s family = %d\n", name, u->ai_family);
+            freeaddrinfo(a);
+            return;
+        }
+
+        printf("flags = 0x%x, family = %2d, socktype = %d, protocol = %2d, %s\n",
+               u->ai_flags, u->ai_family, u->ai_socktype, u->ai_protocol, ip);
+    }
+
+    freeaddrinfo(a);
+}
 
 //
-// test url: http://www.cnblogs.com/life2refuel/
+// getaddringo 构建
 //
 int main(int argc, char * argv[]) {
-	int type;
-	char ** pptr;
-	struct hostent * host;
-	
-	if(argc != 2) {
-		fprintf(stderr, "usage: ./getip.exe [url]\n");
-		exit(EXIT_FAILURE);
-	}
-
-	if(!(host = gethostbyname(argv[1]))) {
-		herror("main gethostbyname error");
-		exit(EXIT_FAILURE);
-	}
-
-	// 打印所有信息, 主机信息
-	printf("Host name is: %s.\n", host->h_name);
-	for(pptr = host->h_aliases; (*pptr); ++pptr)
-		printf("Alias of host:%s.\n", *pptr);
-	printf("Host addrtype is: %d.\n", type = host->h_addrtype);
-	printf("Host length is:%d.\n", host->h_length);
-	if(type == AF_INET || type == AF_INET6) {
-		char ip[sizeof "255.255.255.255"];
-		for(pptr = host->h_addr_list; (*pptr); ++pptr) {
-			inet_ntop(type, *pptr, ip, sizeof ip);
-			printf("Address:%s.\n", ip);
-		}
-	}
-
-	return EXIT_SUCCESS;
+    for (int i = 1; i < argc; ++i) {
+        test(argv[i]);
+    }
+    return 0;
 }
 ```
 
-    编译命令:
-    gcc -g -Wall -O2 -o getip.exe getip.c
-    执行命令:
-    ./getip.exe www.cnblogs.com
-    运行截图:
-
 ![getip](./img/getip.png)
 
-    在使用 gethostbyname() 的时候, 你不能用 perror() 打印错误信息 (因为 errno
-    没有使用, 使用的是h_errno), 你应该调用 herror(). 相当简单, 你只是传递一个保
-    存机器名的字符串(例如 "www.cnblogs.com") 给 gethostbyname(), 然后从返回的数
-    据结构 struct hostent 中获取信息. 唯一也许让人不解的是输出 IP 地址信息. 
-    h->h_addr 是一个 char *, 但是 inet_ntop() 需要的是 struct in_addr. 因此, 
-    转换 h->h_addr 成 struct in_addr *, 然后得到数据.
+    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
+    输出中可能对 flags, family, socktype, protocol 有些不明觉厉. 可以参看下面解释.
 
-**客户-服务器背景知识**
+```C
+//
+// netdb.h
+// 
+// [ai_flags]
+// # define AI_PASSIVE      0x0001	/* Socket address is intended for `bind'.  */
+// # define AI_CANONNAME    0x0002	/* Request for canonical name.  */
+// # define AI_NUMERICHOST  0x0004	/* Don't use name resolution.  */
+// # define AI_V4MAPPED     0x0008	/* IPv4 mapped addresses are acceptable.  */
+// # define AI_ALL          0x0010	/* Return IPv4 mapped and IPv6 addresses.  */
+// # define AI_ADDRCONFIG   0x0020	/* Use configuration of this host to choose */
+//
 
-    这里是个客户 - 服务器的世界. 在网络上的所有东西都是在处理客户进程和服务器进
-    程的交谈. 举个 telnet 的例子. 当你用 telnet (客户)通过 23 号端口登陆到主机,
-    主机上运行的一个程序(一般叫 telnetd, 服务器)激活. 它处理这个连接, 显示登陆界
-    面, 等等. 下图是一种: 客户机和服务器的关系
+//
+// sys/types.h
+// 
+// [ai_family]
+// #define PF_INET      2   /* IP protocol family.   */
+// #define PF_NETROM    6   /* Amateur radio NetROM. */
+//
+// #define AF_INET      PF_INET
+// #define AF_INET6     PF_INET6
+//
+// [ai_socktype]
+// SOCK_STREAM  = 1,    /* Sequenced, reliable, connection-based byte streams. */
+// #define SOCK_STREAM  SOCK_STREAM
+// SOCK_DGRAM   = 2,	/* Connectionless, unreliable datagrams of fixed maximum length. */
+// #define SOCK_DGRAM   SOCK_DGRAM
+// SOCK_RAW     = 3,    /* Raw protocol interface. */
+// #define SOCK_RAW     SOCK_RAW
+//
+// [ai_protocol]
+// IPPROTO_TCP = 6,         /* Transmission Control Protocol. */
+// #define IPPROTO_TCP		IPPROTO_TCP
+//
+// #define IPPROTO_PUP		IPPROTO_PUP
+// IPPROTO_UDP = 17,        /* User Datagram Protocol. */
+//
+```
 
-![客户端通信](./img/客户端通信.png)
+**客户端和服务器通信**
 
-    注意, 客户--服务器之间可以使用 SOCK_STREAM , SOCK_DGRAM 或者其它(只要它们
-    采用相同的). 一些很好的客户 - 服务器的例子有 telnet/telnetd, ftp/ftpd 和
-    bootp/bootpd. 每次你使用 ftp 的时候, 在远端都有一个 ftpd 为你服务. 一般, 
-    在服务端只有一个服务器, 它采用 fork() 来处理多个客户的连接. 基本的程序是: 服
-    务器等待一个连接, 接受(accept()) 连接, 然后 fork() 一个子进程处理它. 这是下
-    一章我们的例子中会讲到的. 还有一种通过 pthread 流程处理的都相似, 也比较容易
-    理解如下:
+    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
+    客户端和服务端通信这个太普遍了, 例如我们上网通过浏览器客户端同对应的服务器交互. 举
+    个 telnet 的例子. 当你用 telnet 客户端通过 23 号端口登陆到主机, 主机上运行的一个
+    一般叫 telnetd 程序被激活. 它处理这个连接, 进入交互流程. 注意, 客户端--服务器之间
+    可以使用 SOCK_STREAM, SOCK_DGRAM 或者其它协议(只要双方约定是相同的). 这里为大家
+    搜集一种简单编码流程图. 那我们开始编码吧.
 
-~[编程模式](./img/编程模式.png)
+![编程模式](./img/编程模式.png)
 
 
-**简单的服务器**
+先服务器
 
-    这个服务器所做的全部工作是在流式连接上发送字符串 "Hello, World!\n". 你要
-    测试这个程序的话, 可以在一台机器上运行该程序, 然后在另外一机器上登陆:
-    $ telnet [address] [port]  # 是该程序运行的机器的名字.
-
-simple_srv.c 服务器代码:
+    这个服务器所做的全部工作是在流式连接上发送字符串 "Hello, World!\n" 给客户端. 你
+    要测试这个程序的话, 可以使用 telnet [ip] [port] 来看最终结果.
 
 ```C
 #include <stdio.h>
@@ -1841,45 +1829,56 @@ simple_srv.c 服务器代码:
 #include <arpa/inet.h>
 #include <sys/types.h>
 
-#define _INT_PORT	(8088)
-#define _STR_HEOO	"Hello World!\n"
+#define PORT_USHORT	(8088u)
+#define HELLO_STR	"Hello World!\n"
 
-#define CERR_IF(code) \
-    if((code) < 0) \
-        perror(#code), exit(EXIT_FAILURE)
+#define IF(code)                    \
+if((code) < 0)                      \
+perror(#code), exit(EXIT_FAILURE)
 
 //
 // simple server send heoo to client
 //
 int main(int argc, char * argv[]) {
 	int sfd;
-	struct sockaddr_in saddr = { AF_INET };
-	CERR_IF(sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
-	saddr.sin_port = htons(_INT_PORT);
-	saddr.sin_addr.s_addr = INADDR_ANY;
-	CERR_IF(bind(sfd, (struct sockaddr *)&saddr, sizeof saddr));
+	IF(sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
+
+	struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(PORT_USHORT),
+    };
+	IF(bind(sfd, (struct sockaddr *)&addr, sizeof addr));
+
 	//监听一下
-	CERR_IF(listen(sfd, SOMAXCONN));
-	//下面就是采用单进程 处理 客户端链接请求
-	for(;;){
+	IF(listen(sfd, SOMAXCONN));
+
+	// 采用单进程处理客户端链接请求
+	for (;;) {
 		int cfd, fd;
-		struct sockaddr_in caddr;
-		socklen_t clen = sizeof caddr;
-		CERR_IF(cfd = accept(sfd, (struct sockaddr *)&caddr, &clen));
-		//输出 客户端信息
-		printf("get connection from %s.\n", inet_ntoa(caddr.sin_addr));
+		struct sockaddr_in cddr;
+		socklen_t cen = sizeof cddr;
+		IF(cfd = accept(sfd, (struct sockaddr *)&cddr, &cen));
+
+		// 输出客户端信息
+        char ip[INET6_ADDRSTRLEN];
+        IF(inet_ntop(AF_INET, &cddr, ip, sizeof ip));
+		printf("get connection from %s.\n", ip);
+
 		// 开启多进程, fd == 0 是子进程处理
-		CERR_IF(fd = fork()); 
+		IF(fd = fork()); 
 		if(fd == 0) {
 			close(sfd);
-			write(cfd, _STR_HEOO, strlen(_STR_HEOO));
+
+			write(cfd, HELLO_STR, strlen(HELLO_STR));
 			close(cfd);
+
 			exit(EXIT_SUCCESS);
 		}
 		
-		//父进程原先逻辑
+		// 父进程中关闭子进程的 socket fd
 		close(cfd);
-		//为子进程收尸吧
+
+		// 非阻塞为子进程尝试收尸
 		while(waitpid(-1, NULL, WNOHANG) > 0)
 			;
 	}
@@ -1888,29 +1887,15 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    编译命令:
-    gcc -g -O2 -Wall -Wno-unused-result -o simplec_srv.exe simplec_srv.c
-    后面就可以利用 telnet 进行测试了. 先开启服务器
+    我们通过编译, telnet 链接, 最终 Ctrl + C 发送 SIGINT 信号演示. 如果你很挑剔不
+    妨尝试将代码组织结构划分的更细点.
 
-![先开启服务器](./img/先开启服务器.png)
+![简易服务器](./img/hello_server.png)
 
-    用 telnet 客户端链接
+后客户端
 
-![客户端链接](./img/客户端链接.png)
-
-    看服务器结果, 最后 Ctrl + C 结束服务器
-
-![结束服务器](./img/结束服务器.png)
-
-    如果你很挑剔的话, 一定不满意所有的代码都在一个很大的 main() 函数中. 如果你不
-    喜欢, 可以划分得更细点. 你也可以用我们下一章中的程序得到服务器端发送的字符串.
-
-**简单的客户程序**
-
-    这个程序比服务器还简单. 这个程序的所有工作是通过 8088 端口连接到命令行中指定
-    的主机, 然后得到服务器发送的字符串.
-
-客户端代码 : simple_clt.c
+    客户端程序比服务器还简单. 这个程序的所有工作是通过 8088 端口连接到命令行中指定
+    的主机, 然后得到服务器发送过来的字符串.
 
 ```C
 #include <stdio.h>
@@ -1920,56 +1905,54 @@ int main(int argc, char * argv[]) {
 #include <sys/types.h>
 #include <arpa/inet.h>
 
-#define _INT_PORT   (8088)
+#define PORT_USHORT	(8088u)
 
-#define CERR_IF(code) \
-    if((code) < 0) \
-        perror(#code), exit(EXIT_FAILURE)
-
-// 打印数据
-static void _print(char buf[], int len) {
-    int i = -1;
-    while(++i < len)
-        putchar(buf[i]);
-    fflush(stdout);
-}
+#define IF(code)                    \
+if((code) < 0)                      \
+perror(#code), exit(EXIT_FAILURE)
 
 int main(int argc, char * argv[]) {
-    int sfd, len;
-    char buf[BUFSIZ];
-    struct sockaddr_in saddr = { AF_INET };
-    CERR_IF(sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
-    saddr.sin_port = htons(_INT_PORT);
-    saddr.sin_addr.s_addr = INADDR_ANY;
-    //链接一下
-    CERR_IF(connect(sfd, (struct sockaddr *)&saddr, sizeof saddr));
-    // 接收消息直到结束
-    while((len = read(sfd, buf, sizeof buf)) > 0)
-        _print(buf, len);
+    int sfd;
+    IF(sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
 
-    return close(sfd);
+	struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(PORT_USHORT),
+    };
+
+    // 链接一下
+    IF(connect(sfd, (struct sockaddr *)&addr, sizeof addr));
+
+    // 接收消息直到结束
+    for (;;) {
+        ssize_t len;
+        char buf[BUFSIZ];
+        IF(len = read(sfd, buf, sizeof buf - 1));
+        if (len == 0) {
+            close(sfd);
+            break;
+        }
+        
+        // 开始输出
+        buf[len] = '\0';
+        puts(buf);
+    }
+
+    return 0;
 }
 ```
 
-    编译命令:
-    gcc -g -O2 -Wall -Wno-unused-result -o simplec_clt.exe simplec_clt.c
-    测试结果图, 开启服务器, 运行客户端, 查看结果并关闭服务器
+    同样先启动服务器, 然后编译客户端, 再启动客户端, 随后关闭服务器这样演示. 是不是都
+    好简单. 这种远古时代网络编程模式在 golang 中大杀四方. 诸神凝重 ~ 
 
-![简易客户端01](./img/简易客户端01.png)
+ ![简易客户端](./img/hello_client.png)
 
-![简易客户端02](./img/简易客户端02.png)
+**数据包 UDP Socket**
 
-    注意, 如果你在运行服务器之前运行客户程序, connect() 将返回 "Connection refused"
-    信息, 这非常有用. 如下图
-
-![简易客户端03](./img/简易客户端03.png)
-
-**数据包 Sockets, UDP 模式**
-
-    不想讲更多了, 所以我给出代码 talker.c 和 listener.c. listener.exe 在机器上等待在
-    端口 8088 来的数据包. talker.exe 发送数据包到一定的机器, 它包含用户在命令行输入的
-    内容. 再扯一点吧 TCP 和 UDP 可以绑定相同端口. TCP 服务端口监听, UDP 不监听. 从协
-    议头区分是 TCP 还是 UDP.
+    不想讲更多了, 所以我给出代码 talker.c 和 listener.c. listener.exe 在机器上等待
+    来自端口 8088 的数据包. talker.exe 发送数据包到指定的机器端口上, 它包含用户在命
+    令行输入的内容. 再扯一点 TCP 和 UDP 可以绑定相同端口, 主要原因是机器接收到 IP 包
+    随后通过其头部的协议值决定是向上给 TCP 栈或者还是给 UDP栈, 所以哪怕二者端口相同.
 
 这里就是 listener.c
 
@@ -1982,44 +1965,44 @@ int main(int argc, char * argv[]) {
 #include <arpa/inet.h>
 #include <sys/types.h>
 
-#define _INT_PORT	(8088)
+#define PORT_USHORT	(8088u)
 
-#define CERR_IF(code) \
-	if((code) < 0) \
-		perror(#code), exit(EXIT_FAILURE)
-
-// 打印数据
-static void _print(char buf[], int len) {
-	int i = -1;
-	while(++i < len)
-		putchar(buf[i]);
-	fflush(stdout);
-}
+#define IF(code)                    \
+if((code) < 0)                      \
+perror(#code), exit(EXIT_FAILURE)
 
 int main(int argc, char * argv[]) {
-	int sfd, len;
-	char buf[BUFSIZ];
-	socklen_t clen = sizeof(struct sockaddr_in);
-	struct sockaddr_in caddr, saddr = { AF_INET, htons(_INT_PORT) };
-	CERR_IF(sfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP));
+    int fd;
+	IF(fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(PORT_USHORT),
+    };
+    socklen_t sen = sizeof addr;
+
 	// 绑定地址, 然后接收数据
-	CERR_IF(bind(sfd, (struct sockaddr *)&saddr, clen));
-	CERR_IF(len = recvfrom(sfd, buf, BUFSIZ, 0, (struct sockaddr *)&caddr, &clen));
+	IF(bind(fd, (struct sockaddr *)&addr, sen));
+
+    // 等待并接收数据
+    int n;
+	char buf[BUFSIZ];
+	IF(n = recvfrom(fd, buf, sizeof buf - 1, 
+                    0, 
+                    (struct sockaddr *)&addr, &sen));
 	
+    // 输出接收的地址信息
+    char ip[INET6_ADDRSTRLEN];
+    IF(inet_ntop(AF_INET, &addr, ip, sizeof ip));
+	printf("get connection from %s.\n", ip);
+
 	// 返回最终结果
-	printf("get packet from %s.\n", inet_ntoa(caddr.sin_addr));
-	printf("packet is %d bytes long\n", len);
-	printf("packet contains:");
-	_print(buf, len);
+    buf[n] = '\0';
+    printf("n = %d, buf = %s\n", n, buf);
 	
-	return close(sfd);
+	return close(fd);
 }
 ```
-
-    编译指令:
-    gcc -g -O2 -Wall -Wno-unused-result -o listener.exe listener.c
-    注意在我们的调用 socket(), 我们最后使用了 SOCK_DGRAM. 同时没有必要去使用
-    listen() 或者 accept(). 我们在使用无连接的数据报套接字!
 
 下面是 talker.c
 
@@ -2031,81 +2014,80 @@ int main(int argc, char * argv[]) {
 #include <sys/types.h>
 #include <arpa/inet.h>
 
-#define _STR_HEOO	"我是个龌蹉的人, 从读大学开始. 我想做个好人, 从工作开始...\r\n"
-#define _INT_PORT	(8088)
+#define HELLO_STR	"... 我想做个好人, 平和喜乐 ...\r\n"
+#define PORT_USHORT	(8088u)
 
-#define CERR_IF(code) \
-    if((code) < 0) \
-        perror(#code), exit(EXIT_FAILURE)
+#define IF(code)                    \
+if((code) < 0)                      \
+perror(#code), exit(EXIT_FAILURE)
 
 int main(int argc, char * argv[]) {
-	int sfd;
-	struct sockaddr_in saddr = { AF_INET, htons(_INT_PORT) };
-	CERR_IF(sfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP));
+    int fd;
+	IF(fd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(PORT_USHORT),
+    };
 	// 发送消息
-	CERR_IF(sendto(sfd, _STR_HEOO, sizeof _STR_HEOO, 0, (struct sockaddr *)&saddr, sizeof saddr));
+	IF(sendto(fd, HELLO_STR, sizeof HELLO_STR, 
+              0, 
+              (struct sockaddr *)&addr, sizeof addr));
+
 	// 返回最终结果
-	puts("over, 人也只是造物主的一个玩具, 除非出现 BUG or 异常!");
+	puts("万物也可能只是一梭信息, 除非出现 BUG or 异常!");
 	
-	return close(sfd);
+	return close(fd);
 }
 ```
 
-    编译代码
-    gcc -g -O2 -Wall -Wno-unused-result -o talker.exe talker.c
+![简易UDP](./img/简易UDP.png)
 
-![UDP监听](./img/UDP监听.png)
-
-    上面是 listener.exe 接收消息, 下面是talker.exe 发送消息. 
-    (TCP和UDP可以重用相同端口)
-
-![UDP发送](./img/UDP发送.png)
-
-    这就是所有的了. 在一台机器上运行 listener.exe, 然后在另外一台机器上运行
-    talker.exe. 观察它们的通讯! 除了一些我在上面提到的数据套接字连接的小细节外, 
-    对于数据套接字, 我还得说一些, 当一个讲话者呼叫 connect() 函数时并指定接受者
-    的地址时, 从这点可以看出, 讲话者只能向 connect() 函数指定的地址发送和接受信
-    息. 因此, 你不需要使用 sendto() 和 recvfrom(), 你完全可以用 send() 和 
-    recv() 代替. 到这里基本上 TCP 和 UDP 至少知道几个 Linux 上使用 API 了. 后
-    面就看个人投入. 好继续.
+    观察它们的通讯! 除了一些我在上面提到的数据套接字连接的小细节外, 对于数据包套接字. 
+    我还得说一点, 当 UDP 程序通过 connect() 函数绑定地址时候, 后续你使用 sendto(), 
+    recvfrom() 时可以不用附带地址 sockaddr 信息, 此刻完全可以用 send() 和 recv() 
+    代替. 原因在于 connnect() 函数帮助在内核记录下所需要的地址信息. 
 
 **阻塞**
 
     阻塞, 你也许早就听说了. "阻塞"是 "sleep" 的科技行话. 你可能注意到前面运行的
-    listener.exe 程序, 它在那里不停地运行, 等待数据包的到来. 实际在运行的是它调
-    用 recvfrom(), 然后没有数据, 因此 recvfrom() 说 "阻塞(block)", 直到数据的
-    到来. 很多函数都利用阻塞. accept() 阻塞, 所有的 recv*() 函数阻塞. 它们之所
-    以能这样做是因为它们被允许这样做. 当你第一次调用 socket() 建立套接字描述符的
-    时候, 内核就将它设置为阻塞. 如果你不想套接字阻塞, 你就要调用函数 fcntl() 修
-    改为非阻塞模式
+    listener.exe 程序, 它在 recvfrom() 时候等待数据包的到来. 如果没有数据就会一致等
+    待, 因此 recvfrom() 说 "阻塞(block)", 直到数据的到来. 很多函数都利用阻塞. 
+    accept() 阻塞, 所有的 recv*() 函数阻塞. 它们之所以能这样做是因为它们被允许这样做
+    . 当你第一次调用 socket() 建立套接字描述符的时候, 内核就将它设置为阻塞. 如果你不
+    想套接字阻塞, 你就要调用函数 fcntl() 修改为非阻塞模式.
 
 ```C
 #include <fcntl.h>
 #include <unistd.h>
-int s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-int mode = fcntl(s, F_GETFL, 0);
-fcntl(s, F_SETFL, mode | O_NONBLOCK);
+
+int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+int mode = fcntl(fd, F_GETFL, 0);
+return fcntl(fd, F_SETFL, mode | O_NONBLOCK);
 ```
 
-    通过设置套接字为非阻塞, 你能够有效地"询问"套接字以获得信息. 如果你尝试着从
-    一个非阻塞的套接字读信息并且没有任何数据, 它不允许阻塞 -- 它将返回 -1 并将
-    errno 设置为 EWOULDBLOCK. 但是一般说来, 这种询问不是个好主意. 如果你让你
-    的程序在忙等状态查询套接字的数据, 你将浪费大量的 CPU 时间. 更好的解决之道是
-    用下一节讲的 select() 去查询是否有数据要读进来.
+    通过设置套接字为非阻塞, 你能够有效地"询问"套接字以获得信息. 如果你尝试着从一个非阻
+    塞的套接字读信息并且没有任何数据, 它不允许阻塞. 它将返回 -1 并将 errno 设置为 
+    EAGAIN. 但是一般说来, 这种询问不是个好主意. 如果你让你的程序在忙等状态查询套接字的
+    数据, 你将浪费大量的 CPU 时间. 更好的解决之道是用下一章讲的 IO 复用机制, 被通知后
+    才去查询是否有数据要读进来. 到这基本上 TCP 和 UDP 在 Linux socket 开发扫盲已经完
+    毕, 后续的勤学苦练就随缘渡海了 :)
+
 
 ### 7.2.5 编程拓展
 
-    说了那么多, 后面也许是高潮, 更多还是回顾. 因为一开始就已经决定了.
+        说了那么多, 后续会逐渐进入状态, 更多还是回顾. 因为很多都是很老的东西. 
 
-**select() 多路复用 I/O**
+**select()**
 
-    虽然这个函数有点奇怪, 但是它很有用. 假设这样的情况: 你是个服务器, 你一边在
-    不停地从连接上读数据, 一边在侦听连接上的信息. 没问题, 你可能会说, 不就是一个
-    accept() 和两个 recv() 吗? 这么容易吗, 朋友? 如果你在调用 accept() 的时候
-    阻塞呢? 你怎么能够同时接受 recv() 数据? "用非阻塞的套接字啊!" 不行! 你不想
-    耗尽所有的 CPU 吧? 那么, 该如何是好? select() 让你可以同时监视多个套接字. 
-    如果你想知道的话, 那么它就会告诉你哪个套接字准备读, 哪个又准备写, 哪个套接字
-    又发生了例外(exception). 闲话少说, 下面是 select():
+    这个函数有点奇怪, 但是它很有用. 假设这样的情况: 你是个服务器, 你一边在不停地从连接
+    上读数据, 一边在侦听连接上的信息. 没问题, 你可能会说, 不就是一个 accept() 和一个 
+    recv() 吗? 这么容易吗, 朋友? 如果你在调用 accept() 的时候阻塞呢? 你怎么能够同时接
+    受 recv() 数据? "用非阻塞的套接字啊!" 不行! 你不想耗尽所有的 CPU 吧? 那么, 该如何
+    是好? select() 让你可以同时监视多个套接字. 如果你想知道的话, 那么它就会告诉你哪个
+    套接字准备读, 哪个又准备写, 哪个套接字又发生了意外 (exception). 闲话少说, 下面是 
+    select() 一种模拟演示:
 
 ```C
 /* According to POSIX.1-2001, POSIX.1-2008 */
@@ -2116,49 +2098,47 @@ fcntl(s, F_SETFL, mode | O_NONBLOCK);
 #include <sys/time.h>
 #include <sys/types.h>
 
-int select(int nfds, fd_set  * readfds, fd_set * writefds,
-           fd_set * exceptfds, struct timeval * timeout);
-
+void FD_ZERO(fd_set * set);
+void FD_SET(int fd, fd_set * set);
 void FD_CLR(int fd, fd_set * set);
 int  FD_ISSET(int fd, fd_set * set);
-void FD_SET(int fd, fd_set * set);
-void FD_ZERO(fd_set * set);
+
+int select(int nfds, 
+           fd_set  * readfds, fd_set * writefds, fd_set * exceptfds, 
+           struct timeval * timeout);
 ```
 
-    这个函数监视一系列文件描述符, 特别是 readfds writefds 和 exceptfds. 如果
-    你想知道你是否能够从标准输入和套接字描述符 sockfd 读入数据, 你只要将文件描述符
-    0 和 sockfd 加入到集合 readfds 中. 参数 numfds 应该等于最高的文件描述符的值
-    加1. 在这个例子中, 你应该设置该值为 sockfd + 1. 因为它一定大于标准输入的文件描
-    述符 (0). 当函数 select() 返回的时候, readfds 的值修改为反映你选择的哪个文件
-    描述符可以读. 你可以用下面讲到的宏 FD_ISSET() 来测试. 在我们继续下去之前, 让
-    我来讲讲如何对这些集合进行操作. 每个集合类型都是 fd_set. 下面有一些宏来对这个类
-    型进行操作:
+    这个函数监视一系列文件描述符, 特别是 readfds writefds 和 exceptfds. 如果你想知
+    道你是否能够从标准输入和套接字描述符 sockfd 读入数据, 你只要将文件描述符 0 和 
+    sockfd 加入到集合 readfds 中. 参数 nfds 应该等于最高的文件描述符的值加 1. 在这个
+    例子中, 你应该设置该值为 sockfd + 1. 因为它一定大于标准输入的文件描述符 0. 当函数
+    select() 返回的时候, readfds 的值修改为反映你选择的哪个文件描述符可以读. 你可以用
+    FD_ISSET() 来测试. 在我们继续下去之前, 让我来讲讲如何对这些集合进行操作. 每个集合
+    类型都是 fd_set. 下面加一些注释来说明:
 
         FD_ZERO(fd_set * set)           - 清除一个文件描述符集合
         FD_SET(int fd, fd_set * set)    - 添加 fd 到集合
         FD_CLR(int fd, fd_set * set)    - 从集合中移去 fd
         FD_ISSET(int fd, fd_set * set)  - 测试 fd 是否在集合中
 
-    最后, 是有点古怪的数据结构 struct timeval. 有时你可不想永远等待别人发送数据过
-    来. 也许什么事情都没有发生的时候你也想每隔 64 秒在终端上打印字符串 "谢谢 你". 
-    这个数据结构允许你设定一个时间, 如果时间到了, 而 select() 还没有找到一个准备好
-    的文件描述符, 它将返回让你继续处理. 数据结构 struct timeval 是这样的:
+    最后, 是有点古怪的数据结构 struct timeval. 有时你可不想永远等待别人发送数据过来. 
+    也许什么事情都没有发生的时候你也想每隔 64 秒在终端上打印字符串 "对不起". 这个数据
+    结构允许你设定一个时间, 如果时间到了, 而 select() 还没有找到一个准备好的文件描述符
+    , 它将返回让你继续处理. 数据结构 struct timeval 是这样的:
 
         struct timeval {
             long    tv_sec;         /* seconds */
             long    tv_usec;        /* microseconds */
         };
 
-    只要将 tv_sec 设置为你要等待的秒数, 将 tv_usec 设置为你要等待的微秒数就可以了.
-    是的, 是微秒而不是毫秒. 1,000 微秒等于 1 毫秒，1,000 毫秒等于 1 秒. 也就是说, 
-    1 秒等于 1,000,000 微秒. 为什么用符号 "usec" 呢? 字母 "u" 很象希腊字母 Mu，
-    而 Mu 表示 "微" 的意思. 当然, 函数返回的时候 timeout 可能是剩余的时间, 之所以
-    是可能, 是因为它依赖于你的 linux 操作系统. 哈! 我们现在有一个微秒级的定时器! 别
-    计算了, 老标准的 Linux 系统的时间片是 100 毫秒, 所以无论你如何设置你的数据结构 
-    struct timeval, 你都要等待那么长的时间. 还有一些有趣的事情: 如果你设置数据结构
-    struct timeval 中的数据为 0, select() 将立即超时, 这样就可以有效地轮询集合中的
-    所有的文件描述符. 如果你将参数 timeout 赋值为 NULL, 那么将永远不会发生超时, 即
-    一直等到第一个文件描述符就绪. 最后, 如果你不是很关心等待多长时间, 那么就把它赋为
+    只要将 tv_sec 设置为你要等待的秒数, 将 tv_usec 设置为你要等待的微秒数就可以了. 是
+    的, 是微秒而不是毫秒. 1,000 微秒等于 1 毫秒，1,000 毫秒等于 1 秒. 也就是说, 1 秒
+    等于 1,000,000 微秒. 为什么用符号 "usec" 呢? 字母 "u" 很象希腊字母 Mu, 而 Mu 表
+    示 "微" 的意思. 当然, 函数返回的时候 timeout 可能是剩余的时间, 之所以是可能, 是因
+    为它依赖于你的 linux 操作系统对于时间片的实现. 还有一些有趣的事情: 如果你设置数据
+    结构 struct timeval 中的数据为 0, select() 将立即超时, 这样就可以有效地轮询集合
+    中的所有的文件描述符. 如果你将参数 timeout 赋值为 NULL, 那么将永远不会发生超时, 
+    即一直等到有文件描述符就绪. 最后, 如果你不是很关心等待多长时间, 那么就把它赋为 
     NULL 吧. 下面的代码演示了在标准输入上等待 2.5 秒:
 
 演示代码 select.c
@@ -2169,40 +2149,33 @@ void FD_ZERO(fd_set * set);
 #include <sys/time.h>
 #include <sys/types.h>
 
-// 等待控制台2.5s操作
+// 等待控制台 2.5s 操作
 int main(int argc, char * argv[]) {
-	fd_set fds = { 0 };
-	struct timeval tv = { 2, 500000 };
-	
-	FD_SET(STDIN_FILENO, &fds);
-	if(select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) < 0) {
-		printf("select error tv = %ld | %ld.\n", tv.tv_sec, tv.tv_usec);
-		return -1;
-	}
+    fd_set fds = { 0 };
+    struct timeval tv = { 2, 500000 };
 
-	// 判断结果
-	if(FD_ISSET(STDIN_FILENO, &fds))
-		puts("A key war pressed!");
-	else
-		puts("Timed out");
+    FD_SET(STDIN_FILENO, &fds);
+    if(select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) < 0) {
+        printf("select error tv = %ld | %ld.\n", tv.tv_sec, tv.tv_usec);
+        return -1;
+    }
 
-	return 0;
+    // 判断结果
+    if(FD_ISSET(STDIN_FILENO, &fds))
+        puts("A key war pressed!");
+    else
+        puts("Timed out");
+
+    return 0;
+}
 ```
-
-    编译命令截图如下:
-    gcc -g -O2 -Wall -Wno-unused-result -o select.exe select.c
 
 ![select操作](./img/select操作.png)
 
-    如果你是在一个 line buffered 终端上, 那么你敲的键应该是回车 (RETURN), 否则
-    无论如何它都会超时. 现在, 你可能回认为这就是在数据报套接字上等待数据的方式 -
-    你是对的: 它可能是. 有些 linux 系统可以按这种方式, 而另外一些则不能. 你在尝试
-    以前可能要先看看本系统的 man page 了. 最后一件关于 select() 的事情: 如果你有
-    一个正在侦听 (listen()) 的套接字, 你可以通过将该套接字的文件描述符加入到 
-    readfds 集合中来看是否有新的连接. 这就是我关于函数 select() 要讲的所有的东西.
-    到这里本应该结束了, 但是一念想起高中老师的谆谆教导, 回赠个总的复习吧!
+    我这里对于 select 介绍时百不存一, 后续强烈推荐读者认真演技相关资料. 它很与众不同. 
+    到这里本节应该结束了, 但是一念想起高中老师的谆谆教导, 回赠个总的复习吧!
 
-**此刻回顾 TCP 链接和关闭**
+**问: TCP 可以两次握手?**
 
     下面回顾下 socket 中的 TCP connect -> listen -> accept 和 close
 
