@@ -2014,7 +2014,7 @@ int main(int argc, char * argv[]) {
 #include <sys/types.h>
 #include <arpa/inet.h>
 
-#define HELLO_STR	"... 我想做个好人, 平和喜乐 ...\r\n"
+#define HELLO_STR	"... 想做个好人, ......\r\n"
 #define PORT_USHORT	(8088u)
 
 #define IF(code)                    \
@@ -2160,7 +2160,7 @@ int main(int argc, char * argv[]) {
         return -1;
     }
 
-    // 判断结果
+    // 判断结果1
     if(FD_ISSET(STDIN_FILENO, &fds))
         puts("A key war pressed!");
     else
@@ -2175,7 +2175,7 @@ int main(int argc, char * argv[]) {
     我这里对于 select 介绍时百不存一, 后续强烈推荐读者认真演技相关资料. 它很与众不同. 
     到这里本节应该结束了, 但是一念想起高中老师的谆谆教导, 回赠个总的复习吧!
 
-**问: TCP 可以两次握手?**
+**问: TCP 可以两次握手建立链接吗?**
 
     下面回顾下 socket 中的 TCP connect -> listen -> accept 和 close
 
@@ -2199,6 +2199,8 @@ int main(int argc, char * argv[]) {
 
     b) 四次握手释放链接
     对于 socket 关闭中请看下图 TCP 断开的四次分手过程
+
+**问: TCP 为什么 TIME_WAIT 默认等待 2MSL?**
 
 ![四次分手](./img/四次分手.png)
     
