@@ -2206,11 +2206,8 @@ int main(int argc, char * argv[]) {
 **IO 复用中结束本小节吧**
 
     最好继续帮助加深理解吧. 其实网络编程还是比较难搞的. 细节多技巧性强, 网络编程内幕确
-    实不少. 我也只是个菜鸡. 到这里, 还需要掌握一个 Linux 上一种 IO 复用机制 epoll 
-    管理文件描述符, 也就是一组网络编程的基于事件回调的 API. 修行的就看个人了, 
-    演示 Demo 如下:
-
-epoll 简单服务器文件 : epoll_srvone.c
+    实不少. 我也只是个菜鸡. 到这再带大家掌握一下 Linux 上运用 epoll IO 复用 API 管
+    理文件描述符. 修行的就看个人了, 演示 Demo 如下:
 
 ```C
 #include <time.h>
@@ -2220,197 +2217,253 @@ epoll 简单服务器文件 : epoll_srvone.c
 #include <string.h>
 #include <limits.h>
 #include <stdlib.h>
+
 #include <netdb.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 
-//
-// 当前简易 epoll heoo server 用到的参数宏
-//
-#define _INT_PORT		(8088)
-#define _INT_WAIT		(61 * 1000)
+// CERR - 打印错误信息
+#define CERR(fmt, ...)                                                 \
+fprintf(stderr, "[%s:%s:%d][%d:%s]"fmt"\n",                            \
+    __FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
 
-#define CERR(fmt, ...) \
-	fprintf(stderr, "[%s:%s:%d][errno %d:%s]" fmt "\n", \
-		__FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
+// IF   - 条件判断异常退出的辅助宏
+#define IF(cond)                                                       \
+if ((cond) < 0) do {                                                   \
+    CERR(#cond);                                                       \
+    exit(EXIT_FAILURE);                                                \
+} while(0)
 
-#define CERR_IF(code) \
-	if((code) < 0) \
-		CERR(fmt, ##__VA_ARGS__), exit(EXIT_FAILURE)
+//
+// RETURN - 打印错误信息, 并 return 返回指定结果
+// val      : return 的东西, 当需要 return void; 时候填 , or NIL
+// fmt      : 双引号包裹的格式化字符串
+// ...      : fmt 中对应的参数
+// return   : val
+// 
+#define RETURN(val, fmt, ...)                                         \
+do {                                                                  \
+    CERR(fmt, ##__VA_ARGS__);                                         \
+    return val;                                                       \
+} while(0)
 
 #define NIL
-#define RETURN(val, fmt, ...) \
-	do { \
-		CERR(fmt, ##__VA_ARGS__); \
-		return val; \
-	} while(0)
+#define RETNIL(fmt, ...)                                              \
+RETURN(NIL, fmt, ##__VA_ARGS__)
 
-// clt 客户端 socket, 主要是打印头信息,和输出时间
-void clt_echo(int cltk, int epd);
-// 设置客户端链接,只有 epoll 获取到有链接过来才处理
-void clt_add(int srv, int epd);
-// 边缘触发 处理读取业务
-void clt_run(int fd, int efd);
+// setnonblock 设置套接字非阻塞
+inline static void setnonblock(int fd) {
+	int mode = fcntl(fd, F_GETFL);
+	IF(fcntl(fd, F_SETFL, mode | O_NONBLOCK));
+}
+
+// echo_send 发给数据给客户端
+void echo_send(int efd, int fd);
+
+// echo_add 添加监听的 socket
+void echo_add(int efd, int fd);
+
+// echo_recv 接收数据
+void echo_recv(int efd, int fd);
 
 //
-// 函数主业务
+// echo.c echo 服务主业务
 //
+
+#define PORT_USHORT		(8088u)
+#define EPOLL_EVENT     (64)
+#define EPOLL_WAIT		(60 * 1000)
+
 int main(int argc, char * argv[]) {
-	int srvk, epd, nfds, on = 1;
-	// 创建 epoll 对象
-	struct epoll_event evs[_INT_EPOLL], ev = { EPOLLIN | EPOLLET };
-	struct sockaddr_in saddr = { AF_INET, htons(_INT_PORT) };
+	int sfd, efd, n, on = 1;
+	struct sockaddr_in a = { 
+        .sin_family = AF_INET, 
+        .sin_port = htons(PORT_USHORT), 
+    };
 	
 	// 创建 socket 并检测
-	CERR_IF(srvk = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
-	//设置地址复用
-	CERR_IF(setsockopt(srvk, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on));
-	//设置 socket 为非阻塞的
-	setnonblock(srvk);
-	//绑定地址地址
-	CERR_IF(bind(srvk, (struct sockaddr*)&saddr, sizeof saddr));
-	//开始监听端口
-	CERR_IF(listen(srvk, SOMAXCONN));
-	//这里创建 epoll 对象的句柄
-	CERR_IF(epd = epoll_create1(0));
-	//这里注册一个监听事件, 这里采用边缘触发模型
-	ev.data.fd = srvk;
-	//注册这个事件到 epd 文件描述符下
-	CERR_IF(epoll_ctl(epd, EPOLL_CTL_ADD, srvk, &ev));
+    IF(sfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP));
+	// 设置地址复用
+	IF(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on));
+	// 设置 socket 为非阻塞的
+	setnonblock(sfd);
+	// 绑定地址地址
+	IF(bind(sfd, (struct sockaddr *)&a, sizeof a));
+	// 开始监听端口
+	IF(listen(sfd, SOMAXCONN));
+
+	// 这里创建 epoll 对象的句柄
+	IF(efd = epoll_create1(EPOLL_CLOEXEC));
+	// 这里注册一个监听事件, 这里采用边缘触发模型
+	struct epoll_event es[EPOLL_EVENT], ev = { 
+        .events = EPOLLIN | EPOLLET, 
+        .data = { .fd = sfd }
+    };
+	IF(epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &ev));
 	
 	//下面是等待操作,将时间传送给客户端
 	for (;;) {
-		CERR_IF(nfds = epoll_wait(epd, evs, _INT_EPOLL, _INT_WAIT));
-		
-		//简单处理超时
-		if(0 == nfds) {
-			puts("epoll server timeout, server auto destroy......");
+        n = epoll_wait(efd, es, sizeof es/sizeof *es, EPOLL_WAIT);
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            CERR("epoll_wait efd = %d error", efd);
+            break;
+        }
+
+		// 简单处理超时
+		if(0 == n) {
+			puts("echo server timeout, server auto exit ...");
 			break;
 		}
 		
-		//处理连接 客户端链接
-		for(on = 0; on < nfds; ++on) {
-			struct epoll_event * ei = evs + on;
-			int fd = ei->data.fd;
+		// 处理各种 event
+		for (on = 0; on < n; ++on) {
+            uint32_t events = es[on].events;
+			int fd = es[on].data.fd;
+
 			// 有数据可以读取
-			if(ei->events & EPOLLIN){ 
-				if(fd == srvk)
-					clt_add(fd, epd);
+			if (events & (EPOLLIN | EPOLLHUP)) { 
+				if(fd == sfd)
+					echo_add(efd, fd);
 				else
-					clt_run(fd, epd);
+					echo_recv(efd, fd);
 				continue;
 			}
 			
 			// 如果有数据要发送
-			if(ei->events & EPOLLOUT){ 
-				//这里打印客户端信息
-				clt_echo(fd, epd);
+			if (events & EPOLLOUT) {
+				echo_send(efd, fd);
 				continue;
 			}
 			
-			// 其它事件 目前没有处理
+			// 其它事件目前挣只眼和闭只眼
+            if (events & EPOLLERR) {
+                CERR("epoll fd = %d, events = %u error", fd, events);
+                continue;
+            }
 		}
 	}
 	
-	close(epd);
-	close(srvk);
+	close(efd);
+    close(sfd);
 	return EXIT_SUCCESS;
 }
 
-// 设置套接字阻塞和非阻塞
-inline void setnonblock(int sck) {
-	int mode = fcntl(sck, F_GETFL);
-	CERR_IF(fcntl(sck, F_SETFL, mode | O_NONBLOCK));
-}
+// echo_send 同客户端 socket 数据交互
+void 
+echo_send(int efd, int fd) {
+    struct sockaddr_in a;    
+    socklen_t aen = sizeof a;
+    struct epoll_event ev = {
+        .events = EPOLLIN | EPOLLET,
+        .data = { .fd = fd }
+    };
 
-void
-clt_echo(int cltk, int efd) {
-	char buf[BUFSIZ];
-	//获取客户端连接信息
-	struct sockaddr_in caddr;
-	socklen_t crl = sizeof caddr;
-	struct epoll_event ev = { EPOLLIN | EPOLLET, { .fd = cltk } };
-	if(getpeername(cltk, (struct sockaddr *)&caddr, &crl) < 0) {
-		epoll_ctl(efd, EPOLL_CTL_DEL, cltk, &ev);
-		close(cltk);
-        RETURN(NIL, "getpeername cltk is error = %d.", cltk);
+    // 获取客户端数据并打印
+    if(getpeername(fd, (struct sockaddr *)&a, &aen) < 0) {
+		epoll_ctl(efd, EPOLL_CTL_DEL, fd, &ev);
+		close(fd);
+        RETNIL("getpeername fd is error = %d.", fd);
     }
-	
-	//拼接字符串
-	crl = snprintf(buf, sizeof buf, "[%s:%d]To start, X-ray emission -> ...",
-		inet_ntoa(caddr.sin_addr), ntohs(caddr.sin_port));
-	puts(buf);
-	//这里发送信息给客户端, 这里不考虑传输不稳定情况
-	write(cltk, buf, crl);
-	
-	//重新注册为读事件, 采用边缘触发
-	epoll_ctl(efd, EPOLL_CTL_MOD, cltk, &ev);
+
+    // 字符串拼接
+    char buf[BUFSIZ];
+    char ip[INET6_ADDRSTRLEN];
+    aen = snprintf(buf, sizeof buf, 
+                   "send: [%s:%d] To start ...\n",
+		            inet_ntop(AF_INET, &a, ip, sizeof ip),
+                    ntohs(a.sin_port));
+    printf("%s", buf);
+
+    // 发送信息给客户端, 这里不考虑传输异常情况
+    send(fd, buf, aen, 0);
+
+    // 重新注册为读事件, 采用边缘触发
+	epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
 }
 
+// echo_add 添加监听的 socket
 void 
-clt_add(int srv, int epd) {
-	int clt;
-	struct sockaddr_in caddr;
-	socklen_t crl = sizeof caddr;
-	struct epoll_event ev = { EPOLLIN | EPOLLET };
-	CERR_IF(clt = accept(srv, (struct sockaddr *)&caddr, &crl));
-	setnonblock(clt);
-	//这里设置 epoll 事件
-	ev.data.fd = clt;
-	epoll_ctl(epd, EPOLL_CTL_ADD, clt, &ev);
+echo_add(int efd, int fd) {
+    struct sockaddr_in a;
+    socklen_t aen = sizeof a;
+    int cfd = accept(fd, (struct sockaddr *)&a, &aen);
+    IF(cfd);
+    setnonblock(cfd);
+
+    struct epoll_event ev = { 
+        .events = EPOLLIN | EPOLLET,
+        .data = { .fd = cfd }
+    };
+    if (epoll_ctl(efd, EPOLL_CTL_ADD, cfd, &ev)) {
+        CERR("epoll_ctl cfd = %d", cfd);
+        close(cfd);
+    }
 }
 
+// echo_recv 接收数据
 void 
-clt_run(int fd, int efd) {
-	// 先读取内容, 在重新设置边缘触发
-	ssize_t n;
-	char buf[BUFSIZ + 1];
-	struct epoll_event ev = { EPOLLOUT | EPOLLET, { .fd = fd } };
-	do {
-		n = read(fd, buf, BUFSIZ);
-		if(n <= 0){
-			if(errno == EINTR)
-				continue;
-			if(errno == EAGAIN) // 当前事件已经处理完毕!
-				break;
-			
-			// 解析错误, 下面都是异常直接退出
+echo_recv(int efd, int fd) {
+	// 设置 epoll event 边缘触发
+	struct epoll_event ev = { 
+        .events = EPOLLIN | EPOLLOUT | EPOLLET,
+        .data = { .fd = fd } 
+    };
+
+    ssize_t n;
+	char buf[BUFSIZ];
+    do {
+        n = recv(fd, buf, BUFSIZ-1, 0);
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            // 当前事件已经处理完毕!
+            if (errno == EAGAIN)
+                break;
+
+            // 句柄清除
 			epoll_ctl(efd, EPOLL_CTL_DEL, fd, &ev);
 			close(fd);
-			
-			// n == 0 || errno == ECONNRESET -> 链接已经断开
-			RETURN(NIL, "read error n = %ld, fd = %d.", n, fd);
-		}
-		
-		// 这里输出内容
-		buf[n] = '\0';
-		printf("%s", buf);
-	} while(n >= BUFSIZ);
-	
-	//修改 fd 的处理事件为写事件
+
+            // 异常情况
+			RETNIL("read error n = %ld, fd = %d.", n, fd);   
+        }
+
+        if (n == 0) {
+            epoll_ctl(efd, EPOLL_CTL_DEL, fd, &ev);
+			close(fd);
+            printf("client fd = %d close\n", fd);
+            return;
+        }
+
+        // 数据输出
+        buf[n] = '\0';
+        printf("recv: %s", buf);
+    } while (n >= BUFSIZ-1);
+
+    // 修改 fd 的处理事件为写事件
 	epoll_ctl(efd, EPOLL_CTL_MOD, fd, &ev);
 }
 ```
 
-    如果你抄写完毕, 再执行编译后, 通过 telnet 可以简单测试测试. 到这里关于 C 基础 
-    SOCKET 开发回顾基本结束了, 应该带领了一些人走进了 Linux socket 开发的大门吧. 
-    错误是难免的, 抄袭创新也是纯水推广的. 毕竟一山还比一山高!
-
-    当然这仅仅是 linux socket 部分, 后面也会通过一个巧妙思路来上手 winds socket.
-    部分 ~ 还有网络 IO 的封装, 哈哈, 祝你好运小伙!
+    从这个过程我们就有了解答这个问题的素材了. 假如两次握手, 即没有 3 那条线. 这时候对于
+    如果你抄写完毕, 并编译执行, 通过 telnet 可以简单测试测试. 到这里关于 C 基础 
+    socket 开发的回顾内容基本结束了. 此刻也带领了一些人踏入了 Linux socket 开发的大
+    门吧. 错误是难免的, 抄袭创新也只是拾人牙慧(贬义词). 毕竟一山还比一山高! 修行的大道
+    上你会遇到更清澈的风, 更飘逸的云. 哈哈, 祝我们好运!
 
 ## 7.3 轰击金丹 socket 基础终章
 
-    很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 至少解决客户端业务如鱼
-    得水. 因为通过上面的基础稳固, 大体上回忆起 linux socket 有哪些 api 用法. 那 
-    winds 呢. 这是个问题, 解决思路有很多, 多数人解决方案喜欢构建一套通用接口, 分别
-    实现. 这里介绍一个更加巧妙的实现, 就是在 winds 上面极大可能的模拟 linux api 用
-    法. 这样以后移植大佬代码提供极大方面. 那么无外乎 errno 机制, read , write 机制,
-    还有接口的细节上移植. 采用这个思路那我们开始搞起.
+    很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 上面大段的文字中我们大体上回
+    忆起 linux socket 有哪些 api 用法. 那 winds 呢. 这也算是个问题对吧. 解决思路会
+    有很多, 我们这里介绍一种算加巧妙的方法, 就是在 winds 上面极大可能的模拟 linux api
+    用法. 这样以后移植代码提供极大方面. 而需要模拟的无外乎 errno 机制, pipe 机制, 类
+    型和部分接口细节上移植. 采用这个思路那我们开始搞起.
 
-### 7.3.1 winds socket 实现 errno
+### 7.3.1 errno 机制
 
     winds 本身也有 errno, 但是在 socket 操作的时候, 走另一套机制 WSAGetLastError.
     那么就对它进行外科手术. 
