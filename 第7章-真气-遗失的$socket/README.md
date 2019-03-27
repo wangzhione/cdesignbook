@@ -55,7 +55,7 @@ C11 新增关键字
 
     1' char
     解释 :
-        声明变量的时候用! 
+        声明变量的时候用!
         char 多数占 1 字节, 8bit. 多数环境(CL or GCC)中是有符号的(ARM 无符号), 范
         围是[-128, 127]. 而在工程项目开发中推荐用 int8_t 和 uint8_t 替代 char.
 
@@ -105,58 +105,58 @@ printf("hoge = %d.\n", hoge);
 
     4' unsigned
     解释 :
-        变量类型修饰符! 
-        被修饰的变量就是无符号的. 范围 >= 0.  unsigned 只能修饰整型的变量. 当然当你用这个
-        修饰变量的时候. 再使用 - 和 -- 运算的时候一定要小心.
+        变量类型修饰符!
+        被修饰的变量声明为无符号类型. 范围 >= 0.  unsigned 只能修饰整型的变量. 当然
+        当你用这个修饰变量的时候. 再使用 - 和 -- 运算的时候一定要小心.
     演示 :
 
 ```C
-unsigned int i = 0;         // 正确
+unsigned int i = 110;       // 正确
 unsigned short s = 0;       // 正确
-unisgned float f = 0.11f;   // 错误
+unisgned float f = 9.11f;   // 错误
 ```
 
     5' long
     解释 :
-        声明变量的时候用!
-        long 长整型 x86 上四字节, x64 有的平台是八字节. 一定不比 int 字节数少. C99 之后出
-        现 long long 类型 8 字节.
+        声明变量的时候用!             
+        long 长整型 x86 上 4 字节, x64 有的平台是 8 字节. 但一定不比 int 字节数小. 
+        C99 之后出现 long long 类型 8 字节.
     演示 :
 
 ```C
-long l = 4;
+long l = 1;
 long long ll = l;
 printf("l = %ld, ll = %lld.\n", l, ll);
 ```
 
     6' float
     解释 :
-        声明变量的时候用! 
-        4 字节. 精度是 6-7 位左右. 详细精度可以查资料 float 与 double 的范围和精度.
+        声明变量的时候用!
+        4 字节. 精度是 6-7 位左右. 详细精度可以查 float 与 double 的范围和精度资料.
     演示 :
 
 ```C
-float f = -0.12f;        // 四字节
-long float lf = 0;       // 八字节 等同于 double, 不推荐这么写
+float f = -0.12f;        // 4 字节
+long float lf = 0;       // 8 字节, 等同于 double, 不推荐这么写
 ```
 
     7' double
     解释 :
         声明变量的时候用!
-        八字节, 精度在 15-16 位左右. 有的时候压缩内存用 float 代替.
+        8 字节, 精度在 15-16 位左右. 有的时候压缩内存用 float 代替. 再优化那就 int.
     演示 :
 
 ```C
-double d = 2e13;               // 8 字节
+double d = 3e14;               // 8 字节
 long double ld = -0.99;        // x86 也是 8 字节, 不推荐这么用
-long long double lld = 99;     // 写法错误, 不支持
+long long double lld = 88;     // 写法错误, 不支持
 ```
 
     8' struct
     解释 :
-        定义结构体, 这个关键字用法广泛, 是大头!
-        C 的重要思路就是面向过程编程. 撑起面向过程的大头就是结构体. struct 就是定义结构
-        的东西, 可以看看下面演示.
+        定义结构体关键字, 用法广泛, 是大头!
+        C 重要思路就是面向过程编程, 撑起面向过程的大头就是结构体. 而 struct 就是定义
+        结构的东西, 可以看看下面演示.
     演示 :
 
 ```C
@@ -169,19 +169,16 @@ struct node {
 struct node node = { .id = 1 };
 
 // 匿名结构定义
-struct {
-   int id;
-   char * name;   
-} per = { 2, "王志" };
+struct { int id; char * name; } ple = { 28, "喜欢兰花山丘" };
 ```
 
     9' union
     解释 :
-        定义公用体, 用法很花哨! 常在特殊库函数封装中用到. 技巧性强.
+        定义共用体, 用法很花哨! 常在封装特殊库设计时用到, 技巧性强.
     演示 :
 
 ```C
-// 普通定义
+// type 普通定义
 union type {
     int i;
     char c;
@@ -190,15 +187,13 @@ union type {
 
 union type t = { .f = 3.33f };
 
-// 匿名定义
-union { ... } t = { .... };
-    
-// 类型匿名定义
 struct json {
     struct json * next;
     struct json * chid;
     unsigned char type;
     char * key;
+
+    // 类型匿名定义
     union {
         char * vs;
         double vd;
@@ -206,27 +201,24 @@ struct json {
 };
 ```
 
-    再来一种 union 用法, 利用内存对齐得到机器的大小端. 其实有的编译器也有宏辅助判断大小
+    再来一种 union 用法, 利用内存对齐得到机器的大小端. 其实主流编译器都有宏辅助判断大小
     端情况.
 
 ```C
 // isbig 判断是大端序还是小端序, 大端序返回 true
 inline bool isbig(void) {
-    static union {
-        unsigned short s;
-        unsigned char c;
-    } u = { 1 };
+    static union { unsigned char c; unsigned short s; } u = { .s = 1 };
     return u.c == 0;
 }
 ```
 
-    还是很久很久以前利用 union 实现内存字节对齐, 那时候好兴奋, 太多了. 这个关键字用法, 
-    很多, 很意外.
+    还是很久很久以前利用 union 实现结构内存字节对齐, 那时好兴奋. 太多了, 这个关键字用
+    法, 也很意外.
 
     10' void
     解释 :
-        这个是空关键字. 用法很多! 
-        也是我最喜欢的关键字. 用在函数声明中, 类型定义中.
+        这个空关键字. 用法很多!
+        也是最喜欢的关键字. 用在函数声明中, 类型定义中.
     演示 :
 
 ```C
@@ -234,15 +226,15 @@ inline bool isbig(void) {
 extern void foo();
 
 // 函数参数约束
-extern void foo(void);   // () 中加了 void 表示函数是无参的, 否则是任意的
+extern void foo(void);   // () 中加 void 表示函数无参数, 否则是任意的
 
-// 万能类型定义, 指针随便转
+// 万能指针类型定义, 指针随便转
 void * arg = NULL;
 ```
 
     11' enum
     解释 :
-        枚举类型, C 中枚举类型很简陋! 
+        枚举类型, C 中枚举类型很简陋!        
         其实就相当于一种变相的 INT 宏常量. 估计这也许也是 INT 宏常量和枚举并存的原因.
     演示 :
 
@@ -256,13 +248,13 @@ enum flag {
 typedef enum flag flag_e;
 ```
 
-    枚举变量完全可以等同于 int 变量使用, 枚举值等同于宏 INT 常量使用. 枚举的默认值是以 0
+    枚举变量可以等同于 int 变量使用, 枚举值等同于宏 INT 常量使用. 枚举的默认值是以 0
     开始, 1 为默认单位从上向下递加.
 
     12' signed
     解释 :
         变量声明类型修饰符. 有符号型!
-        对比 unsigned 无符号型. 变量声明默认基本都是 signed, 所以绝大多数情况就省略了.
+        对比 unsigned 无符号型. 变量声明默认是 signed, 所以绝大多数情况下就省略了.
     演示 :
 
 ```C
@@ -274,25 +266,25 @@ signed char * str = u8"你好吗";
 
     13' const
     解释 :
-        const 修饰的变量表示是个不可修改的量!
-        和常量有点区别. 可以简单认为 const type val 是个只读类型变量的.
+        const 修饰的变量表示是个不可(不推荐)修改的变量!
+        和常量有点区别. 可以简单认为 const type val 是个只读的类型变量.
     演示 :
 
 ```C
 // 声明不可修改的量
-const int age = 24;
+const int age = 32;
 
 // 修饰指针
 const int * pi = NULL;         // *pi 不能修改指向变量
-int * const pt = NULL;         // pt 不能指向新的指针 
+int * const pt = NULL;         //  pt 不能指向新的指针 
 const int * const pc = NULL;   // *pc 和 pc 都不能动
 ```
 
-    其实在 c 中基本没有什么改变不了的. 全是内存来回搞, 软件不行硬件 ~~
+    在 C 中基本没有什么改变不了的. 全是内存来回搞, 软件不行硬件 ~~
 
     14' volatile
     解释 :
-        声明变量修饰符, 可变的!
+        声明变量修饰符, 可变的!     
         当变量前面有这个修饰符. 编译器不再从寄存器中取值, 直接内存读取写入. 保证实时性. 
         常用在多线程代码中.
     演示 :
@@ -307,7 +299,7 @@ struct srl {
 };
 ```
 
-    以后使用 srl::loop 的时候被其它线程修改, 当前线程也希望正确获取它的值.
+    在使用 srl::loop 的时候被其他线程修改, 但当前线程也希望正确获取他的值.
 
     15' typedef
     解释 :
@@ -318,30 +310,29 @@ struct srl {
 // 声明普通类型
 typedef void * list_t;
 
-// 声明不完全类型, 头文件中不存在struct tree
+// 声明不完全类型, 头文件中不存在 struct tree 实体定义
 typedef struct tree * tree_t;
 ```
 
     16' auto
     解释 :
-        变量类型声明符!
-        auto 变量存放在动态存储区，随着生存周期结束而立即释放. 存放在栈上. 默认变量都是 
-        auto 的. 基本都是不写, 除非装逼!
+        变量类型声明符!    
+        auto 变量存放在动态存储区(栈上), 随着生存周期结束而立即释放. 默认变量是 auto 
+        的. 基本都省略不写, 除非装逼!
     演示 :
 
 ```C
 {
     // 生存期开始
-    int hoge = 0;
-    auto int piyo = 1;
+    auto int piyo = 10000;
     // 生存期结束
 }
 ```
 
     17' register
-    解释 :
-        变量修饰符! 只能修饰整形变量. 表示希望这个变量存放在 CPU 的寄存器上. 现代编译器在
-        开启优化时候, 能够一定程度上默认启用 register 寄存器变量.
+    解释 :   
+        变量修饰符! 只能修饰整形变量. 表示, 希望这个变量存放在 CPU 的寄存器上. 现代编
+        译器在开启优化时候, 能够一定程度上默认启用 register 寄存器变量.
     演示 :
 
 ```C
@@ -353,16 +344,16 @@ while (i < INT_MAX) {
 }
 ```
 
-    由于 CPU 寄存器是有限的, 有时候哪怕声明的寄存器变量也可能只是普通变量. 
-    printf("&i = %p\n", &i) 这种用法是非法. 语义层面寄存器变量没有地址.
+    由于 CPU 寄存器是有限的, 有时候哪怕声明的寄存器变量也可能只是普通变量. 其次对于寄存
+    器变量进行取地址操作是非法的, 例如 printf("&i = %p\n", &i) 寄存器变量语义层面是
+    没有地址的.
 
 
     18' static
-    解释 :
-        static 用法很广泛, 修饰变量! 表示变量存在于静态区, 基本就是全局区. 生存周期同系统
-        生存周期. static 修饰的变量作用域只能在当前文件范围内. 可以看成上层语言的 private
-        . 除了auto 就是 static. static 修饰函数表示当前函数是私有的, 只能在当前文件中使
-        用. 更加详细的看演示部分.
+    解释 :       
+        static 用法很广泛, 修饰变量! 表示变量存在于静态区(全局区). 生存周期同当前程序
+        生存周期. static 修饰的变量作用域只能在当前文件范围内. 除 auto 就是 static. 
+        static 修饰函数表示当前函数是私有的, 只能在当前文件中使用. 更加详细的看演示.
     演示 :
 
 ```C
@@ -380,21 +371,19 @@ static void * run(void * arg) {
    return arg;
 }
 
-//
 // C99 之后加的 static 新用法, 方便编译器优化.
-// static 只能修饰函数第一维, 表示传入的数组最小长度. 希望一定不为 NULL.
-//
-int sum(int a[static 10]) { ... }
+// static 只能修饰函数第一维, 表示传入的数组最小长度.
+int sum(int a[static 99]) { ... }
 ```
 
     19' extern
     解释 :
-        extern 关键字表示声明, 变量声明, 函数声明! 奇葩的用法很多.
+        extern 关键字表示声明, 变量声明, 函数声明! 奇葩的用法有很多.
     演示 :
 
 ```C
-// g_cnt 声明引用全局变量
-extern int g_cnt;
+// g_c 声明引用全局变量
+extern int g_c;
 
 // kill 声明引用全局函数
 extern int kill(int sig, int val);
@@ -406,19 +395,19 @@ extern int kill(int sig, int val);
 // extern 主动声明, 希望外部可以调用
 extern int kill(int sig, int val);
 
-// extern 缺省,不推荐外部调用
+// extern 缺省, 不推荐外部调用
 int kill(int sig, int val);
 ```
 
     20' break
     解释 :
         结束语句!
-        主要用于循环的跳转, 只能跳转到当前层级. 也用于 switch 语句中, 跳出 switch 嵌
+        主要用于循环的跳转, 只能跳转出当前层级. 也用于 switch 语句中, 跳出 switch 嵌
         套.
     演示 :
 
 ```C
-for(;;) {
+for (;;) {
    // 符合条件跳转
    if(six == 6)    
        break;
@@ -426,13 +415,13 @@ for(;;) {
 
 // break 跳出 while 循环
 int i = 0;
-while(i < 6) {
-   if(i == 3)
-      break;
+while(i < 8) {
+    if(i == 6)
+        break;
 } 
 ```
 
-    break 用法主要和循环一块使用, 还有 do while. 但只能跳转当前层循环. 
+    break 用法主要和循环一块使用, 还有 do while. 但只能跳出当前层循环. 
 
     21' case
     解释 :
@@ -442,15 +431,15 @@ while(i < 6) {
 ```C
 // case 普通用法 和 break成对出现
 switch ((c = *++ptr)) {
-case 'b': *nptr++ = '\b'; break;
-case 'f': *nptr++ = '\f'; break;
-case 'n': *nptr++ = '\n'; break;
-case 'r': *nptr++ = '\r'; break;
-case 't': *nptr++ = '\t'; break;
+case 'b': *ntr++ = '\b'; break;
+case 'f': *ntr++ = '\f'; break;
+case 'n': *ntr++ = '\n'; break;
+case 'r': *ntr++ = '\r'; break;
+case 't': *ntr++ = '\t'; break;
 }
 ```
 
-    对于case相当于标记点. switch 中值决定 case 跳转到哪里. 再一直往下执行, 遇到 
+    对于 case 相当于标记点. switch 中值决定 case 跳转到哪里. 再一直往下执行, 遇到 
     break 再结束 switch 嵌套.
 
     22) continue
@@ -461,30 +450,30 @@ case 't': *nptr++ = '\t'; break;
 
 ```C
 // for 循环 continue
-for(int i = 0; i < 20; ++i) {
-    if(i % 2 == 0)
+for(int i = 0; i < 2222; ++i) {
+    if(i % 22 == 0)
         continue;
-    // 上面 continue 跳到 ++i -> i < 20 代码块
+    // continue 跳到 ++i 再到 i < 2222 条件判断
 }
 ```
 
     23' default
     解释 :
-        switch 分支的默认分支!
-        假如 case 都没有进入, 那就进入 default 分支. default 可以省略 break. c 
-        语法中可行.
+        switch 分支的默认分支!     
+        假如所有 case 都没有进入, 那就进入 default 分支. default 可以省略 break,
+        C 语法中可行.
     演示 :
 
 ```C
 uint32_t 
-skynet_queryname(struct skynet_context * context, const char * name) {
+skynet_queryname(struct skynet_context * ctx, const char * name) {
     switch(name[0]) {
     case ':':
-        return strtoul(name+1,NULL,16);
+        return strtoul(name+1, NULL, 16);
     case '.':
         return skynet_handle_findname(name + 1);
     default:
-        skynet_error(context, "Don't support query global name %s",name); 
+        skynet_error(ctx, "Don't support query global name %s", name); 
     }
     return 0;
 }
@@ -497,12 +486,13 @@ skynet_queryname(struct skynet_context * context, const char * name) {
     演示 :
 
 ```C
-register i = 0;
+register int i = 0;
 do {
     if(i % 2 == 0) 
         continue;
+
     printf("i = %d.\n", i);   
-} while(++i < 10);
+} while(++i < 101);
 ```
 
     do while 循环有时候可以减少一次条件判断. 性能更好, 代码更长.
@@ -516,9 +506,9 @@ do {
 #include <stdbool.h>
 
 if (true) {
-   puts("你好吗?");
+    puts("你好");
 } else {
-  puts("我们分手吧.");
+    puts("嗯, 哈哈");
 }
 
 // 附赠个 else 语法
@@ -535,35 +525,35 @@ if (true) {
     演示 :
 
 ```C
-for(int i = 0; i < 2; ++i) {
-    if(i == 1)
+for(int i = 0; i > -1; ++i) {
+    if(i == 100)
         continue;
     
-    if(i == 2)
+    if(i == 5000)
         break;
 }
 
 // 等价于下面这个
 int i = 0;
-while(i < 2) {
-  if(i == 1) {
-     ++i;
-     continue;
-  }
+while(i > -1) {
+    if(i == 100) {
+        ++i;
+        continue;
+    }
 
-  if(i == 2)
-     break;  
-    
-  ++i;
+    if(i == 5000)
+        break;
+    ++i;
 }
 
 // for 最好的写法, 对于死循环写法
-for(;;) {
-   // xxx
+for (;;) {
+    // xxx
 }
 ```
 
-    for(;;) {  } 比 while(true) { } 写法好. 表达不走判断的意图, 虽然汇编代码是一样的.
+    for(;;) {  } 比 while (true) { } 写法好. 虽然最终汇编一样, 但表达出不希望走判
+    断的意图. 
 
     27' goto
     解释 :
@@ -573,14 +563,15 @@ for(;;) {
 
 ```C
 loop_continue:
-// xxx 死循环用法
-if (false)
+// goto 拆解循环语法
+if (...)
     goto loop_break;
+
 goto loop_continue;
 loop_break:
 ```
 
-    还有就是在工程开发中, goto 常用于非常复杂的业务逻辑.
+    在工程开发中, goto 常用于非常复杂的业务逻辑上.
 
 ```C
     // 继续判断,只有是 c == '"' 才会继续, 否则都是异常
@@ -597,19 +588,19 @@ err_faid:
     28' if
     解释 :
         if 分支语句! 
-        用法太多了. 程序语句中分支就是智能.
+        用法太多了. 智能藏在程序语句中分支中.
     演示 :
 
 ```C
 if (false) {
-   puts("想做个好人!");
+    puts("想做个好人!");
 }
 ```
 
     29' return
     解释 :
-        程序返回语句太多了, 用于函数返回中!
-        单纯的只返回 void 可以直接 return;
+        程序返回语句, 用于函数返回!
+        单纯只想返回 void 可以直接用 return;
     演示 :
 
 ```C
@@ -622,22 +613,25 @@ int main(int argc, char * argv[]) {
 
     30' switch
     解释 :
-        条件分支语句!
-        很复杂的 if else if 时候, 特定情况可以转为更高效的 switch 分支语句.
+        条件分支语句!        
+        当 if else if 这类分支很复杂的时候, 特定情况可以转为高效的 switch 分支语句.
     演示 :
 
 ```C
+#include <errno.h>
 #include <unistd.h>
 
+int ret;
+char buf[BUFSIZ];
 do {
-    int ret = write(fd, buf, sizeof buf)
+    ret = write(fd, buf, sizeof buf);
     if (ret < 0) {
-       switch (errno) {
-       case EINTER
-           continue;
-       default:
-           perror("write error");
-       }
+        switch (errno) {
+        case EINTR:
+            continue;
+        default:
+            perror("write error");
+        }
     }
 } while(ret > 0);
 ```
@@ -645,28 +639,28 @@ do {
     31' while
     解释 :
         循环语句!
-        有do while 和 while 语句两种.
+        有 do while 和 while 语句两种.
     演示 :
 
 ```C
-#define CNTT_INT (10)
+#define TTL_INT (9)
 
 int i = -1;
-while(++i < CNTT_INT) {
+while(++i < TTL_INT) {
     // ...... 
 }
 ```
 
     32' sizeof
-    解释 :
-        也称为 sizeof 运算符, 计算变量或类型的字节大小, 这个关键字特别好用! sizeof 在
-        C89 时代是编译时确定, 但随着 C99 引入 VLA, sizeof 有时候也得运行时确定值.
+    解释 :   
+        也称为 sizeof 运算符, 计算变量或类型的字节大小, 这个关键字很好用! sizeof 在
+        C89 时代是编译时确定, 但随着 C99 引入 VLA, sizeof 有时候也只能运行时确定值.
     演示 :
 ```C
 sizeof (main)   -> x86 上四字节
 
 // LEN 获取数组长度
-#define LEN(arr) (sizeof(arr) / sizeof(*(arr)))
+#define LEN(a) (sizeof(a) / sizeof(*a))
 
 // C99 VLA sizeof 用法
 int n = 0xC99;
@@ -674,7 +668,7 @@ int a[n];
 printf("sizeof a = %zu.\n", sizeof a);
 ```
 
-    到这里 C89 保留的关键字基本解释完毕. 走马观花的理解理解, 希望能够勾起你心里的小妖精.
+    到这 C89 保留的关键字已经解释完毕. 走马观花的理解理解, 希望能够勾起你心里的小妖精.
 
 ### 7.1.2 C99 5 个新增关键字
 
