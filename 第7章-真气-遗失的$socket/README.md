@@ -506,9 +506,9 @@ do {
 #include <stdbool.h>
 
 if (true) {
-    puts("你好");
+    puts("你好?");
 } else {
-    puts("嗯, 哈哈");
+    puts("真巧,");
 }
 
 // 附赠个 else 语法
@@ -552,8 +552,8 @@ for (;;) {
 }
 ```
 
-    for(;;) {  } 比 while (true) { } 写法好. 虽然最终汇编一样, 但表达出不希望走判
-    断的意图. 
+    for(;;) {  } 比 while (true) { } 写法好. 虽然最终汇编一样, 想表达出不走判断的
+    意图. 
 
     27' goto
     解释 :
@@ -697,9 +697,9 @@ printf("sizeof a = %zu.\n", sizeof a);
 
     34' _Complex
     解释 :
-        数学中复数类型!
-        对于 C99 标准定义, 存在 float _Complex, double _Complex, long double _Complex 
-        复数类型. 下面先演示 GCC 中关于复数的用法.
+        数学中复数类型!       
+        对于 C99 标准, 存在 float _Complex, double _Complex, 
+        long double _Complex 复数类型. 可在 GCC 中演示下面复数的用法.
     演示 :
 
 ```C
@@ -711,7 +711,7 @@ printf("sizeof a = %zu.\n", sizeof a);
 // 测试 C99 complex 复数
 //
 int main(int argc, char * argv[]) {
-    float complex f = -1.0f + 1.0if;
+    float complex f = -1.0f - 0.1if;
     printf("The complex number is: %f + %fi\n", crealf(f), cimagf(f));
     
     double complex d = csqrt(4.0 + 4.0i);
@@ -721,13 +721,13 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    其实在复数类型中, GCC 标准实现
+    复数类型在GCC 中采用标准实现的
 
 ```C
 #define complex     _Complex
 ```
 
-    而 CL 中只有模拟实现, 没有实现标准定义的要求.
+    而在 CL 中只是模拟实现, 没有实现标准所要的样子.
 
 ```C
 #ifndef _C_COMPLEX_T
@@ -753,15 +753,15 @@ typedef _C_float_complex   _Fcomplex;
 typedef _C_ldouble_complex _Lcomplex;
 ```
 
-    总的说, 学习 C 最好的平台就是 *nix 平台上使用 Best new GCC. 除了科学计算会用到复数
-    , 其它地方很少用到. 这里 VS 和 GCC 实现理念不一样. 用起来需要注意. 总有一天你会全身
-    心进入开源的怀抱 ~
+    总的说, 学习 C 最好的平台就是 *nix 平台上使用 Best new GCC. 除了科学计算会用到复
+    数, 其它地方很少用到. 这里 VS 和 GCC 实现理念不一样. 用起来需要注意. 总有一天你会
+    全身入定的进入开源的怀抱 ~
 
     35' _Imaginary
     解释 :
         虚数类型, _Complex 复数类型的虚部!
-        例如 10.0i, 10.8if 等等. 这个关键字在当前的 CL 上没有实现. 个人也觉得没有必要
-        . 同 _Complex 有重叠.
+        例如 10.01i . 这个关键字在当前的 CL 上没有实现. 个人也觉得没有必要, 同 
+        _Complex 有重叠.
     演示 :
 
 ```C
@@ -770,10 +770,11 @@ typedef _C_ldouble_complex _Lcomplex;
 
     36'  inline
     解释 :
-        内联函数定义符号!
-        从 C++ 中引入的概念. 就是将小函数直接嵌入到代码中. C 的代码损耗在于函数的进出栈
-        . 要是可以推荐用内联函数替代宏. 宏能不用就不用. 新标准是希望 static inline 替
-        代宏. 但不同平台语义实现不一致, 用起来可以随环境而定.
+        内联函数定义符号!        
+        尝试避免函数入栈出栈的浪费. 希望将小函数直接嵌入到代码中提升性能. C 代码多数损
+        耗在于函数的进出栈. 新标准是希望 static inline 替代宏, 但不同平台语义实现不
+        一致, 用起来可以随环境而定. 要是可以也推荐用内联函数替代宏, 宏不到万不得已别让
+        其出山. 
     演示 :
 
 ```C
@@ -791,20 +792,19 @@ inline static int socket_set_block(socket_t s) {
 
     37' restrict
     解释 :
-        指针修饰符!
-        这是很装逼的关键字用于编译器优化. 关键字 restrict 只用于限定指针 该关键字用于
-        告知编译器, 所有修改该指针所指向内容的操作全部都是基于该指针的, 即不存在其它进
-        行修改操作的途径. 这样的后果是帮助编译器进行更好的代码优化, 生成更有效率的汇编
-        代码.
+        指针修饰符!        
+        这是很装逼的关键字用于编译器优化. 关键字 restrict 只用于限定指针, 用于告知编译
+        器, 所有修改该指针所指向内容的操作全部都是基于该指针的, 即不存在其他进行修改操作
+        的途径. 这样做是尝试帮助编译器进行更好的代码优化, 生成更有效率的汇编代码.
     演示 :
 
 ```C
-extern void * mempcpy (void *__restrict __dest,
-                       const void *__restrict __src, 
+extern void * mempcpy (void * __restrict __dest,
+                       const void * __restrict __src, 
                        size_t __n) __THROW __nonnull ((1, 2));
 ```
 
-    上面是摘自 GCC 的 string.h 中. 正式用法
+    上面摘自 GCC 的 string.h 中. 正式用法
 
 ```C
 // 简单演示用法, GCC 和 VS 都是 __restrict 推荐加在 * 后面
@@ -813,9 +813,9 @@ static inline void strlove(char * __restrict dest) {
 }
 ```
 
-    Pelles C 编译器也可以完整支持 restrict, 可惜非商业力量不足, 后继无力, 不太好用.
+    Pelles C 编译器也可以完整支持 restrict, 可惜商业力量不足, 后继无力, 不太好用.
 
-### 7.1.3 C11 7个新增关键字
+### 7.1.3 C11 7 个新增关键字
 
     38' _Alignas
     解释 :
@@ -841,39 +841,39 @@ static inline void strlove(char * __restrict dest) {
 #include <stdio.h>
 #include <stdalign.h>
 
-struct per {
+struct demo {
     int age;
     char sex;
     double sec;
 };
 
 int main(int argc, char * argv[]) {
-    char temp[128];
-    alignas(struct per) struct per * per = (struct per *)temp;
-    printf("per = %p, c = %p.\n", per, c); 
+    char money[BUFSIZ];    
+    alignas(struct demo) struct demo * p = (struct demo *)money;
+    printf("democratic = %p, c = %p.\n", p, c); 
 
     return 0;
 }
 ```
 
-    将 temp 数组以 struct per 对齐方式对齐构造赋值. 同 placement new.
+    将 money 数组以 struct demo 对齐方式对齐构造赋值. 同 placement new.
 
     39' _Alignof
     解释 :
         返回由类型标识所指定的类型的任何实例所要求的按字节算的对齐!
-        该类型可以为完整类型, 数组类型或者引用类型. 当类型为引用类型时, 该运算符返回被
-        引用类型的对齐. 当类型为数组类型时, 返回其元素类型的对齐要求.
+        该类型可以为完整类型, 数组类型或者引用类型. 当类型为引用类型时, 该运算符返回被        
+        引用类型的对齐方式. 当类型为数组类型时, 返回其元素类型的对齐方式.
     演示 :
 
 ```C
 // return size_t , 对齐方式是 8 字节, 值为 8
-printf("alignof(struct per) = %zu.\n", alignof(struct per));
+printf("alignof(struct demo) = %zu.\n", alignof(struct demo));
 ```
 
     40' _Atomic
     解释 :
-        原子操作, 原子锁! 
-        目前 GCC 上面支持, CL 支持不友好. 如果编译器都支持那么以后原子操作更加方便高效
+        原子操作, 原子锁!        
+        目前 GCC 完整支持, CL 支持不友好. 如果编译器都支持那么以后原子操作更加方便高效
         . 详细用法需要查阅相关手册, 无外乎怎么初始化, 设置, 加载等等 ~
 
     演示 :
@@ -883,13 +883,15 @@ printf("alignof(struct per) = %zu.\n", alignof(struct per));
 #include <stdatomic.h>
 
 int main(int argc, char * argv[]) {
-    // 全局初始化 hoge 和 局部初始化 atomic_init(&hoge, 100)
-    _Atomic int hoge = ATOMIC_VAR_INIT(100);
-    // 将 hoge值返回给 piyo
+    // 全局初始化 hoge 和局部初始化 atomic_init(&hoge, 386)
+    _Atomic int hoge = ATOMIC_VAR_INIT(386);
+
+    // 将 hoge 值返回给 piyo
     int piyo = atomic_load(&hoge);  
     printf("piyo = %d.\n", piyo);
-    piyo += 2;
-    // 将 piyo 值重新给 原子变量 hoge 中
+
+    piyo <<= 1;
+    // 将 piyo 值重新设置到原子变量 hoge 中
     atomic_store(&hoge, piyo);
     printf("hoge = %d.\n", hoge);
 
@@ -897,47 +899,44 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    具体的执行结果, 你也懂就那样. 原子操作, 对于写出高效代码很重要. 可惜微软太硬, 更加详
-    细可以参阅前面的 atom.h 设计脉络. 有机会下次写书来个全本 Linux 昆仑决 ~ 去掉 CL 体系
-    构建.
+    具体执行结果, 相信你也懂. 原子操作, 对于写出高效代码很重要. 可惜微软太硬, 支持的不
+    好. 更加详细可以参阅前面的 atom.h 设计脉络. 有机会下次写书来个全本 Linux 昆仑决 ~
+    去掉 CL 体系高性能的构建项目基础模块.
 
     41' _Generic
     解释 :
-        这个比较叼, C 的泛函机制. 高级函数宏. 下面来个老套路用法!
+        这个比较叼, C 的泛函机制. 高级宏, low level black. 来个老套路感受其奥妙!
     演示 :
 
 ```C
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #define abs(x)                                          \
 _Generic((x), int:abs, float:fabsf, double:fabs)(x)
 
-//
-// 测试 C11 _Generic 语法
-//
+// 测试 C11 _Generic 高级宏用法
 int main(int argc, char * argv[]) {
     int a = 1, b = 2, c = 3;
 
     _Generic(a + 0.1f, int:b, float:c, default:a)++;
     printf("a = %d, b = %d, c = %d\n", a, b, c); 
 
-    printf("int abs: %d\n", abs(-12));
-    printf("float abs: %f\n", abs(-12.04f));
-    printf("double abs: %f\n", abs(-13.09876));
+    printf("int abs: %d\n", abs(-4));
+    printf("float abs: %f\n", abs(-5.5f));
+    printf("double abs: %f\n", abs(-3.1415926));
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 ```
 
-    宏泛型真的很给力. 如果全平台支持的话, 宏又能玩上天了.
+    宏泛型真的很给力. 如果全平台都支持的话, 宏又能被玩上天 :)
 
     42' _Noreturn
     解释 :
-        修饰函数, 绝对不会有返回值!
-        _Noreturn 声明的函数不会返回. 引入此新的函数修饰符为了消除编译器对没有 return 
-        的函数的警告, 还有允许某些只针对不返回函数的优化.
+        修饰函数, 绝对不会有返回值!       
+        _Noreturn 声明的函数语义层面可以不返回. 引入此函数修饰符为了消除编译器对需要
+        return 而没有 return 的警告, 还有允许某些只针对不返回函数的优化.
     演示 :
 
 ```C
@@ -946,16 +945,17 @@ _Noreturn void suicide(void) {
 }
 ```
 
-    再扯一点, 等同于 GCC 中 __attribute__((__noreturn__)), 在 CL 中相似功能是 
-    __declspec(noreturn). 它不是说函数没有返回值, 而是说一旦你调了这个函数, 它存在永远
-    不会返回的情况. 一些函数是永远不会返回的, 比如 abort 或者 exit 之类, 调用它们就意味
-    着结束程序. 所以编译器再给出 warning 就显得没有必要.
+    大佬赠我越努力越幸运. 也有个小确幸送给修真路上的道友们. 当有一天, 打游戏了累了, 刚好 
+    再扯一点, 他等同于 GCC 中 __attribute__((__noreturn__)), 在 CL 中相似功能是 
+    __declspec(noreturn). 它不是说函数没有返回值, 而是说一旦你调了这个函数, 它存在永
+    远不会返回的情况. 一些函数是永远不会返回的, 比如 abort 或者 exit 之类, 调用它们就
+    意味着结束程序. 所以编译器再给出 warning 就显得没有必要.
 
     43' _Static_assert
     解释 :
         编译期间断言符!
-        当 #if #error 搞完毕(预编译)之后, 编译器断言. assert 是运行时断言. 
-        _Static_assert 是编译期断言. 想用的时候看具体的需求.
+        当 #if #error #endif 预编译之后, 开始编译期断言, 再到 assert 是运行时断言. 
+        _Static_assert 就是编译期断言, 想用的时候看具体的需求.
     演示 :
 
 ```C
@@ -964,11 +964,10 @@ _Static_assert(__STDC_VERSION__ >= 201112L, "C11 support required");
 ```
 
     44' _Thread_local
-    解释 :
+    解释 :     
         到这里快扯完了, 其实 C11 标准是个很好的尝试. 为 C 引入了线程和原子操作. 各种安
-        全特性补充. 可以说它让 C 强大了, 但也有悲催, 例如越来越丑了, 有些编译器不买账.
-        C11 为 C 引入了线程在头文件 threads.h 中定义. 一如既往也允许编译可以不实现. 
-        _Thread_local 是新的存储类修饰符, 限定了变量不能在多线程之间共享.
+        全特性补充. 它让 C 标准变得更完善和强大还有丑陋. _Thread_local 是新的存储类修
+        饰符, 限定变量不能在多线程之间共享.
     演示 :
 
 ```C
@@ -985,14 +984,15 @@ _Thread_local static int i;
 extern int __cdecl pthread_key_create (pthread_key_t * key, 
                                        void (__cdecl * destructor) (void *));
 extern int __cdecl pthread_key_delete (pthread_key_t key);
-extern int __cdecl pthread_setspecific (pthread_key_t key, const void * value);
+extern int __cdecl pthread_setspecific (pthread_key_t key, 
+                                        const void * value);
 extern void * __cdecl pthread_getspecific (pthread_key_t key);
 ```
 
-    pthread_key_create 创建私有变量, 且需要注册销毁行为. 随后是删除, 设置, 获取操作.
+    pthread_key_create 创建私有变量, 需要注册销毁行为. 随后是删除, 设置, 获取操作. 
     从实现而言, 线程私有变量其实是通过公有变量模拟映射的. 开发中推荐少用线程私有变量, 
-    有数量限制. 到这里关于 C 修炼的筑基期, 语法层面的回顾就完毕了. 不知不觉新的呼喊已
-    经到来, 期待笑和痛, 收拾行囊 ~ 出发
+    pthread 实现有数量限制. 到这里关于 C 修炼的筑基期的语法层面回顾就完毕了. 不知不觉
+    新的呼喊已经到来, 期待笑和痛, 收拾行囊 ~ 出发!
 
 ***
 
@@ -1009,9 +1009,9 @@ extern void * __cdecl pthread_getspecific (pthread_key_t key);
 
 ## 7.2 C 语言 SOCKET 编程指南
 
-        有了 C 基础语法支持, 随我一举破筑基, 拿下常见 socket api 基础操作. 网络编程基
-    础知识, 可以说是成为高级大头兵一个卡. 很久以前整理过一个学习手册, 抄袭的年代久远. 
-    借花献佛随我温故那些必备 socket 相关知识. 协助同道气结金丹, 安身立命 ~
+        有了 C 基础语法支持, 随后一举破筑基, 拿下常见 socket api 基础操作. 网络编程
+    基础知识, 是成为高级大头兵一个卡. 很久以前整理过一个学习手册, 抄袭的年代久远. 借花
+    献佛随我温故那些必备 socket 相关知识. 协助同道气结金丹, 安身立命 ~
 
 ### 7.2.1 一切刚刚开始
 
