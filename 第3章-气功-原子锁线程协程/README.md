@@ -1,24 +1,24 @@
 # 第3章-气功-原子锁线程协程
 
-	    不妨仰望星海为编程行业引入修真体系[ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 
+	    不妨仰望星海为编程行业引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 
     那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编
     程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 
-    一舒心中豪情啪一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼
-    . 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥
-    洒鲜血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 
-    无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力
-    支持, 通过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨
-    功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一
-    代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立
-    无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
-	    各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章讲
-    的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于
-    平台, 不同平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江.
+    一舒心中豪情啪的一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨
+    炼. 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 
+    挥洒鲜血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发
+    . 无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全
+    力支持, 通过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是
+    白骨功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 
+    占一代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨
+    擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
+	    各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章
+    讲的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖
+    于平台, 不同平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江.
     
 ## 3.1 原子锁
 
-	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前需
-    要科普些基本原子操作.
+	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子锁之前
+    需要科普些基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
@@ -38,23 +38,23 @@ volatile int i = 0;
 ```
 
     以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期
-    的大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操
-    作. 本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原
-    子性). 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供
-    不少像下面指令.
+    的大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子
+    操作. 本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作
+    的原子性). 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 
+    就提供不少像下面指令.
 
 ```C
 type __sync_add_and_fetch (type * ptr, type value, ...);
 type __sync_lock_test_and_set (type * ptr, type value, ...);
-bool __sync_bool_compare_and_swap (type * ptr, type oldval, type newval, ...);
+bool __sync_bool_compare_and_swap (type * ptr, type old, type new, ...);
 ```
 
     这类原子操作的特殊表达式可以直接边查编译手册, 边写个小例子, 就会知道窍门. 我们简单解
-	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加好
-	的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返回 
-	ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 指向的值和原
-	先的 oldval 相等吗, 相等将其设置为 newval. 并且返回 ptr 指向值和 oldval 相等与否
-	的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
+	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终
+    加好的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 
+    并且返回 ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 
+    指向的值和原先的 old 相等吗, 相等将其设置为 new. 并且返回 ptr 指向值和 old 相等
+    与否的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
 
 ```C
 // v += a ; return v;
@@ -165,9 +165,9 @@ static inline void store_release(atom_t * x) {
 #endif//_ATOM_H
 ```
 
-    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 当然我们的原子锁主打 linux 平台. 也
-	是当前开发届主旋律, winds 辅助开发, linux 在外实战. 使用起来也很容易. 例如在上一章
-	写了个 tstr 字符串. 它不是线程安全的. 可以利用原子锁, 简单改成线程安全版本: 
+    这些代码很短, atom.h 希望抄写几遍, 保证有效果. 我们的原子锁主打的 linux 平台, 也
+    是当前开发届主旋律. winds 辅助开发, linux 在外实战. 使用起来也很容易. 例如在上一
+    章写了个 tstr 字符串. 他不是线程安全的. 可以利用原子锁, 简单改成线程安全版本: 
 
 ```C
 struct astr {
@@ -184,25 +184,26 @@ atom_lock(a.lock);
 // 各种对于 astr.str 操作都是线程安全的
 // ...
 
-atom_unlock(a.lock);
-
 // 销毁
 TSTR_DELETE(a.str);
+
+atom_unlock(a.lock);
 ```
 
     以上就是原子锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 很久以前别人问什么是
-	自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 更多的是想说少炒作一些概念, 
-	多一些真诚. 编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美否则基本
-	无望元婴. 当然高阶金丹期也都能够胜任主程了, 多数定型一生. 上面原子锁仍然可以优化, 例
-	如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化. 总而言之在解决资源竞争问题上, 
-	消耗最小是真无锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁偏重, 这也是原子锁
-	一直存在的原因, 并且处于上升势头.
+	自旋锁, 当时羞愧难当. 后面才知道就是写了无数遍的原子锁. 此刻在想, 确实应该多一份博
+    学, 也要多一分真诚. 编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善
+    美, 否则基本无望元婴. 当然金丹大圆满也都能够胜任主程了, 以此定型一生. 上面原子锁仍    
+    然可以优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化. 总而言之在解决
+    资源竞争问题上, 消耗最小是真无锁编程. 通过业务优化避免锁的产生. C 开发用系统互斥锁
+    偏重, 这也是原子锁一直存在的原因, 并且处于上升势头.
 
 ### 3.1.3 原子操作封装
 
-	不知道有木有人好奇 atomic.h 里是什么? 恭喜你新世界的大门已经被打开. 在讲解之前希望
-	读者事先研究过 C11 stdatomic.h 原子操作. 而我们这里将会说明 stdatomic.h 中引入的
-	六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 分别是:
+	不知道有木有人好奇 atomic.h 里是什么? 恭喜你, 新世界的大门已经被打开. 在讲解之前希
+    望读者事先研究过 C11 stdatomic.h 原子操作. 而我们这里将会说明 stdatomic.h 中引
+    入的六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 
+    分别是:
 
 ```C
 /* 7.17.3 Order and consistency */
@@ -218,10 +219,9 @@ typedef enum memory_order {
 
 memory_order_relaxed 宽松内存顺序 :
 
-	六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 分别是
-    没有同步或顺序制约, 仅对此操作要求原子性. 带 memory_order_relaxed 标签的原子操作不
-	考虑线程间同步操作, 其它线程可能读到新值, 也可能读到旧值. 只保证当前操作的原子性和修
-	改顺序一致性. 例如:
+    没有同步或顺序制约, 仅对此操作要求原子性. 带 memory_order_relaxed 标签的原子操
+    作不考虑线程间同步操作, 其他线程可能读到新值, 也可能读到旧值. 只保证当前操作的原子性
+    和修改顺序一致性. 例如:
 
 ```C
 // atomic init
@@ -236,23 +236,23 @@ int b = atomic_load_explicit(&x, memory_order_relaxed); // C
 atomic_store_explicit(&y, 28, memory_order_relaxed);    // D
 ```
 
-	允许产生结果 a == 28 && b == 28. 因为即使线程 1 中 A 先序于 B 且线程 2 中 C 先序
-	于 D, 但没法保证 y 的修改顺序中 D 比 A 先执行, x 的修改顺序中 B 比 C 先执行. 这就
-	会导致 D 在 y 上的副效应, 可能可见于线程 1 中的加载 A, 同时 B 在 x 上的副效应，可
-	能可见于线程 2 中的加载 C. 宽松内存顺序的典型应用场景是计数器自增. 例如引用计数器, 
-	因为这只要求原子性保证自增 OK, 但不要求顺序或同步(注意计数器自减要求进行 
+	允许产生结果 a == 28 && b == 28. 因为即使线程 1 中 A 先序于 B 且线程 2 中 C 先
+    序于 D, 但没法保证 y 的修改顺序中 D 比 A 先执行, x 的修改顺序中 B 比 C 先执行. 
+    这就会导致 D 在 y 上的副效应, 可能可见于线程 1 中的加载 A, 同时 B 在 x 上的副效应
+    , 可能可见于线程 2 中的加载 C. 宽松内存顺序的典型应用场景是计数器自增. 例如引用计数
+    器, 因为这只要求原子性保证自增 OK, 但不要求顺序或同步(注意计数器自减要求进行 
 	memory_order_acquire 获取内存顺序同步)
 
 memory_order_consume 消费内存顺序 :
 
-	有此内存顺序的加载操作, 在其影响的内存位置进行消费操作: 当前线程中依赖于当前加载的
-	该值的读或写不能被重排到此加载前. 其它释放同一原子变量的线程的对数据依赖变量的写入, 
-	为当前线程所可见. 在大多数平台上, 这只影响到编译器优化. 例如线程 1 中的原子存储带标
-	签 memory_order_release 而线程 2 中来自同一原子对象的加载带标签 
-	memory_order_consume, 则线程 1 视角中依赖先序于原子存储的所有内存写入(非原子和宽
+	有此内存顺序的加载操作, 在其影响的内存位置进行消费操作: 当前线程中依赖于当前加载的该
+    值的读或写不能被重排到此加载前. 其他释放同一原子变量的线程的对数据依赖变量的写入, 为
+    当前线程所可见. 在大多数平台上, 这只影响到编译器优化. 例如线程 1 中的原子存储带标签
+    memory_order_release 而线程 2 中来自同一原子对象的加载带标签 
+    memory_order_consume, 则线程 1 视角中依赖先序于原子存储的所有内存写入(非原子和宽
     松原子的), 会在线程 B 中加载操作所携带依赖进入的操作中变成可见副效应, 即一旦完成原
     子加载, 则保证线程 2 中, 使用从该加载获得的值的运算符和函数, 能见到线程 1 写入内存
-    的内容. 同步仅在释放和消费同一原子对象的线程间建立. 其它线程能见到与被同步线程的一者
+    的内容. 同步仅在释放和消费同一原子对象的线程间建立. 其他线程能见到与被同步线程的一者
     或两者相异的内存访问顺序.
 
 ```C
@@ -281,27 +281,27 @@ while (atomic_load_explicit(&x, memory_order_consume) != 1) {
 atomic_int x = 0;
 
 int a = atomic_load_explicit(&x, memory_order_consume);
-// a 的值一定是 0, memory_order_consume 后面与这块内存的相关代码不会重排到它前面
+// a 的值一定是 0, memory_order_consume 后面与这块内存的相关代码不会重排到他前面
 x = 1;
 ```
 
 memory_order_release 释放内存顺序 :
-    
-	有此内存顺序的存储操作进行释放操作: 当前线程中的读或写不能被重排到此存储后. 当前线程
-	的所有写入, 可见于获得该同一原子变量的其它线程(获得内存顺序), 并且对该原子变量的带依
+   
+	有此内存顺序的存储操作进行释放操作, 当前线程中的读或写不能被重排到此存储后. 当前线程
+	的所有写入, 可见于获得该同一原子变量的其他线程(获得内存顺序), 并且对该原子变量的带依
 	赖写入变得对于其他消费同一原子对象的线程可见. 例如一些原子对象被存储-释放, 而有数个
-    其它线程对该原子对象进行读修改写操作, 则会形成"释放序列": 所有对该原子对象读修改写的
-    线程与首个线程同步, 而且彼此同步, 即使它们没有 memory_order_release 语义. 这使得单
-    产出-多消费情况可行, 而无需在每个消费线程间强加不必要的同步. 同样 unlock 也全靠
+    其他线程对该原子对象进行读修改写操作, 则会形成"释放序列": 所有对该原子对象读修改写的
+    线程与首个线程同步, 而且彼此同步, 即使他们没有 memory_order_release 语义. 这使
+    得单产出-多消费情况可行, 而无需在每个消费线程间强加不必要的同步. 同样 unlock 也全靠
 	memory_order_release 释放内存顺序
 
 memory_order_seq_cst 序列一致内存顺序 :
-
+ 
 	有此内存顺序的加载操作进行获得操作, 存储操作进行释放操作, 而读修改写操作进行获得操作
-	和释放操作, 会加上存在一个单独全序, 其中所有线程以同一顺序观测到所有修改. 如果是读取
-	就是 acquire 语义, 如果是写入就是 release 语义, 如果是读写就是 acquire-release 语
-    义. 通常情况下编译器默认使用 memory_order_seq_cst. 在你不确定如何选取这些 memory 
-	order, 可以直接用此内存顺序.
+	和释放操作, 会加上存在一个单独全序, 其中所有线程以同一顺序观测到所有修改. 如果是读
+    取就是 acquire 语义, 如果是写入就是 release 语义, 如果是读写就是 
+    acquire-release 语义. 通常情况下编译器默认使用 memory_order_seq_cst. 在你不
+    确定如何选取这些 memory order, 可以直接用此内存顺序.
 
 ```C
 /* 7.17.8 Atomic flag type and operations */
@@ -314,12 +314,13 @@ typedef struct atomic_flag { atomic_bool _Value; } atomic_flag;
 	&(object)->_Value, 0, __ATOMIC_SEQ_CST)
 ```
 
-	但当 memory_order_acquire 及 memory_order_release 与 memory_order_seq_cst 混合
-	使用时, 会产生诡异的结果. 对于 memory_order_seq_cst 需要了解的注意点: 
+	但当 memory_order_acquire 及 memory_order_release 与 
+    memory_order_seq_cst 混合使用时, 会产生诡异的结果. 对于 memory_order_seq_cst
+    需要了解的注意点: 
         1' memory_order_seq_cst 标签混合使用时, 程序的序列一致保证就会立即丧失
-        2' memory_order_seq_cst 原子操作相对于同一线程所进行的其它原子操作可重排
-	有了简单基础, 我们参照 C11 stdatomic.h 理念设计个跨平台的 atomic.h. 首先看 linux
-	实现部分
+        2' memory_order_seq_cst 原子操作相对于同一线程所进行的其他原子操作可重排
+	有了简单基础, 我们参照 C11 stdatomic.h 理念设计个跨平台的 atomic.h. 首先看 
+    linux 实现部分
 
 ```C
 #if !defined(_ATOMIC$C11_H) && !defined(_MSC_VER)
@@ -411,11 +412,11 @@ atomic_fetch_xor_##mark(atomic_##mark##_t * a, type v,              \
 #endif//_ATOMIC$C11_H
 ```
 
-	上面基于支持 C11 标准实现且没有定义 __STDC_NO_ATOMICS__ 宏为1 的编译器, 而封装的原
-	子操作宏模板. 分为两个部分. 第一部分是 GENERIC_ATOMIC 用于通用类型的原子操作宏模板. 
-	第二部分是 GENERIC_INT_ATOMIC 用于整型类型的原子操作宏模板. 核心思路参照 jemalloc 
-	源码而开发设计的. 扯一点, 要不是 winds cl 目前不支持 C11, 完全没有必要去设计这个库.
-	真是谁弱势, 谁是爷. 来看下 winds cl 平台相关模板宏设计思路.
+	上面基于支持 C11 标准实现且没有定义 __STDC_NO_ATOMICS__ 宏为 1 的编译器, 而封装
+    的原子操作宏模板. 实现分为两个部分. 第一部分是 GENERIC_ATOMIC 用于通用类型的原子
+    操作宏模板. 第二部分是 GENERIC_INT_ATOMIC 用于整型类型的原子操作宏模板. 核心思路
+    参照 jemalloc 源码而开发设计的. 扯一点, 要不是 winds CL 目前不支持 C11, 完全没
+    有必要去设计这个库. 真是谁弱势, 谁是爷. 来看下 winds CL 平台相关模板宏设计思路.
 
 ```C
 #if !defined(_ATOMIC$CL_H) && defined(_MSC_VER)
@@ -433,7 +434,7 @@ typedef enum memory_order {
     memory_order_seq_cst,
 } memory_order;
 
-#define ATOMIC_VAR_INIT(...) {__VA_ARGS__}
+#define ATOMIC_VAR_INIT(...) {##__VA_ARGS__}
 
 static inline void atomic_thread_fence(memory_order o) {
     _ReadWriteBarrier();
@@ -581,8 +582,8 @@ atomic_fetch_xor_##mark(atomic_##mark##_t * a, type v,              \
 #endif//_ATOMIC$CL_H
 ```
 
-	这里有个巧妙地方在于 INTERLOCKED_TYPE 和 INTERLOCKED_NAME 宏的设计, 看下面我的摘
-    取部分源码, 你应该会恍然大悟. 仙师说的是 ~
+	这里有个巧妙地方在于 INTERLOCKED_TYPE 和 INTERLOCKED_NAME 宏的设计, 看下面我
+    的摘取部分源码, 你应该会恍然大悟. 仙师说的是 ~
 
 ```C
 typedef char                  atomic_size_1_t;
@@ -596,9 +597,9 @@ typedef __int64               atomic_size_8_t;
 #define InterlockedExchange64 _InterlockedExchange64
 ```
 
-	有了 atomic$c11.h 和 atomic$cl.h 我们开始就着手封装 atomic.h. 仔细看其中的注释部分
-    . 它就是这个库的使用 help. 此刻原子操作的封装有了结果了. 后面有兴趣的道友可以练习哈 C
-    宏模板的技巧. 这个越级挑战杀手锏, 高性能库中总会有它的身影. 我们保持观望 ~
+	有了 atomic$c11.h 和 atomic$cl.h 我们就开始着手封装 atomic.h. 仔细看其中的注
+    释部分. 他就是这个库的使用 help. 此刻原子操作的封装要结果了. 后面有兴趣的道友可以
+    练习哈 C 宏模板的技巧. 这个越级挑战杀手锏, 高性能库中总会有他的身影. 我们保持观望.
 
 ```C
 #ifndef _ATOMIC_H
@@ -667,8 +668,8 @@ GENERIC_INT_ATOMIC(ssize_t, zd, PTR_SIZEOF)
 
 ## 3.2 POSIX 线程库
 
-    	对于 POSIX 标准线程库, 也就是我们常在 Linux 使用 pthread 线程库. 首先为其罗列
-    些常用的 API 提纲. 先看 PThread Attribute Functions 系列
+    	对于 POSIX 标准线程库, 也就是我们在 Linux 上使用的 pthread 线程库. 首先为其
+    罗列些常用的 api 提纲. 先看 PThread Attribute Functions 系列
 
 ```C
 //
@@ -682,12 +683,13 @@ extern int __cdecl pthread_attr_destroy (pthread_attr_t * attr);
 
 //
 // pthread_attr_setdetachstate - 设置线程的运行结束后的分离属性
-// attr		:pthread_attr_t 线程环境
-// state	: 默认 PTHREAD_CREATE_JOINABLE, 需要 pthread_join 销毁遗留的线程空间.
+// attr		: pthread_attr_t 线程环境
+// state	: 默认 PTHREAD_CREATE_JOINABLE, 需要 pthread_join 清理遗留数据
 // 			: PTHREAD_CREATE_DETACHED 属性等同于 pthread_detach, 结束即销毁
 // return	: 0 表示成功
 //
-extern int __cdecl pthread_attr_setdetachstate (pthread_attr_t * attr, int state);
+extern int __cdecl pthread_attr_setdetachstate (pthread_attr_t * attr, 
+                                                int state);
 ```
 
     有了线程环境相关操作, 再来看看线程构建的相关操作 PThread Functions
@@ -730,9 +732,9 @@ extern void __cdecl pthread_exit (void * value_ptr);
 extern int __cdecl pthread_join (pthread_t thread, void ** value_ptr);
 ```
 
-    线程互斥量, 基本和 pthread_create 使用频率差不多. 加上手工注释希望大家能够感性认知,
-	Mutex Attribute Functions 相关操作. 前面一致忘记说了, 展示过很多系统层的源码实现, 
-	但我们假定这些实现就应该这样, 因为它会因时而异.
+    线程互斥量, 基本和 pthread_create 使用频率差不多. 加上手工注释希望大家能够感性认
+    识他, Mutex Attribute Functions 相关操作. 前面一直忘记说了, 展示过很多系统层的
+    源码实现, 我们是基于此刻假定这些实现就应该这样, 因为他会因时而异.
 
 ```C
 #define PTHREAD_MUTEX_INITIALIZER ((pthread_mutex_t)(size_t) -1)
@@ -749,9 +751,10 @@ extern int __cdecl pthread_mutex_lock (pthread_mutex_t * mutex);
 extern int __cdecl pthread_mutex_unlock (pthread_mutex_t * mutex);
 ```
 
-	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 不需要调用 pthread_mutex_destroy 
-    默认跟随系统生命周期. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么最终最好都
-    需要调用 pthread_xxx_destroy. 对于 pthread 我们包装一下
+	上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 本质也需要调用
+    pthread_mutex_destroy, 但如果默认跟随系统生命周期, 可以不用调用. 对于 POSIX 线
+    程, 假如调用了 pthread_xxx_init 那么非特殊情况最好都需要调用 
+    pthread_xxx_destroy. 对于 pthread 我们包装一下.
 
 ```C
 #ifndef _THREAD_H
@@ -771,14 +774,46 @@ inline void pthread_end(pthread_t id) {
 }
 
 //
+// pthread_async - 启动无需等待的线程
+// frun     : node_f or start_f 运行的主体
+// arg      : 运行参数
+// return   : 0 is success, -1 is error
+// 
+extern int pthread_async(void * frun, void * arg);
+
+//
 // pthread_run - 启动线程
-// id       : 线程 id
+// p        : 指向线程 id 的指针
 // frun     : node_f or start_f 运行主体
 // arg      : 运行参数
 // return   : 0 is success, -1 is error
 //
-inline int pthread_run(pthread_t * pi, void * frun, void * arg) {
-    return pthread_create(pi, NULL, frun, arg);
+inline int pthread_run(pthread_t * p, void * frun, void * arg) {
+    return pthread_create(p, NULL, frun, arg);
+}
+
+#endif//_THREAD_H
+```
+
+    讲的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖
+	后续可以通过 pthread_async 来启动设置好分离属性的线程. 你是否想过 winds 上使用 
+    POSIX pthread 线程库, 是不是想想就很爽. github GerHobbelt 大神的 
+    pthread-win32 项目, 让我们梦想成真. 或者关注作者 github 上面 pthread static 
+    lib 的水经验的项目. 从此以后, 你要的一切 pthread 都会给你!  
+
+```C
+#include "thread.h"
+
+static pthread_attr_t attr[1];
+
+// 
+// pthread_init - thread 使用方初始化
+// attr     : pthread_attr_t 变量
+// return   : void
+//
+void pthread_init(void) {
+    pthread_attr_init(attr);
+    pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);    
 }
 
 //
@@ -787,28 +822,19 @@ inline int pthread_run(pthread_t * pi, void * frun, void * arg) {
 // arg      : 运行参数
 // return   : 0 is success, -1 is error
 // 
-inline static int pthread_async(void * frun, void * arg) {
+inline int 
+pthread_async(void * frun, void * arg) {
     pthread_t id;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    int ret = pthread_create(&id, &attr, frun, arg);
-    pthread_attr_destroy(&attr);
-    return ret;
+    return pthread_create(&id, attr, frun, arg);
 }
-
-#endif//_THREAD_H
 ```
 
-	后续可以通过 pthread_async 来启动设置好分离属性的线程. 你是否想过 winds 上使用 
-    POSIX pthread 线程库, 是不是想想就很爽. github GerHobbelt 大神的 pthread-win32 
-    项目, 让我们梦想成真. 或者关注作者 github 上面 pthread static lib 的水经验的项目. 
-    从此以后, 你要的一切 pthread 都会给你! 为保护所爱的人去战斗 <*-*>    
+    为保护所爱的人去战斗 <*-*>  
 
 ### 3.2.1 pthread 练手
 
-    运用搭建好的 pthread 模块, 写个 Demo 练练手. 使用了 pthread 读写锁相关操作. 纯属
-    熟悉 api 而构造的示例.
+    运用搭建好的 pthread 模块, 写个 Demo 练练手. 使用了 pthread 读写锁相关操作. 纯
+    属熟悉 api 而构造的示例.
 
 ```C
 #include "thread.h"
@@ -875,34 +901,34 @@ reads(struct rwarg * arg) {
 }
 ```
 
-    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个
-    隐患就是 pthread_rwlock_unlock 这个 api. 也能看出来它不区分读解锁, 还是写解锁. 
-    这就导致一个问题当大量写操作存在时候, 会极大降低写加锁机会的期望. 使写操作饥渴. 后
-    面会带大家手写个读写锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万仞无边的
-    意念 ~. 关于 POSIX 线程库 pthread 就到这里了. 看看头文件, 查查手册, 再不济看看源
-    码一切仍然是那么自然.
+    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthread rwlock 存在
+    一个隐患就是 pthread_rwlock_unlock 这个 api. 也能看出来他不区分读解锁, 还是写
+    解锁. 这就存在一个问题, 当大量写操作存在时候, 会极大降低写加锁机会的期望. 使写操作
+    饥渴. 后面会带大家手写个读写锁, 用于感受一下远古时期那些妖魔大能弥留在天地之间, 万
+    仞无边的意念 ~. 关于 POSIX 线程库 pthread 就到这里了. 看看头文件, 查查手册, 再
+    不济看看源码一切仍然是那么自然.
 
 ### 3.3 读写锁
 
     pthread 已经提供了读写锁, 为什么还要没事瞎搞呢. 对于这个问题我是这样解释的. 
 		1' 学习价值, 写写顺便了解一下基本原理
 		2' pthread 读写锁有点重, 不如原子实现轻量
-		3' pthread 读写锁存在写操作饥渴的隐患
+		3' pthread 读写锁存在写操作饥渴的隐患        
     特别是 3' 问题很严重, 不妨自行构造多读少写情况自行验证. 下面对读写锁进行详细分析. 
-    读写锁主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡那用 pthrad
-    rwlock 效果更好. 我们这里写优先的读写锁满足 3 个特征:
-		1'. 当读写锁是写加锁状态时，
-			在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
-		2'. 当读写锁在读加锁状态时，
-	    	再以读模式对它加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
-		3'. 当读写锁在读加锁状态时，
-	    	如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁
-    从上面表述可以看出, pthread 的线程库对于特征 3' 没有支持. 默认还是平等竞争. 我们这
-    里默认写锁优先级高于读锁, 对其有遏制效果, 用于解决少量写饥渴问题. 
+    读写锁主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡, 那用 
+    pthrad rwlock 效果更好. 我们这里写优先的读写锁满足 3 个特征:
+		1' 当读写锁是写加锁状态时, 
+		   在这个锁被解锁之前，所有试图对这个锁加锁的线程都会被阻塞
+		2' 当读写锁在读加锁状态时, 
+	       再以读模式对他加锁的线程都能得到访问权，但以写模式加锁的线程将会被阻塞
+		3' 当读写锁在读加锁状态时, 
+	       如果有线程试图以写模式加锁，读写锁通常会阻塞随后的读模式加锁           
+    从上面表述可以看出, pthread 的线程库对于特征 3' 没有支持. 默认还是平等竞争. 我们
+    这里默认写锁优先级高于读锁, 对其有遏制效果, 用于解决少量写饥渴问题. 
 
 ### 3.3.1 读写锁设计 interface
 
-    通过上面 3 大特征和已经构建好的 atom.h 原子操作接口, 设计了 rwlock.h 读写锁接口
+    以上面 3 大特征和已经构建好的 atom.h 原子操作接口, 开始设计 rwlock.h 读写锁接口
 
 ```C
 #ifndef _RWLOCK_H
@@ -912,7 +938,7 @@ reads(struct rwarg * arg) {
 
 // create atom write and read lock
 // struct rwlock need zero is atom interface ext
-// need var init struct rwlock rw = { 0, 0 };
+// need var init struct rwlock rw = { 0,0 };
 struct rwlock {
     atom_t rlock;
     atom_t wlock;
@@ -934,8 +960,8 @@ extern void rwlock_unrlock(struct rwlock * lock);
 ```
 
     通过 rwlock.h 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 
-    wlock 两个字段可以看出, 本质就是两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 
-    互相打配合 ~
+    wlock 两个字段就是直接表现, 本质通过两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实
+    实, 互相打配合 ~
 
 ### 3.3.2 读写锁实现 implement
 
@@ -961,14 +987,14 @@ rwlock_rlock(struct rwlock * lock) {
 }
 ```
 
-    while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再
-    看看读解锁的实现:
+    while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 
+    再看看读解锁的实现:
 
 ```C
-// rwlock_unrlock - unlock read lock
+// rwlock_unwlock - unlock write lock
 inline void
-rwlock_unrlock(struct rwlock * lock) {
-    atom_dec(lock->rlock);
+rwlock_unwlock(struct rwlock * lock) {
+    atom_unlock(lock->wlock);
 }
 ```
 
@@ -984,49 +1010,47 @@ rwlock_wlock(struct rwlock * lock) {
         atom_sync();
 }
 
-// rwlock_unwlock - unlock write lock
+// rwlock_unrlock - unlock read lock
 inline void
-rwlock_unwlock(struct rwlock * lock) {
-    atom_unlock(lock->wlock);
+rwlock_unrlock(struct rwlock * lock) {
+    atom_dec(lock->rlock);
 }
 ```
 
-	while (lock->wlock) 表示读锁在为写锁让道. 随后读锁得到资源后, 读资源引用加 1. 再
-    看看到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配
-    置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为
-    它很容易被更高效的设计所替代 ~
+    看到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置
+    读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为他
+    很容易被更高效的设计所替代 ~
     
 ## 3.4 设计协程库
 
-    	以上我们捣鼓了原子锁, 原子操作, POSIX 线程, 读写锁. 忘记说了有本很古老的 POSIX
-    多线程程序设计很不错. 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的也
-    就是多线程和网络这两个方面了. 继续聊回来, 我们说下和多线程相关的一个模型协程. 协程
-    是被 Lua 的 coroutine.create (f) 带起来, 最后被 Go 的 goroutine 发扬光大. 这里
-    将会带大家实现一个简单的协程库, 用于感知协程库的一种实现思路. 
+    	以上我们捣鼓了原子锁, 原子操作, POSIX 线程, 读写锁. 有本很古老的 POSIX 多线
+    程程序设计书很不错, 如果做专业的多线程开发那本书是必须的. 服务器开发行业最难的也就是
+    多线程和网络这两个方面了. 继续聊回来, 我们说下和多线程相关的一个模型协程. 协程是被 
+    Lua 的 coroutine.create (f) 带起来, 最后被 Go 的 goroutine 发扬光大. 这里将
+    会带大家实现一个简单的协程库, 用于感知协程库的一种实现思路. 
 
 ### 3.4.1 协程库引言
 
-    可以说手握 pthread 神器不知道写个啥, 随便写了上面点. 关于 pthrad rwlock 存在一个    
-	协程的种类很多, 实现也千奇百怪. 我们这里要讲的协程模型, 通 winds 的纤程概念很像. 
+    协程的种类很多, 实现也千奇百怪. 我们这里要讲的协程模型, 通 winds 的纤程概念很像. 
     属于高级的同步串行控制模型. 开始讲解之前顺带温故一下进程和线程关系. 进程拥有一个完
     整的虚拟地址空间，不依赖于线程而独立存在. 线程是进程的一部分，没有自己的地址空间，
-    与进程内的其它线程一起共享分配给该进程的所有资源. 进程和线程是一对多关系, 同样我们
-    这里要说的协程也一样. 一个线程中可以有多个协程. 它同线程相比区别再于, 线程是操作系
-    统控制调度可以做到异步并行, 此协程是程序自身控制调度同步串行. 举个数码宝贝例子用于
-    类比协程进化史: 
+    与进程内的其他线程一起共享分配给该进程的所有资源. 进程和线程是一对多关系, 同样我们
+    这里要说的协程也一样. 一个线程中可以有多个协程. 他同线程相比区别再于, 线程是操作系
+    统控制调度可以做到异步并行, 当前要实现的协程是程序自身控制调度同步串行. 举个数码宝
+    贝例子用于类比协程进化史: 
 	滚球兽  －>  亚古兽  －>  暴龙兽  －>  机械暴龙兽  －>  战斗暴龙兽
 
 ![进化](./img/进化.jpg)
 
     if else -> switch -> goto -> setjmp / logjump -> coroutine
-    而对于其它语言的协程模型可以自行针对性研究. 毕竟浩瀚星辰, 生生不息.  
+    而对于其他语言的协程模型可以自行针对性研究. 毕竟浩瀚星辰, 生生不息.  
 
 ### 3.4.2 协程库 winds 储备
 
-    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加
-    了一种纤程, 以便能够非常容易地将现有的 UNIX 服务器应用程序移植到 Windows 中". 这
-    就是纤程概念的由来. 这里会详细说明关于 winds fiber 常用 api 接口. 先浏览当前线程
-    开启纤程相关接口说明.
+    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添
+    加了一种纤程, 以便能够非常容易地将现有的 UNIX 服务器应用程序移植到 Windows 中". 
+    这就是纤程概念的由来. 这里会详细说明关于 winds fiber 常用 api 接口. 先浏览当前线
+    程开启纤程相关接口说明.
 
 ```C
 //
@@ -1084,7 +1108,7 @@ typedef PFIBER_START_ROUTINE LPFIBER_START_ROUTINE;
 // dwFlags            : 纤程创建状态,
 //                    : 默认 FIBER_FLAG_FLOAT_SWITCH 保证浮点数计算正确
 // lpStartAddress     : 指定纤程运行的载体. 等同于纤程执行需要指明执行函数
-// lpParameter        : 纤程执行的时候, 传入的用户数据, 在纤程中 GetFiberData 得到
+// lpParameter        : 纤程执行的用户数据, 在纤程中 GetFiberData 得到
 // return             : 返回创建好的纤程对象
 //                                              
 WINBASEAPI __out_opt LPVOID WINAPI CreateFiberEx(
@@ -1102,7 +1126,7 @@ WINBASEAPI VOID WINAPI DeleteFiber(__in LPVOID lpFiber);
 WINBASEAPI VOID WINAPI SwitchToFiber(__in LPVOID lpFiber);
 ```
 
-    通过上面粗糙解释的 api 写一个基础的演示 fiber.c demo, 以实践能补充猜想:
+    通过上面粗糙 api 解释, 写一个基础的演示 fiber.c Demo, 以实践能补充猜想:
 
 ```C
 #include <stdio.h>
@@ -1153,13 +1177,13 @@ int main(int argc, char * argv[]) {
         7' 纤程 F1 中调用 ConverFiberToThread，转换为线程
         8' 线程结束
 
-    上面的测试代码执行最终结果如下, 更加详细的, 呵呵只能靠自己, winds 深入资料不多
+    以上测试代码执行最终结果如下, 更加详细的, 呵呵靠自己(winds 深入资料不多).
 
 ![fiber](./img/fiber.png)
 
-    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添加
-    储备 winds fiber 部分画上句号了. 现在市场上 winds 高级工程师很少了, 因为功法少, 
-    太邪乎了. 吃亏不讨好~ (从买的书籍上看抛开米国, 韩国对 winds 研究的比较深入)
+    winds api 中有个概念叫做纤程 fiber.  官方说明是 "Microsoft 公司给 Windows 添
+    加储备 winds fiber 部分画上句号了. 现在市场上 winds 高级工程师很少了, 因为功法少
+    , 太邪乎了. 吃亏不讨好 ~ (从买的书籍上看, 抛开米国, 韩国对 winds 研究的比较深入)
 
 ### 3.4.3 协程 linux 储备
 
@@ -1219,10 +1243,9 @@ void makecontext(ucontext_t * ucp, void (* func)(), int argc, ...);
 int swapcontext (ucontext_t * ocp, ucontext_t * ucp);
 ```
 
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文
     ucp 相比 winds fiber, linux ucontext 确实比较清爽. 其中 struct ucontext 和 
-    struct sigaltstack 加了注释地方需要关注, uc_link 设置执行顺序, uc_stack 指定当
-    前上下文堆栈信息. 有了这些知识, 我们在 linux 上演练下, 并展示输出结果.
+    struct sigaltstack 加了注释地方需要关注, uc_link 设置执行顺序, uc_stack 指定
+    当前上下文堆栈信息. 有了这些知识, 我们在 linux 上演练下, 并展示输出结果.
 
 ```C
 #include <stdio.h>
@@ -1295,7 +1318,7 @@ int main(int argc, char * argv[]) {
 
 ![ucontext](./img/ucontext.png)
 
-    很多时候我们写代码, 或者说在照虎画猫的时候. 花点心思也许就是突破.
+    很多时候我们写代码, 或者说在照虎画猫的时候, 花点心思也许就是突破.
 
 ### 3.4.4 协程库设计
 
@@ -1315,10 +1338,10 @@ int main(int argc, char * argv[]) {
 #define STACK_INT       (1048576)
 #define COROUTINE_INT   (16)
 
-#define CO_DEAD         (0) // 协程死亡状态
-#define CO_READY        (1) // 协程已经就绪
-#define CO_RUNNING      (2) // 协程正在运行
-#define CO_SUSPEND      (3) // 协程暂停等待
+#define CO_DEAD         (0)     // 协程死亡状态
+#define CO_READY        (1)     // 协程已经就绪
+#define CO_RUNNING      (2)     // 协程正在运行
+#define CO_SUSPEND      (3)     // 协程暂停等待
 
 // comng_t - 协程管理器对象
 typedef struct comng * comng_t;
@@ -1382,10 +1405,9 @@ extern int co_status(comng_t g, int id);
 
 #endif//_COROUTINE_H
 ```
-   
-    winds 纤程出现的本源自于 unix. 而一脉而下的 linux 也有这类机制. 这里称呼为上下文
-    ucp 其中 CO_READY 表示准备状态, 协程库内部维护了一个简易状态机. 方便记录当前协程
-    是啥状况. 切换可以状态大体如下
+
+    其中 CO_READY 表示准备状态, 协程库内部维护了一个简易状态机. 方便记录当前协程是啥状
+    况. 切换可以状态大体如下:
 		co_create   -> CO_Ready
 		co_resume   -> CO_Running
 		co_yield    -> CO_Suspend
@@ -1456,18 +1478,18 @@ int main(void) {
 }
 ```
 
-    可以能通过 resume 和 yield 来回切, 分析出执行流程. 这里也不妨剧透结果.
+    可以通过 resume 和 yield 来回切, 分析出执行流程. 这里也不妨剧透结果.
 
 ![协程测试结果](./img/croutine.png)
 
-    扯一点, 这里用的 (co_f)run 编译时替换运行时 struct args * <- arg 会更快些. 当然
-    也可以通过宏伪造函数. 纯当一类奇巧淫技吧!
+    扯一点, 这里用的 (co_f)run 编译时替换运行时 struct args * <- arg 会更快些. 当
+    然也可以通过宏伪造函数. 纯当一类奇巧淫技吧!
 
 ### 3.4.5 协程库实现
 
     有点琐碎, 主要还是需要通过代码布局感受作者意图. 协程库实现总思路通过 coroutine.c 
-    就可以看出来了. winds 利用 fiber 机制实现一份, liunx 通过 ucontext 机制实现一份. 
-    先看 coroutine$winds.h 数据结构设计部分.
+    就可以看出来了. winds 利用 fiber 机制实现一份, liunx 通过 ucontext 机制实现一
+    份. 先看 coroutine$winds.h 数据结构设计部分.
 
 ```C
 #if  !defined(_COROUTINE$WINDS_H) && defined(_WIN32)
@@ -1515,9 +1537,9 @@ struct comng {
 #endif//_COROUTINE$WINDS_H
 ```
 
-    对于这种基础库方面设计, 懂了很好懂, 不懂看着有点难受. 但难受会是自我进步的契机. 功
-    法修炼还是循序渐进. 通过 struct comng 和 struct co 数据结构大致可以看出来通过循环
-    队列来管理所有协程对象. 此刻是时候拉开序幕了
+    对于这种基础库方面设计, 明白很好懂, 不懂看着有点难受. 但难受会是自我进步的契机. 功
+    法修炼还是循序渐进. 通过 struct comng 和 struct co 数据结构大致可以看出来通过循
+    环队列来管理所有协程对象. 此刻是时候拉开序幕了
 
 ```C
 //
@@ -1608,6 +1630,7 @@ co_create(comng_t g, co_f func, void * arg) {
     return g->idx++;
 }
 
+
 //
 // co_yield - 挂起正在运行的协程
 // g        : 协程管理器对象
@@ -1628,8 +1651,8 @@ co_yield(comng_t g) {
 }
 ```
 
-    co_create 创建一个协程, co_yield 挂起当前协程并切换到主协程. comng::cs 中保存所
-    有的协程对象, 不够就 realloc, 够直接使用操作. 其中查询用的协程对象循环查找. 协程
+    co_create 创建一个协程, co_yield 挂起当前协程并切换到主协程. comng::cs 中保存
+    所有的协程对象, 不够就 realloc, 够直接使用操作. 其中查询用的协程对象循环查找. 协程
     之间的跳转采用先记录当前环境, 后跳转思路. 那开始看激活操作
 
 ```C
@@ -1689,8 +1712,8 @@ co_resume(comng_t g, int id) {
 }
 ```
 
-    到这关于 winds 协程库实现部分基本都稿完了. 就是数据结构和系统接口的一套杂糅. 而关
-    于 linux 部分封装, 相比 winds 只是写操作细节不一样. 重点也是看围绕状态切换那些部分
+    此时关于 winds 协程库实现部分基本都稿完了. 就是数据结构和系统接口的一套杂糅. 而关于
+    linux 部分封装, 相比 winds 只是写操作细节不一样. 重点也是看围绕状态切换那些部分.
 
 ```C
 #if !defined(_COROUTINE$LINUX_H) && !defined(_WIN32)
@@ -1878,7 +1901,7 @@ co_resume(comng_t g, int id) {
     c->status = CO_RUNNING;
     switch (status) {
     case CO_READY: {
-        // 兼容 x64 指针通过2个 4 字节传入到 makecontext 中
+        // 兼容 x64 指针通过 2 个 4 字节传入到 makecontext 中
         uintptr_t ptr = (uintptr_t)g;
         uint32_t l32 = (uint32_t)ptr;
         uint32_t h32 = (uint32_t)(ptr >> 32);
@@ -1948,11 +1971,11 @@ inline int co_status(comng_t g, int id) {
 #endif//_COROUTINE$LINUX_H
 ```
 
-    疯狂贴代码, 惨不忍睹. 目前主流的跨平台代码也多是粗暴的各自独立. 杂糅会导致性能和维
-    护性都不高. 这里需要注意的地方时 makecontext 默认的可变参数全是 int 类型, 所以只
+    疯狂贴代码, 惨不忍睹. 目前主流的跨平台代码也几乎是粗暴的各自独立. 杂糅会导致性能和维
+    护性都不高. 这里需要注意的地方是 makecontext 默认的可变参数全是 int 类型, 所以只
     能将 x64 指针分拆传入. 当我们要 co_yield 挂起当前协程时候, 需要保存当前挂起的栈信
-    息调用 co_savestack 以便下次恢复. co_savestack 隐患是假定了当前系统栈方向时向下
-    增上的. 如同在野外游历, 狭路遇大妖, 为保命不计后果决绝吃下小药丸, 疾飞而撤. 
+    息, 即调用 co_savestack 以便下次恢复. co_savestack 隐患是假定了当前系统栈方向时
+    向下增上的. 如同在野外游历, 狭路遇大妖, 为保命不计后果决绝吃下小药丸, 疾飞而撤. 
 
 *All knowledge is, in final analysis, history.*
 
@@ -1963,10 +1986,10 @@ inline int co_status(comng_t g, int id) {
     后面赠送个 time 时间模块的阅读理解, 做为这个金丹功法的额外回馈. 重复一下下, 程序员
     的世界看数据结构和操作系统. 同样自然世界也是, 万物是数据结构, 宇宙是操作系统.
 
-### 3.5 高效的时间业务库
+## 3.5 高效的时间业务库
 
-        底层库一定会有它, 时间业务模块库. 基础架构中必须, 例如业务常见字符串和时间戳来
-    回转. 是否同一天, 同一周, 时间开始点什么鬼的. 那么阅读理解开始
+        基础库中一定会有他, 时间业务模块库. 例如业务常见字符串和时间戳来回转, 是否同一
+    天, 同一周, 时间开始点什么鬼的. 那阅读理解开始吧!
 
 ```C
 #ifndef _TIMES_H
@@ -1978,7 +2001,7 @@ inline int co_status(comng_t g, int id) {
 
 //
 // ~ 力求最小时间业务单元 ~ 
-// 1s(秒) = 1000ms(毫秒) = 1000000us(微秒) = 1000000000ns(纳秒)
+// 1s 秒 = 1000ms 毫秒 = 1000000us 微秒 = 1000000000ns 纳秒
 //
 
 #ifdef _WIN32
@@ -2002,7 +2025,7 @@ inline void msleep(int ms) {
 extern int usleep(unsigned usec);
 
 //
-// gettimeofday - Linux sys/time.h 得到微秒时间实现
+// gettimeofday - 实现 Linux sys/time.h 得到微秒时间
 // tv       : 返回秒数和微秒数
 // tz       : 返回时区, winds 上这个变量没有作用
 // return   : success is 0
@@ -2122,19 +2145,19 @@ inline char * times_str(times_t ns) {
 #endif//_TIMES_H
 ```
 
-    后面赠送个 time 时间模块的阅读理解, 做为这个金丹功法的额外回馈. 重复一下下, 程序员
-    的世界道友是否看到 localtime_r 函数. 这种函数带着浓浓的 linux api 的设计口味. 标
-    识是可重入的. 这就扯到另一个常被误导的话题了可重入和线程安全. 可重入是基于操作系统
-    中断层面的定义, 多数是系统发生中断瞎比调用这个函数仍然没有问题, 表示此函数可重入. 
-    线程安全呢? 它是线程调度层面的定义, 希望多个线程之间瞎比调用这个函数, 程序最终运行
-    结果仍然能够符合预期思路. 二者有相关性, 例如多数可线程安全的函数可重入. 但而二者是
-    个完全不同的概念. 例如 malloc 内部通过锁来实现线程安全, 如果调用 malloc 过程中发
-    生中断, 中断程序再次调用 malloc 那么两次 lock 操作会导致死锁. 因而有些线程安全的
-    函数是不可重入. 另外一个例子就是一个函数打开文件读取内容这是可重入的, 但却不是线程
-    安全的(文件读写非线程安全), 因为可重入函数不一定线程安全. 希望到这里你能对可重入和
-    线程安全有个更清晰的认识. 那继续剖析上面的 times.h 接口设计. 推荐随后的代码可以全
-    部拔到你的项目中. 它们也算是久经考验的忠诚战士. 首先看一个飘逸的字符串解析为系统时
-    间结构的函数
+    这里赠送 time 时间模块的阅读理解, 做为这个金丹功法的额外回馈. 重复一下下, 程序员的
+    世界道友是否看到 localtime_r 函数. 这种函数带着浓浓的 linux api 的设计口味. 标
+    识是可重入的. 这就扯到另一个常被误导的话题了可重入和线程安全. 可重入是基于操作系统中
+    断层面的定义, 多数是系统发生中断瞎比调用这个函数仍然没有问题, 表示此函数可重入. 线
+    程安全呢? 他是线程调度层面的定义, 希望多个线程之间瞎比调用这个函数, 程序最终运行结
+    果仍然能够符合预期思路. 二者有相关性, 例如多数可线程安全的函数可重入. 但而二者是个
+    完全不同的概念. 例如 malloc 内部通过锁来实现线程安全, 如果调用 malloc 过程中发生
+    中断, 中断程序再次调用 malloc 那么两次 lock 操作会导致死锁. 因而有些线程安全的函
+    数是不可重入. 另外一个例子就是一个函数打开文件读取内容这是可重入的, 但却不是线程安
+    全的(文件读写非线程安全), 因为可重入函数不一定线程安全. 希望到这里你能对可重入和线
+    程安全有个更清晰的认识. 那继续剖析上面的 times.h 接口设计. 推荐随后的代码可以全部
+    拔到你的项目中. 他们也算是久经考验的忠诚战士. 首先看一个飘逸的字符串解析为系统时间
+    结构的函数.
 
 ```C
 // times_tm - 从时间串中提取出来年月日时分秒
@@ -2223,7 +2246,7 @@ time_get(times_t ns) {
 ```
 
     又好又快, 思路是将解析时间字符串, 分隔为一系列的数值. 再巧妙利用指针移位赋值. 继续
-    看两个时间戳是否是同一天的小学数学分析
+    看两个时间戳是否是同一天的小学数学分析.
 
 ```C
 //
@@ -2279,13 +2302,16 @@ time_week(time_t n, time_t t) {
 }
 ```
 
-    8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代
-    码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time 
-    UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说
-    道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更
-    规范. 对于 gettimeofday 还有usleep linux 上常用函数, 我们在 winds 实现如下.
+    8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们
+    代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard 
+    Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间
+    戳. 说道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度
+    更高, 更规范. 对于 gettimeofday 还有usleep linux 上常用函数, 我们在 winds 实
+    现如下.
 
 ```C
+#include "times.h"
+
 #ifdef _WIN32
 
 //
@@ -2313,7 +2339,7 @@ usleep(unsigned usec) {
 }
 
 //
-// gettimeofday - Linux sys/time.h 得到微秒时间实现
+// gettimeofday - 实现 Linux sys/time.h 得到微秒时间
 // tv       : 返回秒数和微秒数
 // tz       : 返回时区, winds 上这个变量没有作用
 // return   : success is 0
@@ -2322,8 +2348,8 @@ int
 gettimeofday(struct timeval * tv, void * tz) {
     struct tm m;
     SYSTEMTIME se;
-
     GetLocalTime(&se);
+
     m.tm_year = se.wYear - 1900;
     m.tm_mon = se.wMonth - 1;
     m.tm_mday = se.wDay;
@@ -2334,7 +2360,6 @@ gettimeofday(struct timeval * tv, void * tz) {
 
     tv->tv_sec = (long)mktime(&m);
     tv->tv_usec = se.wMilliseconds * 1000;
-
     return 0;
 }
 
@@ -2343,7 +2368,7 @@ gettimeofday(struct timeval * tv, void * tz) {
 
 	扩展一点, 假如有个策划需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认
     一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏
-    移量就可以. 例如我们假如在底层支持. 可以这么写
+    移量就可以. 例如我们假如在底层支持. 可以这么写.
 
 ```C
 #define DAYNEWSTART_INT	( 5UL * 3600 + 0 * 60 + 0)
@@ -2357,10 +2382,10 @@ inline bool time_isday(time_t n, time_t t) {
 }
 ```
 
-	可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面偏移
-    量. 后面代码不再扩展解释, 大家多写多用, 将吸星大法练习精深. 本书很多素材基本都是在
-    游戏服务器中常用业务. 扯一点题外话, 游戏相比其它互联网项目而言, 开宝箱的几率很高. 
-    技术上多数吃老本, 新技术落后. 业务上面增删改查少很多. 总体而言重客户端和重玩法. 
+	可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面偏移量
+    . 大家多写多用, 将吸星大法练习精深. 本书很多素材最初来自于写游戏服务器业务时感悟. 
+    扯一点题外话, 游戏相比其他互联网项目而言, 开宝箱的几率很高. 技术上多数吃老本, 新技
+    术落后. 业务上面增删改查不多. 整个行业偏重客户端和策划玩法. 
 
 ```C
 //
@@ -2420,20 +2445,24 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 
 ## 3.6 展望
 
-        这章目的是为了打通跨平台一些共性桥梁. 给大家抛砖引玉, 试图解开发中基础操作奥秘. 
-    学会一种方法, 应对不同平台的封装设计策略. 也是为以后步入金丹期, 漫天空气炮筹备一个
-    好的开始 ~ 最后希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响你所求的
-    道 *-*
+        这章目的是为了打通跨平台一些共性桥梁. 先给大家抛砖引玉, 试图解开开发中基础操作
+    奥秘. 学会一种方法, 应对不同平台的封装策略. 也是为以后步入金丹期, 漫天空气炮铺展一
+    个好的开始 ~ 同样在心里希望, 多陪陪爱我们的人, 房子票子那种法宝有最好, 没有也不影响    
+    你所求的道 *-*
+
+***
+
+    以梦为马(节选)
+    海子
+
+    面对大河我无限惭愧
+
+    我年华虚度 空有一身疲倦
+
+    和所有以梦为马的诗人一样
+
+    岁月易逝 一滴不剩
+
+***
 
 ![白龙](./img/黑龙.jpg)
-    
-以梦为马(节选)
-海子
-
-面对大河我无限惭愧
-
-我年华虚度 空有一身疲倦
-
-和所有以梦为马的诗人一样
-
-岁月易逝 一滴不剩
