@@ -194,7 +194,7 @@ struct people p = { .free = 100, .ideal = "59", .future = 0.0 };
     周期的问题. list 创建比较简单采用了一个潜规则 void * list = NULL; 代表创建一个空
     链表. 链表头创建设计常见有两个套路, 其一是自带实体头结点, 这种思路在处理头结点的时
     候特别方便. 其二就是我们这种没有头结点一开始为从 NULL 开始, 优势在于节省空间. 对于
-    链表的销毁操作, 使用 list_delete 用于链表结点资源删除
+    链表的销毁删除操作, 使用 list_delete
 
 ```C
 //
@@ -223,7 +223,7 @@ list_delete(void * pist, void * fdie) {
         2' 为 list 每个结点执行 fdie 注入的行为
         3' *(void **)pist = NULL 图个心安
 
-    相似的继续看看 list_add 实现, 直接根据注入函数决定插入的位置
+    相似的继续看 list_add 实现, 直接通过注入函数决定插入的位置
 
 ```C
 //
@@ -277,9 +277,9 @@ list_add(void * pist, void * fadd, void * left) {
 #define list_next(n) ((struct $list *)(n))->next
 ```
 
-    可以看出他在外部用的时候, 相当于无类型指针, 只能获取值却不能操作. 内部用的时候已经转成
-    了类型指针, 就可以操作了. 算是宏控制代码使用权限的一个小技巧. 继续抛砖引玉用宏带大家构
-    造 C 的常量技巧!
+    可以看出他在外部用的时候, 相当于无类型指针, 只能获取值难于设值. 内部用的时候已经转为类
+    型指针, 就可以操作了. 算是宏控制代码使用权限的一个小技巧. 继续抛砖引玉用宏带大家构造 C
+    的常量技巧!
 
 ```C
 #include <stdio.h>
@@ -309,7 +309,7 @@ $ gcc -g -Wall const_version.c ; ./a.out
 version = { major = 1, minor = 2, micro = 3 }
 ```
 
-    通过宏和声明定义 static 函数构造 const_version const struct version 真常量. 
+    通过宏和声明定义 static 函数, 构造 const_version const struct version 真常量. 
     是不是挺有意思, 希望读者有所消遣 ~ 
     
     随后看下 list_pop, list_get, list_each 操作, 都很直白.
@@ -346,9 +346,9 @@ list_pop(void * pist, void * fget, const void * left) {
 }
 ```
 
-    同样分为 3 部曲, 1 检查, 2 头结点处理, 3 非头结点处理. 需要注意的是 list_pop 只是
-    在 list 中通过 fget(left, x) 弹出结点. 后续 free or delete 操作还得依赖使用方自
-    行控制.
+    同样有 3 部曲, 1 检查, 2 头结点处理, 3 非头结点处理. 需要注意的是 list_pop 只是在 
+    list 中通过 fget(left, x) 弹出结点. 后续 free or delete 操作还得依赖使用方自行控
+    制.
 
 ```C
 //
@@ -390,7 +390,7 @@ list_each(void * list, void * feach) {
 }
 ```
 
-    list_get 和 list_each 代码是质朴中的质朴啊. 对于 list_each 还有一种设计思路
+    list_get 和 list_each 代码是质朴中的质朴啊. 其中 list_each 还有一种设计思路
 
 ```C
 //
@@ -415,22 +415,22 @@ list_each(void * list, void * feach, void * arg) {
 }
 ```
 
-    注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是选择
-    了 node_f. 可能最终觉得, 不想再作了. 不好意思到这 list 设计套路解释完了. 喜欢的
-    朋友可以多写几遍代码去体会和分享 ~ 
+    注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 但最后还是选择了 
+    node_f. 最终觉得, 不想再作了. 不好意思到这 list 设计套路解释完了. 喜欢的朋友可以多写
+    几遍代码去体会和分享 ~ 
 
 ## 2.2 string
 
-        有句话不知道当讲不当讲, C 中 char * 其实够用了! 写过几个 string 模型, 自我感
-    觉都有些过度封装, 不怎么爽且应用领域很鸡肋. 但也有场景需要扩展 char *. 例如说, 如
-    果 char * 字符串长度不确定, 随时可能变化. 那我们怎么处理呢? 此刻就需要为其封装个动
-    态字符集的库去管理这种行为. 为了让大家对 string 体会更多, 先带大家为 string.h 扩
-    展几个小接口. 磨刀不费砍柴功.
+        有句话不知道当讲不当讲, C 中 char * 其实够用了! 写过几个 string 模型, 自我觉得
+    都有些过度封装, 不怎么爽且应用领域很鸡肋. 但开发中也有场景需要扩展 char *. 例如说, 如
+    果 char * 字符串长度不确定, 随时可能变化. 那我们怎么处理呢? 这会就需要为其封装个动态
+    字符集的库去管理这种行为. 为了让大家对 string 体会更多, 先带大家为 string.h 扩展几
+    个小接口. 磨刀不费砍柴功.
 
 ### 2.2.1 引入 strext.h
 
-        strex.h 是基于 string.h 扩展而来, 先引入 strext.h 主要方便后续相关 char * 
-    操作更顺利. strext.h 接口设计分成 string 相关操作和 file 相关操作. 
+        strext.h 是基于 string.h 扩展而来, 先引入 strext.h 目的是方便后续相关 char * 
+    操作. strext.h 功能设计分成 string 相关操作和 file 相关操作. 
 
 ```C
 #ifndef _STREXT_H
@@ -541,16 +541,16 @@ str_hash(const char * str) {
 }
 ```
 
-    str_hash 实现采用了 C 语言之父展示一种极其简便快速 hash 算法. 哈希(hash)映射相当于
-    定义一个数学上函数, f (char *) 映射为 unsigned 数值. 意图通过数值反向确定这个字符串
-    一定程度的相似性. 思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞.
-    常用术语叫碰撞, 解决碰撞也好搞. 套路不少如桶式 hash, 链式 hash, 混合 hash, 后面会看
-    见相关例子. 回到问题即如果发生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子.
-    一种思路是当池子中海藻挤在一起(碰撞)了, 就加大池子, 让海藻分开. 原理是池子越大碰撞机会
-    越小. 另一种思路当池子中海藻挤在一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的值全引
-    流到小水沟中. 思路是碰撞的单独放一起. 对于 hash 最重要特性是"两个模型映射的哈希值不一样
-    , 那么二者一定不一样!". 通过这个特性在数据查找时能够快速刷掉一批! 推荐也多查查其他资料,
-    把 hash 设计和编码仔细分析明白!!
+    str_hash 延续了 C 语言之父展示一种极其简便快速 hash 算法实现. 哈希(hash)映射相当于
+    定义数学上一个函数, f (char *) 映射为 unsigned 数值. 意图通过数值一定程度上反向确定
+    这个字符串. 思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用
+    术语叫碰撞, 解决碰撞也好搞. 套路不少有桶式 hash, 链式 hash, 混合 hash(后面会看见相
+    关例子). 回到问题, 即如果发生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子
+    . 一种思路是当池子中海藻挤在一起(碰撞)了, 就加大池子, 让海藻分开, 原理是池子越大碰撞机
+    会越小. 另一种思路当池子中海藻挤在一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的海
+    藻全引流到小水沟中, 思路是碰撞的单独放一起. 而对于 hash 最重要特性是"两个模型映射的哈
+    希值不一样, 那么二者一定不一样!". 通过这个特性在数据查找时能够快速刷掉一批! 推荐也多查
+    查其他资料, 把 hash 设计和编码仔细分析明白!!
 
 ```C
 //
@@ -613,8 +613,8 @@ str_cmpin(const char * ls, const char * rs, size_t n) {
 }
 ```
 
-    函数写的很普通. 不算"高效"(没有用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常
-    参数处理. 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 再展示 trim 函数
+    函数写的很普通. 不算"高效"(没采用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常
+    参数处理, 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 再展示 trim 函数.
 
 ```C
 //
@@ -644,9 +644,9 @@ str_trim(char str[]) {
 }
 ```
 
-    主要思路是头尾都查找 space 字符并缩进, 最后 e - s + 2 = (e + 1 - s) + 1 最后 1
-    是 '\0' 字符. str_trim(char []) 声明设计希望调用方传入参数是数组, 且允许修改行为.
-    对于 str_printf 由来先回忆下系统 api
+    主要思路是在字符串头尾都查找 space 字符并缩进, 最后 e - s + 2 = (e + 1 - s) + 1 
+    (最后 1 是 '\0' 字符). str_trim(char []) 声明设计希望调用方传入参数是数组, 且允许
+    修改行为. 开始讲 str_printf 之前, 先回忆下系统 api
 
 ```C
 #if defined __USE_ISOC99 || defined __USE_UNIX98
@@ -661,9 +661,9 @@ extern int vsnprintf (char *__restrict __s, size_t __maxlen,
 #endif
 ```
 
-    当初刚学习 snprintf 时候, 总觉得第一个参数好不爽. 凭什么让我来预先构造 char * 大小
-    . 后面看标准说不希望过多揉进动态内存分配平台相关的代码, 内存申请和释放都应该交给使用方
-    . 目前用了个很低效的傻技巧来动态生成 char *
+    当初刚学习 snprintf 时候, 总觉得第一个参数好不爽. 凭什么让我来预先构造 char * 大小.
+    后面看标准说, 不希望过多揉进动态内存分配平台相关的代码, 内存申请和释放都应该交给使用方.
+    我们这里用了个很低效的傻技巧来动态生成 char *
 
 ```C
 // str_vprintf - 成功直接返回
@@ -811,13 +811,14 @@ str_fappends(const char * path, const char * str) {
 }
 ```
 
-    str_freads 和 str_printf 思路一样, 都在进行内存是否合适的尝试. str_fwrite 设计
-    就很普通. 以上关于 string.h 接口扩展部分不华丽, 但是又不可或缺. 适合传授新手演练 ~
+    str_freads 和 str_printf 思路一样, 都在进行内存是否合适的尝试. str_fwrite 设计仅
+    仅对系统的文件输出函数包装一下. 以上关于 string.h 接口扩展部分不华丽, 但是又不可或缺.
+    适合传授新手, 带其上手 ~
 
 ### 2.2.2 interface
 
-        经过 strext.h 接口演练, 已经可以回忆起 C string.h 基础库的部分功能. 趁热打铁
-    开始封装一种自带扩容缓冲的字符串模型, 比较好懂. 首先看下面总的接口声明, 有个感性认知. 
+        经过 strext.h 接口演练, 已经可以回忆起 C string.h 基础库的部分功能. 趁热打铁开
+    始封装一类自带扩容缓冲的字符串模型, 比较好懂. 首先看总的接口声明, 有个感性认知. 
     tstr.h 支持堆上和栈上声明使用
 
 ```C
@@ -829,10 +830,13 @@ str_fappends(const char * path, const char * str) {
 #ifndef TSTR_CREATE
 
 struct tstr {
-    size_t len;   // 长度
-    size_t cap;   // 容量
     char * str;   // 字符池
+    size_t cap;   // 容量
+    size_t len;   // 长度
 };
+
+// TSTR_INT 字符串构建的初始大小
+#define TSTR_INT  (1<<8)
 
 typedef struct tstr * tstr_t;
 
@@ -841,10 +845,13 @@ typedef struct tstr * tstr_t;
 // TSTR_DELETE - 释放栈上 tstr_t 结构
 // var  : 变量名
 //
-#define TSTR_CREATE(var)                                    \
-struct tstr var[1] = { { 0, 0, NULL } }
+#define TSTR_CREATE(var)                \
+struct tstr var[1] = { {                \
+    .str = malloc(TSTR_INT),            \
+    .cap = TSTR_INT,                    \
+} }
 
-#define TSTR_DELETE(var)                                    \
+#define TSTR_DELETE(var)                \
 free((var)->str)
 
 #endif//TSTR_CREATE
@@ -852,25 +859,24 @@ free((var)->str)
 #endif//_TSTR_H
 ```
 
-    通过 struct tstr 可以理解作者思路, str 存放内容, len 记录当前字符长度, cap 表示
-    字符池容量. 声明字符串类型 tstr_t 用于堆上声明. 如果想在栈上声明, 可以用提供的操作
-    宏. 其实很多编译器支持运行期结束自动析构操作, 其实只是编译器的语法糖, 内嵌析构操作. 
-    例如下面套路
+    通过 struct tstr 就能猜出作者思路, str 存放内容, len 记录当前字符长度, cap 表示字
+    符池容量. 声明字符串类型 tstr_t 用于堆上声明. 如果想在栈上声明, 可以用提供的操作宏. 
+    其实很多编译器支持运行期结束自动析构操作, 只是编译器的语法糖, 内嵌析构操作. 类比下面套
+    路(编译器协助开发者插入 free or delete 代码), 模拟自动退栈销毁栈上字符串 var 变量
 
 ```C
-#define TSTR_USING(var, code)								\
-do { 														\
-	TSTR_CREATE(var); 										\
-	code 													\
-	TSTR_DELETE(var); 										\
+#define TSTR_USING(var, code)           \
+do {                                    \
+	TSTR_CREATE(var);                   \
+	code                                \
+	TSTR_DELETE(var);                   \
 } while(0)
 ```
 
-    模拟函数退栈自动销毁栈上字符串 var 变量. C 修炼入门, 多数会说, 早已看穿, 却入戏太
-    深. 有了上面数据结构, 关于行为的部分代码那就好理解多了. 多扯一点, C 中没有'继承'(当
-    然也可以搞)但是有文件依赖, 本质是文件继承. 例如上面 #include "strext.h" 表达的意
-    思是 tstr.h 接口文件继承 strext.h 接口文件. 强加文件继承关系, 能够明朗文件包含关系
-    拊顺脉络. 那么看后续设计
+    C 修炼入门, 有的会说, 虽早已看穿, 却入戏太深. 有了上面数据结构, 关于行为的部分代码那就
+    好理解多了. 多扯一点, C 中没有'继承'(当然也可以搞)但是有文件依赖, 也像是文件继承. 例
+    如上面 #include "strext.h" 表达的意思是 tstr.h 接口文件继承 strext.h 接口文件. 
+    强加文件继承关系, 能够明朗文件包含关系拊顺脉络. 继续看后续设计
 
 ```C
 //
@@ -917,10 +923,10 @@ extern void tstr_appendn(tstr_t tsr, const char * str, size_t sz);
 extern char * tstr_cstr(tstr_t tsr);
 ```
 
-    还是无外乎创建销毁, 其中 tstr_expand 表示为 tstr 扩容操作. 没加 extern 表达的
-    意图是使用这个低等级接口要小心. tstr_cstr 安全的得到 C 类型 char * 串. 当然如果
-    足够自信, 也可以直接 tstr->str 走起, 安全因人而异. 这个是 C 的'自由', 大神在缥缈
-    峰上, 菜鸡在自家泥河里. 对于 tstr_cstr 封装很直白, 就是看结尾是否有 C 的 '\0'.
+    还是无外乎创建销毁, 其中 tstr_expand 表示为 tstr 扩容操作. 没加 extern 表达的意图
+    是使用这个低等级接口要小心. tstr_cstr 安全的得到 C 类型 char * 串. 当然如果足够自信
+    , 也可以直接 tstr->str 走起, 安全因人而异. 这个是 C 的'自由', 大神在缥缈峰上, 菜鸡
+    在自家泥河里. 对于 tstr_cstr 封装很直白, 就是看结尾是否有 C 的 '\0'.
 
 ```C
 //
@@ -940,15 +946,12 @@ tstr_cstr(tstr_t tsr) {
 
     一切封装从简, 最好的自然 ~ 大道于无为 ~
 
-#### 2.2.2 tstr implement
+### 2.2.2 tstr implement
 
-        详细谈一下 tstr 的实现, 首先看最重要的一个接口 tstr_expand 操作内存. C 中只要
-    内存有了, 完全可以为所欲为.
+        详细谈一下 tstr 的实现, 首先看最重要的一个接口 tstr_expand 操作内存. C 中只
+    要内存有了, 完全可以为所欲为.
 
 ```C
-// TSTR_INT - 字符串构建的初始大小
-#define TSTR_INT  (1<<8)
-
 //
 // tstr_expand - 字符串扩容, low level api
 // tsr      : 可变字符串
@@ -960,7 +963,6 @@ tstr_expand(tstr_t tsr, size_t len) {
     size_t cap = tsr->cap;
     if ((len += tsr->len) > cap) {
         // 走 1.5 倍内存分配, '合理'降低内存占用
-        cap = cap < TSTR_INT ? TSTR_INT : cap;
         while (cap < len) cap = cap * 3 / 2;
         tsr->str = realloc(tsr->str, cap);
         tsr->cap = cap;
@@ -979,10 +981,10 @@ tstr_delete(tstr_t tsr) {
     free(tsr);
 }
 ```
-    
-	上面关于 cap = cap * 3 / 2 的做法在内存分配的时候很常见, 初始值加幂级别增长. 也有
-    按照分阶段增长, 不同解决增长系数不一样. 最初版本增长用的是 cap <<= 1, 并用了位操作,
-    一个失传已久的装波升级技巧.
+   
+	上面 cap = cap * 3 / 2 的做法, 在内存分配的时候很常见, 初始值加幂级别增长. 也有
+    按照分阶段增长, 不同解决增长系数不一样. 最初版本增长用的是 cap <<= 1, 并用了位操作
+    , 一个失传已久的装波升级技巧.
 
 ```C
 // pow2gt - 2 ^ n >= x , 返回 [2 ^ n] 
@@ -997,7 +999,7 @@ static inline int pow2gt(int x) {
 }
 ```
 
-	原理是 2 ^ n - 1 位数全是1, 1 -> 11 -> 1111 -> 11111111 -> ... 但不太通用. 
+	原理是 2 ^ n - 1 位数全是1, 1 -> 11 -> 1111 -> 11111111 -> ... (不太通用) 
 
 ```C
 //
@@ -1016,13 +1018,6 @@ tstr_appendc(tstr_t tsr, int c) {
 }
 
 inline void 
-tstr_appendn(tstr_t tsr, const char * str, size_t sz) {
-    tstr_expand(tsr, sz);
-    memcpy(tsr->str + tsr->len, str, sz);
-    tsr->len += sz;
-}
-
-inline void 
 tstr_appends(tstr_t tsr, const char * str) {
     if (tsr && str) {
         unsigned sz = (unsigned)strlen(str);
@@ -1030,6 +1025,13 @@ tstr_appends(tstr_t tsr, const char * str) {
             tstr_appendn(tsr, str, sz);
         tstr_cstr(tsr);
     }
+}
+
+inline void 
+tstr_appendn(tstr_t tsr, const char * str, size_t sz) {
+    tstr_expand(tsr, sz);
+    memcpy(tsr->str + tsr->len, str, sz);
+    tsr->len += sz;
 }
 ```
 
@@ -1045,20 +1047,26 @@ tstr_appends(tstr_t tsr, const char * str) {
 //
 inline tstr_t 
 tstr_create(const char * str, size_t len) {
-    tstr_t tsr = calloc(1, sizeof(struct tstr));
+    tstr_t tsr = malloc(sizeof(struct tstr));
+    tsr->str = malloc(TSTR_INT);
+    tsr->cap = TSTR_INT;
+    tsr->len = 0;
     if (str && len) tstr_appendn(tsr, str, len);
     return tsr;
 }
 
 inline tstr_t 
 tstr_creates(const char * str) {
-    tstr_t tsr = calloc(1, sizeof(struct tstr));
+    tstr_t tsr = malloc(sizeof(struct tstr));
+    tsr->str = malloc(TSTR_INT);
+    tsr->cap = TSTR_INT;
+    tsr->len = 0;
     if (str) tstr_appends(tsr, str);
     return tsr;
 }
 ```
 
-	存在潜规则 1' struct tstr 初始属性要求全为 0; 2' calloc 返回成功的内存会填充 0
+	存在潜规则 1' struct tstr 初始属性要求全为 0. 2' calloc 返回成功的内存会填充 0.
 	到这简单完成了一个 C 字符串, 准确的说是字符池模块. 顺手展示几个应用
 
 ```C
@@ -1097,9 +1105,8 @@ tstr_popup(tstr_t tsr, size_t len) {
 }
 ```
 
-    存在潜规则 1' struct tstr 初始属性要求全为 0; 2' calloc 返回成功的内存会填充 0
 	tstr_dupstr 用于 tstr_t 到 char * 转换. tstr_popup 操作会在 str 头部弹出特定
-    长度字符, 可用于协议解析模块. 随后带大家写个 tstr_printf 用于 tstr sprintf 操作
+    长度字符, 可用于协议解析模块. 再赠送大家个 tstr_printf 用于 tstr sprintf 操作
 
 ```C
 // tstr_vprintf - BUFSIZ 以下内存处理
@@ -1149,21 +1156,22 @@ tstr_printf(tstr_t tsr, const char * fmt, ...) {
 }
 ```
 
-	到这 C 字符串辅助模块基本搞定了. string 不是 C 必须的, 有的话在特定场景会很舒服. 
-	这么久也可以看出 C 写代码方式是 数据结构设计 -> 内存处理设计 -> 业务设计. 而大多数
-    现代语言写代码方式只需要关心 业务设计. 对比就是性能和生产力成反比相关性. 
+	到这 C 字符串辅助模块也大致搞定. string 不是 C 必须的, 有时候在特定场景会很舒服. 
+	这么久, 也可以看出 C 写代码方式是 [数据结构设计 -> 内存处理设计 -> 业务设计]. 而
+    大多数现代语言写代码方式只需要关心 [业务设计]. 硬要对比的话, 存在性能和生产力成反比
+    相关性规律. 
 
-### 2.3 array
+## 2.3 array
 
-	    array 指的是动态数组. 但在 C 中其实固定数组就够用了! 顺带说一点 C99 中新加变
-	长(变量)数组, 如下声明本质是编译器运行时帮我们在栈上分配和释放, 但不能改变长度. 
+	    array 指的是动态数组. C 中同样固定数组就够用了! 顺带说一点 C99 中新加变长
+    (变量)数组. 如下声明, 本质是编译器运行时帮我们在栈上分配和释放, 但不能改变长度. 
 
 ```C
 int n = 64;
 int array[n];
 ``` 
 
-	我们这里的 array, 支持运行时容量扩容. 设计原理与上面封装 tstr 很相似, 只是 char 
+	这里要说的 array, 支持运行时容量扩容. 设计原理与上面封装 tstr 很相似, 只是 char 
 	独立单元变成了 void * 独立单元.
 
 ```C
@@ -1199,19 +1207,18 @@ struct array var[1] = { {                   \
 #define ARRAY_DELETE(var)                   \
 free((var)->data)
 
-
 #endif//_ARRAY_H
 ```
 
-	在 C 中数组 [1] 这个技巧本质是为了追求指针对象写法的统一, 全是 -> 去调用. 是不是有
-    点意思. 其中 struct array 通过注册的 size 确定数组中每个对象模型内存大小, 是一种
-    很原始的反射套路. 高级语言做的很多工作就是把原本编译时做的事情转到了运行时. 更现代化
-    的魔法直接跳过编译时吟唱阶段而瞬发.
+	在 C 中数组 [1] 这个技巧主要为了追求指针对象写法的统一, 全用 -> 去操作. 是不是有点
+    意思. 其中 struct array 通过注册的 size 确定数组中每个对象模型内存大小, 是一种很
+    原始的反射套路. 高级语言做的很多工作就是把原本编译时做的事情转到了运行时. 更现代化的
+    魔法直接跳过编译时吟唱阶段而瞬发.
 
-#### 2.3.1 array interface
+### 2.3.1 array interface
 
-	    array 接口设计分为两部分, 第一部分是核心围绕创建, 删除, 入栈, 出栈. 第二部分是
-    应用围绕 array 结构做一些辅助操作. 
+	    array 接口设计分为两部分, 第一部分是核心围绕创建, 删除, 压入, 弹出. 第二部分
+    是应用围绕 array 结构做一些辅助操作. 
 
 ```C
 //
@@ -1293,13 +1300,13 @@ extern void array_sort(array_t a, cmp_f fcmp);
 //
 extern int array_each(array_t a, each_f func, void * arg);
 ```
+ 
+	结构是设计的内在, 内功循环的丹田. 接口是设计的外在, 发招后内力外放波动. 而实现将是
+    无数次重复锤炼 ~
 
-	结构是设计的内在, 内功循环的丹田. 接口是设计的外在, 发招后内力外在波动. 而实现将是无
-    数次重复锤炼 ~
+### 2.3.2 array implement
 
-#### 2.3.2 array implement
-
-	    情不知所起，一往而深. 这里继续扯编程实现, 同样的 9 成库打头阵的都是内存管理这块. 
+	    情不知所起，一往而深. 这里继续扯编程实现, 同样 9 成多库打头阵还是内存管理这块. 
 
 ```C
 //
@@ -1365,7 +1372,7 @@ array_pop(array_t a) {
 }
 ```
 
-	代码写来写去, 也就有点朴实无华了. 
+	代码写来写去, 也就那点东西了. 
 
 ```C
 //
@@ -1456,7 +1463,7 @@ array_each(array_t a, each_f func, void * arg) {
 }
 ```
 
-	顺带扯一点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 谎言需要另一个谎言来
+	顺带补充点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 谎言需要另一个谎言来
     弥补. 并且多用标准中推出的解决方案. 例如标准提供的 stdint.h 和 stddef.h 定义全平
     台类型. 不妨传大家我这么多年习得的无上秘法, 开 血之限界 -> 血轮眼 -> 不懂装懂, 抄
     抄抄. 一切如梦如幻! 回到正题. 再带大家写个很傻的单元测试, 供参考. 有篇幅的话会带大
@@ -1484,12 +1491,12 @@ void array_test(void) {
 }
 ```
 
-### 2.4 hash
+## 2.4 hash
 
-	    这里讲述的 hash 针对性很强, 对数值进行哈希映射(想起一个分析名词收敛). 应用场景也
-    多, 例如内核层给应用层的句柄 id. 无法对其规律进行假设, 那我们把他映射到特定的范围内. 
-	就能控制了. 封装系统 io 复用层的时候很常见. 下面展示一个 hash id 相关库封装. 原始
-	思路来自云风大佬的 skynet c gate server 上设计
+	    这里讲述的 hash 针对性很强, 对数值进行哈希映射(想起一个分析名词收敛). 应用场景
+    也多, 例如内核层给应用层的句柄 id. 无法对其规律进行假设, 那我们把他映射到特定的范围
+    内, 通过映射值去控制. 封装系统 io 复用层的时候很常见. 下面展示一个 hash id 相关库
+    封装. 原始思路来自云风大佬的 skynet c gate server 上设计
 
 ```C
 #ifndef _HAID_H
@@ -1603,15 +1610,15 @@ static inline int haid_full(struct haid * h) {
 #endif//_HAID_H
 ```
 
-	代码比注释值钱. 一般书中也许会有习题, 我们这里独创阅读理解. 哈哈. 来一同感受设计的细
-    节. hsid 库设计就是这次的阅读理解, 有些飘逸, 有些巧妙. 阅读完后讲解一点潜规则, 先入
-    为主
+	代码比注释值钱. 一般书中也许会有习题, 我们这里独创"阅读理解". 哈哈. 来一同感受设计
+    的细节. hsid 库设计就是这次的阅读理解, 有些飘逸, 有些巧妙. 阅读完后讲解一点潜规则,
+    先入为主
 
     0' return -1;
 
-		没有找见就返回索引 -1, 作为默认错误和 POSIX 默认错误码相同. POSIX 错误码引入了
-		errno 机制, 不太好, 封装过度. 上层需要二次判断, 开发起来要命. 可能我们后续设计
-		思路也是承接这种 POSIX 思路, 但愿是上错花轿嫁对郎.
+		没有找见就返回索引 -1, 作为默认错误和 POSIX 默认错误码相同. POSIX 错误码引入
+        了 errno 机制, 不太好, 封装过度. 上层需要二次判断, 开发起来难受. 我们后续设计
+        思路也是承接这种 POSIX 思路, 但愿上错花轿嫁对郎.
 
     1' cap <<= 1;
 
@@ -1619,7 +1626,8 @@ static inline int haid_full(struct haid * h) {
 
     2' h->hash = calloc(cap, sizeof(struct haid *));
 
-		这里表示当前 hash 实体已经全部申请好了, 只能用这些了. 所以有了 haid_full 接口.
+		这里表示, 当前 hash 实体已经全部申请好了, 只能用这些了. 所以有了 haid_full 
+        接口.
 
     3' assert(c && c->next == NULL);  
 
@@ -1630,13 +1638,15 @@ static inline int haid_full(struct haid * h) {
 
 		一种查找策略, 可以有也可以无. 和 O(n) 纯 for 查找没啥区别. 看数据随机性.
 
-    5' 最后小总结
+    5' 小总结
 		
-        有了这些理解会容易点. 上面构建的 hash id api, 完成的工作就是方便 int id 的映射
-        工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 写一遍想一遍就能感受
-        到那些游动于指尖的美好 ~
+        有了这些阅读理解会容易点. 上面构建的 hash id api, 完成的工作就是方便 int id
+        的映射工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 写一遍想一遍
+        就能感受到那些游动于指尖的美好 ~
 
-### 2.5 内功心法上卷
+## 2.5 内功心法上卷
+
+***
 
 	渔家傲·平岸小桥千嶂抱
 	王安石·宋
@@ -1652,5 +1662,7 @@ static inline int haid_full(struct haid * h) {
 	忽忆故人今总老，
 	贪梦好，
 	茫然忘了邯郸道。
+
+***
 
 ![云飘宁](./img/我猜中了前头.jpg)
