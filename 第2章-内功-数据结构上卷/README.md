@@ -18,7 +18,7 @@
     list 构建部分接口. 学习一个陌生的东西有很多套路, 一条烂大街的大众路线图是:
 	write demo -> see interface -> copy implement -> test
 
-### 2.1.1 list.h interface
+### 2.1.1 list interface
 
 ```C
 #ifndef _LIST_H
@@ -815,7 +815,7 @@ str_fappends(const char * path, const char * str) {
     仅对系统的文件输出函数包装一下. 以上关于 string.h 接口扩展部分不华丽, 但是又不可或缺.
     适合传授新手, 带其上手 ~
 
-### 2.2.2 interface
+### 2.2.2 tstr interface
 
         经过 strext.h 接口演练, 已经可以回忆起 C string.h 基础库的部分功能. 趁热打铁开
     始封装一类自带扩容缓冲的字符串模型, 比较好懂. 首先看总的接口声明, 有个感性认知. 
@@ -946,7 +946,7 @@ tstr_cstr(tstr_t tsr) {
 
     一切封装从简, 最好的自然 ~ 大道于无为 ~
 
-### 2.2.2 tstr implement
+### 2.2.3 tstr implement
 
         详细谈一下 tstr 的实现, 首先看最重要的一个接口 tstr_expand 操作内存. C 中只
     要内存有了, 完全可以为所欲为.
