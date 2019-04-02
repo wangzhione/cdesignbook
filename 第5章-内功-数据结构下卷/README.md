@@ -35,24 +35,24 @@ struct $rtree {
 
 typedef struct {
     struct $rtree * root;
-    cmp_f fget; // cmp_f 节点查找时比较行为
-    cmp_f fcmp;
-    new_f fnew;
+    cmp_f  fget; // cmp_f 结点查找时比较行为
+    cmp_f  fcmp;
+    new_f  fnew;
     node_f fdie;
 } * rtree_t;
 
 //
 // rtee_create - 创建一个红黑树对象
-// fcmp     : cmp_f 节点插入时比较行为
-// fnew     : new_f 节点插入时构造行为
-// fdie     : node_f 节点删除时销毁行为
+// fcmp     : cmp_f 结点插入时比较行为
+// fnew     : new_f 结点插入时构造行为
+// fdie     : node_f 结点删除时销毁行为
 // return   : 返回构建红黑树对象
 //
 extern rtree_t rtree_create(void * fcmp, void * fnew, void * fdie);
 
 //
-// rtree_delete - 红黑树销毁函数
-// tree     : 待销毁的红黑树
+// rtree_delete - 红黑树删除函数
+// tree     : 待删除的红黑树
 // return   : void
 //
 extern void rtree_delete(rtree_t tree);
@@ -60,12 +60,12 @@ extern void rtree_delete(rtree_t tree);
 //
 // rtree_search - 红黑树查找函数
 // tree     : 待查找的红黑树结构
-// return   : 返回查找的节点
+// return   : 返回查找的结点
 //
 extern void * rtree_search(rtree_t tree, void * pack);
 
 //
-// rtree_insert - 红黑树中插入节点 fnew(pack)
+// rtree_insert - 红黑树中插入结点 fnew(pack)
 // tree     : 红黑树结构
 // pack     : 待插入基础结构
 // return   : void
@@ -73,7 +73,7 @@ extern void * rtree_search(rtree_t tree, void * pack);
 extern void rtree_insert(rtree_t tree, void * pack);
 
 //
-// rtree_remove - 红黑树中删除节点
+// rtree_remove - 红黑树中删除结点
 // tree     : 红黑树结构
 // pack     : 待删除基础结构
 // return   : void
@@ -98,9 +98,9 @@ extern void rtree_remove(rtree_t tree, void * pack);
 
 //
 // struct $rtree 结构辅助操作宏
-// r    : 当前节点
-// p    : 父节点
-// c    : 当前节点颜色, 1 is black, 0 is red
+// r    : 当前结点
+// p    : 父结点
+// c    : 当前结点颜色, 1 is black, 0 is red
 //
 #define rtree_parent(r)      ((struct $rtree *)((r)->parentc & ~3))
 #define rtree_color(r)       ((r)->parentc & 1)
@@ -117,8 +117,8 @@ inline void rtree_set_color(struct $rtree * r, int color) {
     r->parentc = (r->parentc & ~1) | (1 & color);
 }
 
-inline static int rtree_default_cmp(const void * ln, const void * rn) {
-    return (int)((intptr_t)ln - (intptr_t)rn);
+inline static int rtree_default_cmp(const void * l, const void * r) {
+    return (int)((intptr_t)l - (intptr_t)r);
 }
 ```
 
@@ -128,9 +128,9 @@ inline static int rtree_default_cmp(const void * ln, const void * rn) {
 ```C
 //
 // rtee_create - 创建一个红黑树对象
-// fcmp     : cmp_f 节点插入时比较行为
-// fnew     : new_f 节点插入时构造行为
-// fdie     : node_f 节点删除时销毁行为
+// fcmp     : cmp_f 结点插入时比较行为
+// fnew     : new_f 结点插入时构造行为
+// fdie     : node_f 结点删除时销毁行为
 // return   : 返回构建红黑树对象
 //
 inline rtree_t 
@@ -144,7 +144,7 @@ rtree_create(void * fcmp, void * fnew, void * fdie) {
     return tree;
 }
 
-// rtree_die - 后序删除树节点
+// rtree_die - 后序删除树结点
 static void rtree_die(struct $rtree * root, node_f fdie) {
     if (root->left)
         rtree_die(root->left, fdie);
@@ -154,8 +154,8 @@ static void rtree_die(struct $rtree * root, node_f fdie) {
 }
 
 //
-// rtree_delete - 红黑树销毁函数
-// tree     : 待销毁的红黑树
+// rtree_delete - 红黑树删除函数
+// tree     : 待删除的红黑树
 // return   : void
 //
 inline void 
@@ -175,7 +175,7 @@ rtree_delete(rtree_t tree) {
 //
 // rtree_search - 红黑树查找函数
 // tree     : 待查找的红黑树结构
-// return   : 返回查找的节点
+// return   : 返回查找的结点
 //
 void * 
 rtree_search(rtree_t tree, void * pack) {
@@ -205,16 +205,17 @@ rtree_search(rtree_t tree, void * pack) {
 
 ```C
 /* 
- * 对红黑树的节点 [x] 进行左旋转
+ * 对红黑树的结点 [x] 进行左旋转
  *
- * 左旋示意图 (对节点 x 进行左旋):
- *      px                             px
- *     /                              /
- *    x                              y
- *   /  \       --- (左旋) -->       / \
- *  lx   y                         x  ry
- *     /   \                      /  \
- *    ly   ry                    lx  ly  
+ * 左旋示意图 (对结点 x 进行左旋):
+ * 
+ *       px                             px
+ *      /                              /
+ *     x                              y
+ *    /  \       --- (左旋) -->       / \
+ *   lx   y                         x  ry
+ *      /   \                      /  \
+ *     ly   ry                    lx  ly  
  *
  */
 static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
@@ -232,21 +233,21 @@ static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
     rtree_set_parent(y, xparent);
 
     if (xparent == NULL) {
-        // 如果 [x的父亲] 是空节点, 则将 [y] 设为根节点
+        // 如果 [x的父亲] 是空结点, 则将 [y] 设为根结点
         tree->root = y;
     } else {
         if (xparent->left == x) {
-            // 如果 [x] 是它父节点的左孩子, 则将 [y] 设为 [x的父节点的左孩子]
+            // 如果 [x] 是它父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
             xparent->left = y;
         } else {
-            // 如果 [x] 是它父节点的左孩子, 则将 [y] 设为 [x的父节点的左孩子]
+            // 如果 [x] 是它父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
             xparent->right = y;
         }
     }
 
     // 将 [x] 设为 [y的左孩子]
     y->left = x;
-    // 将 [x的父节点] 设为 [y]
+    // 将 [x的父结点] 设为 [y]
     rtree_set_parent(x, y);
 }
 ```
@@ -262,20 +263,21 @@ static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
 
 ```C
 /* 
- * 对红黑树的节点 [y] 进行右旋转
+ * 对红黑树的结点 [y] 进行右旋转
  *
- * 右旋示意图(对节点y进行左旋)：
- *            py                            py
- *           /                             /
- *          y                             x                  
- *         /  \     --- (右旋) -->       /  \
- *        x   ry                        lx   y  
- *       / \                                / \
- *      lx  rx                             rx  ry
+ * 右旋示意图(对结点y进行左旋)：
+ * 
+ *         py                            py
+ *        /                             /
+ *       y                             x                  
+ *      /  \      --- (右旋) -->      /  \
+ *     x   ry                        lx   y  
+ *    / \                                / \
+ *   lx  rx                             rx  ry
  * 
  */
 static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
-    // 设置 [x] 是当前节点的左孩子。
+    // 设置 [x] 是当前结点的左孩子。
     struct $rtree * x = y->left;
     struct $rtree * yparent = rtree_parent(y);
 
@@ -288,21 +290,21 @@ static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
     // 将 [y的父亲] 设为 [x的父亲]
     rtree_set_parent(x, yparent);
     if (yparent == NULL) {
-        // 如果 [y的父亲] 是空节点, 则将 [x] 设为根节点
+        // 如果 [y的父亲] 是空结点, 则将 [x] 设为根结点
         tree->root = x;
     } else {
         if (y == yparent->right) {
-            // 如果 [y] 是它父节点的右孩子, 则将 [x] 设为 [y的父节点的右孩子]
+            // 如果 [y] 是它父结点的右孩子, 则将 [x] 设为 [y的父结点的右孩子]
             yparent->right = x;
         } else {
-            // 如果 [y] 是它父节点的左孩子, 将 [x] 设为 [x的父节点的左孩子]
+            // 如果 [y] 是它父结点的左孩子, 将 [x] 设为 [x的父结点的左孩子]
             yparent->left = x;
         }
     }
 
     // 将 [y] 设为 [x的右孩子]
     x->right = y;
-    // 将 [y的父节点] 设为 [x]
+    // 将 [y的父结点] 设为 [x]
     rtree_set_parent(y, x);
 }
 ```
@@ -410,23 +412,23 @@ static void stree_right_rotate(stree_t * pode) {
 /*
  * 红黑树插入修正函数
  *
- * 在向红黑树中插入节点之后(失去平衡), 再调用该函数.
+ * 在向红黑树中插入结点之后(失去平衡), 再调用该函数.
  * 目的是将它重新塑造成一颗红黑树.
  *
  * 参数说明:
  *     tree 红黑树的根
- *     node 插入的节点        // 对应 <<算法导论>> 中的 z
+ *     node 插入的结点        // 对应 <<算法导论>> 中的 z
  */
 static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
     struct $rtree * parent, * gparent, * uncle;
 
-    // 若 [父节点] 存在，并且 [父节点] 的颜色是红色
+    // 若 [父结点] 存在，并且 [父结点] 的颜色是红色
     while ((parent = rtree_parent(node)) && rtree_is_red(parent)) {
         gparent = rtree_parent(parent);
 
-        //若 [父节点] 是 [祖父节点的左孩子]
+        //若 [父结点] 是 [祖父结点的左孩子]
         if (parent == gparent->left) {
-            // Case 1 条件: 叔叔节点是红色
+            // Case 1 条件: 叔叔结点是红色
             uncle = gparent->right;
             if (uncle && rtree_is_red(uncle)) {
                 rtree_set_black(uncle);
@@ -436,7 +438,7 @@ static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
                 continue;
             }
 
-            // Case 2 条件: 叔叔是黑色, 且当前节点是右孩子
+            // Case 2 条件: 叔叔是黑色, 且当前结点是右孩子
             if (parent->right == node) {
                 rtree_left_rotate(tree, parent);
                 uncle = parent;
@@ -444,12 +446,12 @@ static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
                 node = uncle;
             }
 
-            // Case 3 条件: 叔叔是黑色, 且当前节点是左孩子
+            // Case 3 条件: 叔叔是黑色, 且当前结点是左孩子
             rtree_set_black(parent);
             rtree_set_red(gparent);
             rtree_right_rotate(tree, gparent);
-        } else { // 若 [z的父节点] 是 [z的祖父节点的右孩子]
-            // Case 1 条件: 叔叔节点是红色
+        } else { // 若 [z的父结点] 是 [z的祖父结点的右孩子]
+            // Case 1 条件: 叔叔结点是红色
             uncle = gparent->left;
             if (uncle && rtree_is_red(uncle)) {
                 rtree_set_black(uncle);
@@ -459,7 +461,7 @@ static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
                 continue;
             }
 
-            // Case 2 条件: 叔叔是黑色, 且当前节点是左孩子
+            // Case 2 条件: 叔叔是黑色, 且当前结点是左孩子
             if (parent->left == node) {
                 rtree_right_rotate(tree, parent);
                 uncle = parent;
@@ -467,26 +469,26 @@ static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
                 node = uncle;
             }
 
-            // Case 3 条件: 叔叔是黑色, 且当前节点是右孩子
+            // Case 3 条件: 叔叔是黑色, 且当前结点是右孩子
             rtree_set_black(parent);
             rtree_set_red(gparent);
             rtree_left_rotate(tree, gparent);
         }
     }
 
-    // 将根节点设为黑色
+    // 将根结点设为黑色
     rtree_set_black(tree->root);
 }
 
-// rtree_new - 插入时候构造一个新节点 | static 用于解决符号重定义
+// rtree_new - 插入时候构造一个新结点 | static 用于解决符号重定义
 static inline struct $rtree * rtree_new(rtree_t tree, void * pack) {
     struct $rtree * node = tree->fnew ? tree->fnew(pack) : pack;
-    // 默认构建节点是红色的
+    // 默认构建结点是红色的
     return  memset(node, 0, sizeof *node);
 }
 
 //
-// rtree_insert - 红黑树中插入节点 fnew(pack)
+// rtree_insert - 红黑树中插入结点 fnew(pack)
 // tree     : 红黑树结构
 // pack     : 待插入基础结构
 // return   : void
@@ -497,10 +499,10 @@ rtree_insert(rtree_t tree, void * pack) {
 
     cmp_f fcmp = tree->fcmp;
     struct $rtree * x = tree->root, * y = NULL;
-    // 1. 构造插入节点, 并设置节点的颜色为红色
+    // 1. 构造插入结点, 并设置结点的颜色为红色
     struct $rtree * node = rtree_new(tree, pack);
 
-    // 2. 将红黑树当作一颗二叉查找树, 将节点添加到二叉查找树中. 默认 从小到大
+    // 2. 将红黑树当作一颗二叉查找树, 将结点添加到二叉查找树中. 默认 从小到大
     while (x) {
         y = x;
         if (fcmp(x, node) > 0)
@@ -511,14 +513,16 @@ rtree_insert(rtree_t tree, void * pack) {
     rtree_set_parent(node, y);
 
     if (NULL == y) {
-        // 情况 1: 若 y是空节点, 则将 node设为根
+        // 情况 1: 若 y是空结点, 则将 node设为根
         tree->root = node;
     } else {
         if (fcmp(y, node) > 0) {
-            // 情况 2: 若 "node所包含的值" < "y所包含的值", 则将 [node] 设为 [y的左孩子]
+            // 情况 2: 
+            // 若 "node所包含的值" < "y所包含的值", 则将 [node] 设为 [y的左孩子]
             y->left = node;
         } else {
-            // 情况 3：若 "node所包含的值" >= "y所包含的值", 将 [node] 设为 [y的右孩子] 
+            // 情况 3: 
+            // 若 "node所包含的值" >= "y所包含的值", 将 [node] 设为 [y的右孩子] 
             y->right = node;
         }
     }
@@ -561,14 +565,16 @@ rtree_insert(rtree_t tree, void * pack) {
 /*
  * 红黑树删除修正函数
  *
- * 在从红黑树中删除插入节点之后(红黑树失去平衡), 再调用该函数.
+ * 在从红黑树中删除插入结点之后(红黑树失去平衡), 再调用该函数.
  * 目的是将它重新塑造成一颗红黑树.
  *
  * 参数说明:
  *     tree 红黑树的根
- *     node 待修正的节点
+ *     node 待修正的结点
  */
-static void rtree_remove_fixup(rtree_t tree, struct $rtree * node, struct $rtree * parent) {
+static void rtree_remove_fixup(rtree_t tree, 
+                               struct $rtree * node, 
+                               struct $rtree * parent) {
     struct $rtree * other;
 
     while ((!node || rtree_is_black(node)) && node != tree->root) {
@@ -640,7 +646,7 @@ static void rtree_remove_fixup(rtree_t tree, struct $rtree * node, struct $rtree
 }
 
 //
-// rtree_remove - 红黑树中删除节点
+// rtree_remove - 红黑树中删除结点
 // tree     : 红黑树结构
 // pack     : 待删除基础结构
 // return   : void
@@ -651,34 +657,34 @@ rtree_remove(rtree_t tree, void * pack) {
     struct $rtree * child, * parent, * node = pack;
     if (NULL != tree) return;
 
-    // 被删除节点的 "左右孩子都不为空" 的情况
+    // 被删除结点的 "左右孩子都不为空" 的情况
     if (NULL != node->left && node->right != NULL) {
-        // 被删节点的后继节点. (称为 "取代节点")
-        // 用它来取代 "被删节点" 的位置, 然后再将 "被删节点" 去掉
+        // 被删结点的后继结点. (称为 "取代结点")
+        // 用它来取代 "被删结点" 的位置, 然后再将 "被删结点" 去掉
         struct $rtree * replace = node;
 
-        // 获取后继节点
+        // 获取后继结点
         replace = replace->right;
         while (replace->left != NULL)
             replace = replace->left;
 
-        // "node节点" 不是根节点(只有根节点不存在父节点)
+        // "node结点" 不是根结点(只有根结点不存在父结点)
         if ((parent = rtree_parent(node))) {
             if (parent->left == node)
                 parent->left = replace;
             else
                 parent->right = replace;
-        } else // "node节点" 是根节点, 更新根节点
+        } else // "node结点" 是根结点, 更新根结点
             tree->root = replace;
 
-        // child 是 "取代节点" 的右孩子, 也是需要 "调整的节点"
-        // "取代节点" 肯定不存在左孩子! 因为它是一个后继节点
+        // child 是 "取代结点" 的右孩子, 也是需要 "调整的结点"
+        // "取代结点" 肯定不存在左孩子! 因为它是一个后继结点
         child = replace->right;
         parent = rtree_parent(replace);
-        // 保存 "取代节点" 的颜色
+        // 保存 "取代结点" 的颜色
         color = rtree_color(replace);
 
-        // "被删除节点" 是 "它的后继节点的父节点"
+        // "被删除结点" 是 "它的后继结点的父结点"
         if (parent == node)
             parent = replace; 
         else {
@@ -705,13 +711,13 @@ rtree_remove(rtree_t tree, void * pack) {
         child = node->right;
 
     parent = rtree_parent(node);
-    // 保存 "取代节点" 的颜色
+    // 保存 "取代结点" 的颜色
     color = rtree_color(node);
 
     if (child)
         rtree_set_parent(child, parent);
 
-    // "node节点" 不是根节点
+    // "node结点" 不是根结点
     if (NULL == parent)
         tree->root = child;
     else {
@@ -722,7 +728,7 @@ rtree_remove(rtree_t tree, void * pack) {
     }
 
 ret_out:
-    if (color) // 黑色节点重新调整关系, 并销毁节点操作
+    if (color) // 黑色结点重新调整关系, 并销毁结点操作
         rtree_remove_fixup(tree, child, parent);
     if (tree->fdie)
         tree->fdie(node);
@@ -748,7 +754,7 @@ ret_out:
 #include "strext.h"
 
 //
-// dict_t - C 字符串为 k 的字典结构
+// dict_t - C 字符串为 key 的字典结构
 //
 typedef struct dict * dict_t;
 
@@ -790,6 +796,8 @@ extern void dict_set(dict_t d, const char * k, void * v);
     实现意图剖析, 来看 dict 内功的气海结构.
 
 ```C
+#include "dict.h"
+
 struct keypair {
     struct keypair * next;
     unsigned hash;
@@ -897,7 +905,7 @@ static void dict_resize(struct dict * d) {
 
 ```C
 // init
-unsigned prime = 1<<5; 
+unsigned prime = 1<<6; 
 
 // resize
 prime <<= 1;
@@ -915,7 +923,7 @@ unsigned index = pair->hash & (prime - 1);
 
 ```C
 //
-// dict_delete - 字典销毁
+// dict_delete - 字典删除
 // d        : dict_create 创建的字典对象
 // return   : void 
 //
@@ -1079,10 +1087,10 @@ dict_set(dict_t d, const char * k, void * v) {
 // push full  <=> head == (tail + 1) % size
 //
 typedef struct q {
+    void ** queue;      // 队列实体
+    int size;           // 队列大小
     int head;           // 头结点
     int tail;           // 尾结点
-    int size;           // 队列大小
-    void ** queue;      // 队列实体
 } q_t[1];
 
 //
@@ -1092,10 +1100,10 @@ typedef struct q {
 // Q_INT  - 队列初始大小, 必须是 2 的幂
 #define Q_INT     (1<< 6)
 inline void q_init(q_t q) {
+    q->queue = malloc(sizeof(void *) * Q_INT);
+    q->size = Q_INT;
     q->head = 0;
     q->tail = -1;
-    q->size = Q_INT;
-    q->queue = malloc(sizeof(void *) * Q_INT);
 }
 
 //
@@ -1129,7 +1137,7 @@ extern void q_push(q_t q, void * m);
 //
 // q_delete - 队列删除
 // q        : 队列对象
-// fdie     : node_f push 节点删除行为
+// fdie     : node_f push 结点删除行为
 // return   : void
 //
 extern void q_delete(q_t q, node_f fdie);
@@ -1143,10 +1151,12 @@ extern void q_delete(q_t q, node_f fdie);
     状态, 再互相对比方式差异好处和坏处! 那可以先看看 q_delete 实现.
 
 ```C
+#include "q.h"
+
 //
 // q_delete - 队列删除
 // q        : 队列对象
-// fdie     : node_f push 节点删除行为
+// fdie     : node_f push 结点删除行为
 // return   : void
 //
 void 
@@ -1205,10 +1215,10 @@ static void q_expand(q_t q) {
     free(q->queue);
 
     // 重新构造内存关系
-    q->head = 0;
     q->tail = q->size;
     q->size = size;
     q->queue = p;
+    q->head = 0;
 }
 
 //
@@ -1251,7 +1261,7 @@ typedef struct mq * mq_t;
 //
 // mq_delete - 消息队列删除
 // q        : 消息队列对象
-// fdie     : node_f 行为, 删除 push 进来的节点
+// fdie     : node_f 行为, 删除 push 进来的结点
 // return   : void
 //
 inline void mq_delete(mq_t q, node_f fdie) {
@@ -1366,9 +1376,9 @@ inline static int mq_len(mq_t q) {
 #  endif
 #endif
 
-// hton - 本地字节序转网络字节序(大端)
-inline uint32_t hton(uint32_t x) {
-#  ifdef ISBIG
+// small - 转本地字节序(小端)
+inline uint32_t small(uint32_t x) {
+#  ifndef ISBIG
     return x;
 #  else
     uint8_t t;
@@ -1377,11 +1387,6 @@ inline uint32_t hton(uint32_t x) {
     t = u.s[1]; u.s[1] = u.s[sizeof(u)-2]; u.s[sizeof(u)-2] = t;
     return u.i;
 #  endif
-}
-
-// noth - 网络字节序(大端)转本地字节序
-inline uint32_t ntoh(uint32_t x) {
-    return hton(x);
 }
 
 //
@@ -1421,7 +1426,7 @@ inline static msg_t msg_create(const void * data, uint32_t len) {
     
     // type + len -> 协议值 -> 网络传输约定值
     sz = MSG_SZ(0, len);
-    sz = hton(sz);
+    sz = small(sz);
 
     // 开始内存填充
     memcpy(msg->data, &sz, sizeof(uint32_t));
@@ -1582,7 +1587,7 @@ msg_buf_append(msg_buf_t q,
         if (*p)
             return SBase;
     }
-    
+
     msg_buf_push(q, data, sz);
     return msg_buf_pop(q,p);
 }
@@ -1598,7 +1603,7 @@ static msg_t msg_buf_data_pop(msg_buf_t q,
     // step 1 : 报文长度 buffer q->sz init
     uint32_t sz;
     memcpy(&sz, data, sizeof sz);
-    sz = ntoh(sz);
+    sz = small(sz);
 
     // step 2 : check data len is true
     uint32_t len = MSG_LEN(q->sz);
@@ -1647,7 +1652,7 @@ inline void msg_buf_pop_data(msg_buf_t q,
 // msg_buf_pop_sz - q pop sz
 inline void msg_buf_pop_sz(msg_buf_t q) {
     msg_buf_pop_data(q, &q->sz, sizeof(uint32_t));
-    q->sz = ntoh(q->sz);
+    q->sz = small(q->sz);
 }
 
 //
@@ -1657,27 +1662,29 @@ inline void msg_buf_pop_sz(msg_buf_t q) {
 // return   : EParse 协议解析错误, ESmall 协议不完整
 //
 int msg_buf_pop(msg_buf_t q, msg_t * p) {
-    *p = NULL;
-
     // step 1 : 报文长度 buffer q->sz check
     if (q->sz <= 0 && q->len >= sizeof(uint32_t))
         msg_buf_pop_sz(q);
     // step 2 : check data parse is true
     int len = MSG_LEN(q->sz);
-    if (len <= 0 && q->sz > 0)
+    if (len <= 0 && q->sz > 0) {
+        *p = NULL;
         return EParse;
+    }
 
     // step 3 : q->sz > 0 继续看是否有需要的报文内容
-    if (len <= 0 || len > q->len)
+    if (len <= 0 || len > q->len) {
+        *p = NULL;
         return ESmall;
+    }
 
     // step 4: 索要的报文长度存在, 开始构建返回
     msg_t msg = malloc(sizeof(*msg) + len);
     msg->sz = q->sz;
     msg_buf_pop_data(q, msg->data, len);
-    *p = msg;
-
     q->sz = 0;
+
+    *p = msg;
     return SBase;
 }
 ```
@@ -1718,10 +1725,10 @@ struct heap {
     cmp_f   fcmp;       // 比较行为
     unsigned len;       // heap 长度
     unsigned cap;       // heap 容量
-    void ** data;       // 数据节点数组
+    void ** data;       // 数据结点数组
 };
 
-// heap_expand - 添加节点扩容
+// heap_expand - 添加结点扩容
 inline void heap_expand(struct heap * h) {
     if (h->len >= h->cap) {
         h->data = realloc(h->data, h->cap<<=1);
@@ -1764,7 +1771,7 @@ heap_delete(heap_t h, node_f fdie) {
     free(h);
 }
 
-// down - 堆节点下沉, 从上到下沉一遍
+// down - 堆结点下沉, 从上到下沉一遍
 static void down(cmp_f fcmp, void * data[], unsigned len, unsigned x) {
     void * m = data[x];
     for (unsigned i = x * 2 + 1; i < len; i = x * 2 + 1) {
@@ -1778,7 +1785,7 @@ static void down(cmp_f fcmp, void * data[], unsigned len, unsigned x) {
     data[x] = m;
 }
 
-// up - 堆节点上浮, 从下到上浮一遍
+// up - 堆结点上浮, 从下到上浮一遍
 static void up(cmp_f fcmp, void * node, void * data[], unsigned x) {
     while (x > 0) {
         void * m = data[(x-1)>>1];
@@ -1796,7 +1803,8 @@ static void up(cmp_f fcmp, void * node, void * data[], unsigned x) {
 // node     : 操作对象
 // return   : void
 //
-inline void heap_insert(heap_t h, void * node) {
+inline void 
+heap_insert(heap_t h, void * node) {
     heap_expand(h);
     up(h->fcmp, node, h->data, h->len++);
 }
@@ -1806,21 +1814,22 @@ inline void heap_insert(heap_t h, void * node) {
 // h        : 堆对象
 // arg      : 操作参数
 // fcmp     : 比较行为, 规则 fcmp() == 0
-// return   : 找到的堆节点
+// return   : 找到的堆结点
 //
-void * heap_remove(heap_t h, void * arg, cmp_f fcmp) {
+void * 
+heap_remove(heap_t h, void * arg, cmp_f fcmp) {
     if (h == NULL || h->len <= 0)
         return NULL;
 
-    // 开始查找这个节点
+    // 开始查找这个结点
     unsigned i = 0;
     fcmp = fcmp ? fcmp : h->fcmp;
     do {
         void * node = h->data[i];
         if (fcmp(arg, node) == 0) {
-            // 找到节点开始走删除操作
+            // 找到结点开始走删除操作
             if (--h->len > 0 && h->len != i) {
-                // 尾巴节点和待删除节点比较
+                // 尾巴结点和待删除结点比较
                 int ret = h->fcmp(h->data[h->len], node);
 
                 // 小顶堆, 新的值比老的值小, 那么上浮
@@ -1841,23 +1850,25 @@ void * heap_remove(heap_t h, void * arg, cmp_f fcmp) {
 }
 
 //
-// heap_top - 查看堆顶节点数据
+// heap_top - 查看堆顶结点数据
 // h        : 堆对象
-// return   : 堆顶节点
+// return   : 堆顶结点
 //
-inline void * heap_top(heap_t h) {
+inline void * 
+heap_top(heap_t h) {
     return h->len <= 0 ? NULL : *h->data;
 }
 
 //
-// heap_top - 摘掉堆顶节点数据
+// heap_top - 摘掉堆顶结点数据
 // h        : 堆对象
-// return   : 返回堆顶节点
+// return   : 返回堆顶结点
 //
-inline void * heap_pop(heap_t h) {
+inline void * 
+heap_pop(heap_t h) {
     void * node = heap_top(h);
     if (node && --h->len > 0) {
-        // 尾巴节点一定比小堆顶节点大, 那么要下沉
+        // 尾巴结点一定比小堆顶结点大, 那么要下沉
         h->data[0] = h->data[h->len];
         down(h->fcmp, h->data, h->len, 0);
     }
