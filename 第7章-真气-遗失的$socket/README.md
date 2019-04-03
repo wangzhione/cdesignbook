@@ -1275,7 +1275,7 @@ const char * inet_ntop(int family,
 
     好了, 这小节. socket 含义的介绍就这些, 随后逐步开展编程工作. 
 
-### 7.2.3 编程中常见 API
+### 7.2.3 编程常见 API
 
 **socket() 函数**
 
@@ -1691,7 +1691,7 @@ extern int gethostname (char * name, size_t len);
     参数很简单: name 是一个字符数组指针, 他将在函数返回时保存主机名. len 是 name 数组
     的字节长度. 函数调用成功时返回 0, 失败时返回 -1, 并设置 errno.
 
-### 7.2.4 编程操练, 道阻且长
+### 7.2.4 编程操练,道阻且长
 
 **DNS 域名服务**
 
@@ -2450,7 +2450,7 @@ echo_recv(int efd, int fd) {
     是难免的, 抄袭创新也只是拾人牙慧(贬义词). 毕竟一山还比一山高! 修行的大道上你会遇到
     更清澈的风, 更飘逸的云. 哈哈, 祝我们好运!
 
-## 7.3 轰击金丹, socket 基础终章
+## 7.3 socket 轰击金丹
 
         很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 希望大段的文字让我们大体
     回忆起 Linux socket 有哪些 api 用法. 那 winds 呢. 这也算是个问题对吧. 解决思路
@@ -2558,7 +2558,7 @@ extern const char * strerr(int no) {
     是不是豁然开朗, 根据上面模板, 大家不妨当个课外拓展写一个切词工具. 人总是要向着希望走
     , 才会玩的有劲吧. 通过这样的野路子, 我们成功的构造一套统一的 errno 机制.
 
-### 7.3.2 出来吧 socket 接口设计
+### 7.3.2 socket 库接口设计
 
     socket.h 他(古汉语他可以代所有, 比她和它都好用)终究不是一个寂寂无名之辈. 
 
@@ -2905,7 +2905,7 @@ typedef struct {
     务器研发升级的潜在财富. 一行 socket 没写过, 却能解决亿万并发, 分布式缓存, 那应届
     生应该也可以吧. socket 他就是金丹期的里程碑. 
 
-### 7.3.3 socket 接口实现
+### 7.3.3 socket 库接口实现
 
     首先看首缕实现, 每一次突破都与踩坑并行.
 
@@ -3224,7 +3224,7 @@ socket_connectos(const char * host, int ms) {
 
 ![藤原佐为](./img/藤原佐为.jpg)
 
-## 7.4 金丹演练, 阅读理解
+## 7.4 阅读理解
 
         基于跨平台的 socket 封装, 这里带大家学习个 pipe 的封装, 权当阅读理解.
 
@@ -3393,7 +3393,7 @@ pipe_send(pipe_t ch, const void * buf, int sz) {
 
     也许下次重新求索, 用上你的剑 ---88--
 
-## 7.5 socket poll 一股至强的气息
+## 7.5 socket poll 一股至强气息
 
         很久以前幻想着能和那些元婴大佬, 化神真君一样御剑飞行, 一步千里. (儿时英雄梦) 
     偶幸得到一部元婴功法, 分享参悟, 说不定江湖中下次会留下你的传说 ~ 基础最后一招. 
@@ -3624,7 +3624,7 @@ inline int socket_get_error(socket_t s) {
     是 SO_ERROR 和 errno 的整合. 用于增强程序的健壮性. select s_wait 思路推荐抄写
     抄写. 还是那句话, 作者错误是难免的欢迎指正, 共建华山门庭.
 
-### 7.5.2 socket poll epoll 出鞘
+### 7.5.2 socket poll epoll 入鞘
 
     多数业务服务器开发没得选, epoll LT 模式就是定数. 最正统的元婴修行功法. 
 
@@ -3712,7 +3712,7 @@ int s_wait(poll_t p, event_t e) {
     这么做的目的是能够进入 read 环节, 触发额外处理操作. socket poll 至强气息就在此回
     归大地. 
 
-### 7.5.2 socket poll 代练
+### 7.5.3 socket poll 路人
 
 ```C
 #include <spoll.h>
