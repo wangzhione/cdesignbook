@@ -1,14 +1,14 @@
-# 第4章-武技-常见轮子下前仆
+# 第4章-武技-常见轮子前仆
 
-        本章是关于系统中常见轮子的介绍. 在构建框架中属于最基础的组件. 算是咱们参与战斗过
-    程中的生命线. 当前定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建
-    的套路. 最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场
-    上苟延残喘的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
+        本章是关于系统中常见轮子的介绍. 构建框架中最基础最简单的组件. 算是咱们战斗过程中
+    的生命线. 定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套路. 
+    最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场上苟延残
+    喘的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
 
 ## 4.1 那些年写过的日志库
 
-        用过太多日志库轮子, 也写过不少. 也见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 
-    最后展示核心就 50 行的极短的日志库, 来表达所要的一切美好 ~ 越简单越优美越让人懂的代
+        用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
+    后展示核心代码不足 20 行的日志库, 来表达一切所要的美好 ~ 越简单越优美越让人懂的代
     码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎
         1' 缓存
         2' 无锁
@@ -17,7 +17,7 @@
 
 ### 4.1.1 小小日志库
 
-    先看接口 clog.h 设计部分, 感受下几个宏解决一切幺蛾子.
+    先看接口 clog.h 设计部分, 感受几个宏解决一切幺蛾子的玄幻.
 
 ```C
 #ifndef _LOG_H
@@ -34,15 +34,15 @@
 // return   : void
 //
 #define LOG_PRINTF(pre, fmt, ...)   \
-log_printf(pre"[%s:%s:%d]"fmt"\n", __FILE__, __func__, __LINE__, __VA_ARGS__)
+log_printf(pre"[%s:%s:%d]"fmt"\n", __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
 //
-// log 有些朴实, 也许很快很安全 ~
+// log 有些朴实, 也许极快 ~
 //
-#define LOG_ERROR(fmt, ...) LOG_PRINTF("[ERROR]", fmt, __VA_ARGS__)
-#define LOG_INFOS(fmt, ...) LOG_PRINTF("[INFOS]", fmt, __VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_PRINTF("[ERROR]", fmt, ##__VA_ARGS__)
+#define LOG_INFOS(fmt, ...) LOG_PRINTF("[INFOS]", fmt, ##__VA_ARGS__)
 #ifdef _DEBUG
-#define LOG_DEBUG(fmt, ...) LOG_PRINTF("[DEBUG]", fmt, __VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_PRINTF("[DEBUG]", fmt, ##__VA_ARGS__)
 #else
 #define LOG_DEBUG(fmt, ...) /*  (^_−)☆ */
 #endif
@@ -58,7 +58,7 @@ void log_printf(const char * fmt, ...);
 #endif//_LOG_H
 ```
 
-    clog.h 继承自 times.h, 唯一需要的就是其中 times_fmt 接口用以得到特定时间格式串.
+    clog.h 继承自 times.h, 唯一依赖的是其中 times_fmt 接口, 用于得到特定时间格式串.
 
 ```C
 // TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
@@ -66,7 +66,7 @@ void log_printf(const char * fmt, ...);
 
 //
 // times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt          : 必须包含 %04d %02d %02d %02d %02d %02d %03d
+// fmt          : 推荐遵循 TIMES_STR 意图
 // out          : 最终保存的内容
 // sz           : buf 长度
 // return       : 返回生成串长度
@@ -93,11 +93,7 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 
 static FILE * log;
 
-//
-// log_init - !单例! 日志库初始化
-// path     : 初始化日志系统文件名
-// return   : void
-//
+// log_init - 单例, 日志库初始化
 void log_init(const char * path) {
     if (!(log = fopen(path, "ab"))) {
         fprintf(stderr, "fopen ab path err %s\n", path);
@@ -123,7 +119,7 @@ log_printf(const char * fmt, ...) {
     vsnprintf(str + len, sizeof str - len, fmt, ap);
     va_end(ap);
 
-    // 数据刷入文件缓存
+    // 数据交给文件缓存层
     fputs(str, log);
 }
 ```
@@ -132,25 +128,25 @@ log_printf(const char * fmt, ...) {
 
 ```C
 //
-// EXTERN_RUN - 简单的声明, 并立即使用的宏
-// ftest    : 需要执行的函数名称
+// EXTERN_RUN - 简单声明, 并立即使用的宏
+// frun     : 需要执行的函数名称
 // ...      : 可变参数, 保留
 //
-#define EXTERN_RUN(ftest, ...)                                    \
-do {                                                              \
-    extern void ftest();                                          \
-    ftest (__VA_ARGS__);                                          \
+#define EXTERN_RUN(frun, ...)                          \
+do {                                                   \
+    extern void frun();                                \
+    frun (__VA_ARGS__);                                \
 } while(0)
 
 EXTERN_RUN(log_init, LOG_PATH_STR);
 ```
 
-    是不是很恐怖, 一个日志库这就完了. fputs 是系统内部打印函数, 默认自带缓冲机制. 缓冲说
-    白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇自带文件锁. 有兴趣的可以
-    详细研究 printf, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业务了! 也就
-    是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
+    是不是很恐怖, 一个日志库这就完了. fputs 是系统库输出函数, 默认自带缓冲机制. 缓冲说
+    白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇, 自带文件锁. 有兴趣
+    的可以详细研究 printf, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业
+    务了! 也就是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
 
-### 4.1.2 小小日志库 VT 二连
+### 4.1.2 小小 VT 二连
 
     先构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 切换到 linux 平台. 依次看下去
 
@@ -199,13 +195,13 @@ simplec.exe : simplec.c
     gcc -g -Wall -O2 -o $@ $^
 ```
 
-    通过 make 得到 simplec.exe 运行起来, 就开始在日志文件中持续输出. 有关试炼场的环境
+    通过 make 得到 simplec.exe 运行起来, 就开始持续在日志文件中输出. 有关试炼场的环境
 	已经搭建完成. 那么是时候主角 T logrotate 出场了. 很久前在 centos 测试构建过看图:
 
 ![logrotate](./img/logrotate.png)
 
-    安装好 logrotate 和 crontabs 工具, 那么日志轮询器就能够开始使用了. 推荐自己查相关
-	手册, 我这里只带大家简单弄个 Demo. Ok 开始搞起来, 看下面所做的 shell 批处理:
+    安装好 logrotate 和 crontabs 工具, 那么日志轮询器就能够开始使用了. 推荐自己查相
+    关手册, 我这里只带大家弄个简单 Demo. Ok 开始搞起来, 看下面所做的 shell 批处理:
 
 ```Bash
 su root
@@ -239,38 +235,39 @@ Esc
 logrotate -vf /etc/logrotate.d/simplec
 ```
 
-	copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失那一
-	瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识. 最
-	终所搭建的环境:
+	copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失
+    那一瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识
+    . 最终所搭建的环境:
 
 ![logrotate log](./img/createlog.png)
 
     如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双脚的主场. 如果没有那么是时候 -> 
-	冲冲冲, 四驱兄弟在心中 ~ 以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器了
-    , 例如 crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库实战
-	架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路
-	, 知彼知己才能大口吃喝 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类
-	日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业
-	务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀
-	一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看
-	法它很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层
-	面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一
-	环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 
-	到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
+	冲冲冲, 四驱兄弟在心中 ~ 以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器
+    了, 例如 crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库
+    实战架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的
+    套路, 知彼知己才能舒心喝酒 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 
+    这类日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会
+    将业务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库
+    可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有
+    . 个人看法他很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 
+    fflush 的系统层面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依
+    赖对象池. 一环套一环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大
+    了, 还容易琢磨不透. 到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库
+    为什么高效. 记住
 	    1' 无锁编程, 利用 fprintf IO 锁
 	    2' fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
-	    3' 各司其职, 小小日志库只负责写, 其它交给系统层面最合适的工具搞. 定位单一
+	    3' 各司其职, 小小日志库只负责写, 其他交给系统层面最合适的工具搞. 定位单一
 
 ## 4.2 开胃点心, 高效随机数库
 
-        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便嫌
-	弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人
-	类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情, 也可
-	能发生 ~". 还是有点呵呵(非标准分析中可能有答案). 数学的本源不是为了解决具体遇到问题,
-    多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷
-    尔曼]渡劫真君, 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码
-    上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息. 哭 ~ 首先看
-    接口设计.
+        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便
+    嫌弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定
+    了人类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情,
+    也可能发生 ~". 还是有点呵呵(非标准分析中可能有答案). 数学的本源不是为了解决具体遇到
+    问题, 多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈
+    里·佩雷尔曼]渡劫真君, 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 
+    redis 源码上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息
+    . 哭 ~ 首先看接口设计.
 
 ```C
 #ifndef _RAND_H
@@ -347,7 +344,7 @@ inline int32_t r_rands(int32_t min, int32_t max) {
 
     最核心是 rand_rand 函数实现, 小阅读理解来了, 感受下离散数学的魅力
 
-scrand.c
+rand.c
 
 ```C
 #include "rand.h"
@@ -407,12 +404,12 @@ r_rand(void) {
 ```
 
     (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~) 代码都
-	懂, rand_next 计算复杂点. 之后靠看自己悟了, 毕竟世界也是咱们的. r_randk, r_rands
-    思路很浅显分别根据位随机和区间范围. 从上面 r_r 能够看出来随机函数并不是线程安全的. 
-	在多线程环境中就会出现未知行为(至少咱们不清楚). 这样也很有意思, 毕竟不可控的随机才
-	会有点真随机味道吧? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数. 不怕折腾
-    可以把上面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前 winds 和 linux 测
-    试良好.
+	懂, rand_next 运算复杂点. 之后靠看自己悟了, 毕竟世界也是咱们的. r_randk, 
+    r_rands 思路很浅显分别根据位随机和区间范围. 从上面 r_r 能够看出来随机函数并不是线
+    程安全的. 在多线程环境中就会出现未知行为(至少咱们不清楚). 这样也很有意思, 毕竟不可
+    控的随机才会有点真随机味道吧? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数.
+    不怕折腾可以把上面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前多平台测试良
+    好.
 
 ```C
 /*
@@ -516,16 +513,16 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-	可以将 R_INT 修改为 (1024) 最终得到结果也是一样. 因为抓到了 window 平台上面 rand()
-	伪随机函数的周期 G 点. 希望大家玩的开心.
+	可以将 R_INT 修改为 (1024) 最终得到结果也是一样. 因为抓到了 window 平台上面 
+    rand() 伪随机函数的周期 G 点. 希望大家玩的开心.
 
 ![rand T](./img/rand.png)
 
-## 4.3 file 文件库封装
+## 4.3 file 文件库
 
-        文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录,
-	需要多级删除目录, 需要多级创建目录... 这里就是为了解决这个问题. 先展示部分设计, 再逐
-	个击破.
+        文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录
+    , 需要多级删除目录, 需要多级创建目录... 这里就是为了解决这个问题. 先展示部分设计, 
+    再逐个击破.
 
 ```C
 #ifndef _FILE_H
@@ -626,8 +623,8 @@ extern int getawd(char * buf, size_t size);
 #endif//_FILE_H
 ```
 
-	removes, mkdirs, mkfdir, getawd 是不是有了这些接口, 以后写代码操作目录方便了很多. 
-    其中 removes 借力的通过系统 shell 的能力来实现的.
+	removes, mkdirs, mkfdir, getawd 有了这些接口, 以后写操作目录代码方便了很多. 其
+    中 removes 借力的通过系统 shell 的能力来实现的.
 
 ```C
 #include "file.h"
@@ -655,8 +652,8 @@ inline int removes(const char * path) {
 }
 ```
 
-	access 检查 path 是否存在, 存在返回 0. 不存在返回 -1, 并且执行 system RMRF_STR 相关
-	操作. 而 mkdirs 和 mkfdir 核心在于 access 和 mkdir 来回瞎搞. 
+	access 检查 path 是否存在, 存在返回 0. 不存在返回 -1, 并且执行 system 
+    RMRF_STR 相关操作. 而 mkdirs 和 mkfdir 核心在于 access 和 mkdir 来回瞎搞. 
 
 ```C
 //
@@ -790,7 +787,7 @@ getawd(char * buf, size_t size) {
 }
 ```
 
-	主要使用场景如下, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
+	主要使用场景, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
 
 ```C
 #define LOG_PATH_STR        "logs/structc.log"
@@ -809,14 +806,12 @@ EXTERN_RUN(log_init, r);
 
 ### 4.3.1 file 监控
 
-    很多时候有这样一个需求, 某个配置需要可刷新. 完成这个功能也很简单, 无外乎外部触发或者内部
-    监控. 两种方式, 内部触发是最省力, 我们也想把这种能力包含到 file.h 接口设计中.
+    很多时候有这样一个需求, 某个配置需要可刷新. 完成这个功能也很简单, 无外乎外部触发或者
+    内部监控. 两种方式, 内部触发是最省力, 我们也想把这种能力包含到 file.h 接口设计中.
 
 ```C
 #ifndef _FILE_H
 #define _FILE_H
-
-...
 
 //
 // file_f - 文件更新行为
@@ -826,7 +821,7 @@ typedef void (* file_f)(FILE * c, void * arg);
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : NULL 是标记清除, 否则 update -> func(path -> FILE, arg)
+// func     : NULL 标记清除, 正常 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
@@ -841,9 +836,9 @@ extern void file_update(void);
 #endif//_FILE_H
 ```
 
-    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行
-    为, 用于监控是否有文件发生了变化. 它的本质是依赖 mtime 获取最后一次文件变化的时间. 用于确
-    定此文件当前是否发生了变化. 其中核心的数据结构如下
+    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全
+    局的更新行为, 用于监控是否有文件发生了变化. 他的本质是依赖 mtime 获取最后一次文件变
+    化的时间. 用于确定此文件当前是否发生了变化. 其中核心的数据结构如下
 
 ```C
 struct file {
@@ -854,7 +849,7 @@ struct file {
     file_f func;            // 执行行为
     void * arg;             // 行为参数
 
-    struct file * next;     // 文件下一个节点
+    struct file * next;     // 文件下一个结点
 };
 
 static struct files {
@@ -876,7 +871,7 @@ static void f_s_add(const char * p, unsigned h, file_f func, void * arg) {
     fu->func = func;
     fu->arg = arg;
 
-    // 直接插入到头节点部分
+    // 直接插入到头结点部分
     atom_lock(f_s.lock);
     fu->next = f_s.list;
     f_s.list = fu;
@@ -898,16 +893,16 @@ static struct file * f_s_get(const char * p, unsigned * r) {
 }
 ```
 
-    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行
-    对于每个要监控的文件, 我们记录了最后一次修改时间 last, 文件全路径 path, 执行体 func 和 
-    arg. 有了这些基本上就差码代码了. 其中 file_set 设计包含了 del 操作, 即当 file_f 设置为空
-    NULL 就认为是 file_del(path) 操作. 
+    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全
+    局的更新行对于每个要监控的文件, 我们记录了最后一次修改时间 last, 文件全路径 path, 
+    执行体 func 和 arg. 有了这些基本上就差码代码了. 其中 file_set 设计包含了 del 操
+    作, 即当 file_f 设置为空 NULL 就认为是 file_del(path) 操作. 
 
 ```C
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : NULL 是标记清除, 否则 update -> func(path -> FILE, arg)
+// func     : NULL 标记清除, 正常 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
@@ -943,7 +938,7 @@ file_update(void) {
         struct file * next = fu->next;
 
         if (NULL == fu->func) {
-            // 删除的是头节点
+            // 删除的是头结点
             if (f_s.list == fu)
                 f_s.list = next;
 
@@ -969,35 +964,36 @@ file_update(void) {
 }
 ```
 
-    file_update 做的工作就是循环遍历 struct files::head 链表, 挨个检查文件最后一次修改时间
-    mtime 是否发生变化. 如果不一样就触发 file_f 注册行为. 当然也会清除待删除的注册文件. 到这
-    里我们的文件操作就讲完了. 很枯燥, 但是是你的鲤鱼跃龙门的阶梯.
+    file_update 做的工作就是循环遍历 struct files::head 链表, 挨个检查文件最后一次
+    修改时间 mtime 是否发生变化. 如果不一样就触发 file_f 注册行为. 当然也会清除待删除
+    的注册文件. 到这里我们的文件操作就讲完了. 很枯燥, 但确是的鲤鱼跃龙门的阶梯.
 
-## 4.4 C 来个 json 轮子
+## 4.4 C 造 json 轮子
 
-        在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 在国内刚
-    兴起, 所以一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当初写的那个删了.
-    用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行的, 就琢磨写了个简单的 c json. 这小节, 就带
-    大家写写这个 c json 的解析引擎, 清洁高效小. 能够保证的就是比 cJSON 好学习.
+        在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 
+    在国内刚兴起, 那会一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当
+    初写的那个删了. 用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行的, 就琢磨写了个简单
+    的 C json. 这小节, 就带大家写写这个 C json 的解析引擎, 清洁高效小. 能够保证的就
+    是比 cJSON 好学习.
 
-### 4.4.1 c json 设计布局 
+### 4.4.1 C json 设计布局
 
-    首先大概分析 c json 的实现部分. 最关心的是 c json 的内存布局, 这里引入了 tstr 布局. 设计
-    结构图如下 :
+    首先分析 C json 的实现部分. 最关心的是 C json 的内存布局, 实现层面引入了 tstr 内
+    存布局. 设计结构图如下 :
 
-![c json 内存布局](./img/json内存布局.png)
+![C json 内存布局](./img/json内存布局.png)
 
-    str 指向内存常量, tstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个中转站. 
-    因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 这就是引入目的
-    . 再看看 c json 结构代码设计:
+    str 指向内存常量, tstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个
+    中转站. 因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 
+    这就是引入目的. 再看看 C json 结构代码设计:
 
 ```C
 struct json {
     unsigned char type;     // CJSON_NULL - JSON_ARRAY and JSON_CONST
-    struct json * next;     // type & OBJECT or ARRAY -> 下个节点链表
-    struct json * chid;     // type & OBJECT or ARRAY -> 对象节点数据
+    struct json * next;     // type & OBJECT or ARRAY -> 下个结点链表
+    struct json * chid;     // type & OBJECT or ARRAY -> 对象结点数据
 
-    char * key;             // json 节点的 key
+    char * key;             // json 结点的 key
     union {
         char * str;         // type & STRING -> 字符串
         double num;         // type & NUMBER -> number
@@ -1009,13 +1005,18 @@ struct json {
 typedef struct json * json_t;
 ```
 
-    使用 c99 的匿名结构体挺爽的, 整个 struct json 内存详细布局如下:
+    使用 C99 的匿名结构体挺爽的, 整个 struct json 内存详细布局如下:
 
-![c json内存结构](./img/json内存结构.png)
+![C json内存结构](./img/json内存结构.png)
 
-    c json 中处理的类型类型无外乎:
+    C json 中处理的类型类型无外乎:
 
 ```C
+//
+// c json fast parse, type is all design
+//
+#ifndef JSON_NULL
+
 #define JSON_NULL           (0u << 0)
 #define JSON_BOOL           (1u << 1)
 #define JSON_NUMBER         (1u << 2)
@@ -1025,8 +1026,8 @@ typedef struct json * json_t;
 #define JSON_CONST          (1u << 6)
 
 //
-// json_int - 得到节点的 int 值
-// item     : json 节点
+// json_int - 得到结点的 int 值
+// item     : json 结点
 //          : 返回 number int 值
 //
 #define json_int(item) ((int)(item)->num)
@@ -1038,20 +1039,21 @@ inline char * json_str(json_t item) {
     item->type &= JSON_CONST;
     return item->str;
 }
-
 ```
 
-    以上就是解析之后的具体结构类型. 下面简单分析一下文本解析规则. 思路是递归下降分析. 到这里基
-    本关于 c json 详细设计图介绍完毕了. 后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
+    以上就是解析之后的具体结构类型. 下面简单分析一下文本解析规则. 思路是递归下降分析. 到
+    这里基本关于 C json 详细设计图介绍完毕了. 后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
 
-![c json递归下降分析](./img/json递归下降分析.png)
+![C json递归下降分析](./img/json递归下降分析.png)
 
-### 4.4.2 c json 详细设计
+### 4.4.2 C json 详细设计
 
-    当初写这类东西, 就是对着协议文档开撸 ~ 这类代码是协议文档和作者思路的杂糅体, 推荐最好手敲一
-    遍, 自行加注释, 琢磨后吸收. 来看看 c json 的删除函数
+    当初写这类东西, 就是对着协议文档开撸 ~ 这类代码是协议文档和作者思路的杂糅体, 推荐最
+    好手敲一遍, 自行加注释, 琢磨后吸收. 来看看 C json 的删除函数
 
 ```C
+#include "json.h"
+
 //
 // json_delete - json 对象销毁
 // c        : json 对象
@@ -1067,7 +1069,7 @@ json_delete(json_t c) {
         if ((t & JSON_STRING) && !(t & JSON_CONST))
             free(c->str);
 
-        // 子节点 继续递归删除
+        // 子结点 继续递归删除
         if (c->chid)
             json_delete(c->chid);
 
@@ -1076,15 +1078,16 @@ json_delete(json_t c) {
 }
 ```
 
-    上面操作无外乎就是递归找到最下面的儿子节点, 期间删除自己挂载的节点. 然后依次按照 next 链表
-    顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json 串, 这个串中可能存在多余
-    的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的 json 字符串.
+    上面操作无外乎就是递归找到最下面的儿子节点, 期间删除自己挂载的节点. 然后依次按照 
+    next 链表顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json 串, 这
+    个串中可能存在多余的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的 json 字
+    符串.
 
 ```C
 // json_mini - 清洗 str 中冗余的串并返回最终串的长度. 纪念 mini 比男的还平 :)
 // EF BB BF     = UTF-8                 (可选标记, 因为 Unicode 标准未有建议)
 // FE FF        = UTF-16, big-endian    (大尾字节序标记)
-// FF FE        = UTF-16, little-endian (小尾字节序标记, windows 中的 Unicode 编码默认标记)
+// FF FE        = UTF-16, little-endian (小尾字节序标记, windows Unicode 编码默认标记)
 // 00 00 FE FF  = UTF-32, big-endian    (大尾字节序标记)
 // FF FE 00 00  = UTF-32, little-endian (小尾字节序标记)
 //
@@ -1150,13 +1153,13 @@ size_t json_mini(char * str) {
 }
 ```
 
-    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上真正的解
-    析器入口函数:
+    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上
+    真正的解析器入口函数:
 
 ```C
 //
 // parse_value - 递归下降解析
-// item     : json 节点
+// item     : json 结点
 // str      : 语句源串
 // return   : 解析后剩下的串
 //
@@ -1213,10 +1216,11 @@ json_create(const char * str) {
 }
 ```
 
-    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上真正的解
-    从 json_create 看起, 声明了栈上字符串 tsr 填充 str, 随后进行 json_mini 洗词, 然后通过 
-    json_parse 解析出最终结果并返回. 随后可以看哈 json_parse 实现非常好理解, 核心调用的是
-    parse_value. 而 parse_value 就是我们的重头戏, 本质就是走分支. 不同分支走不同的解析操作.
+    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上
+    真正的解从 json_create 看起, 声明了栈上字符串 tsr 填充 str, 随后进行 json_mini
+    洗词, 然后通过 json_parse 解析出最终结果并返回. 随后可以看哈 json_parse 实现非
+    常好理解, 核心调用的是 parse_value. 而 parse_value 就是我们的重头戏, 本质就是走
+    分支. 不同分支走不同的解析操作.
 
 ```C
 static const char * 
@@ -1249,9 +1253,9 @@ parse_value(json_t item, const char * str) {
 }
 ```
 
-    由 parse_value 引出了 parse_number, parse_literal, parse_string, parse_object, 
-    parse_array. 是不是后面五个写好了 parse_value 就写好了. 那随后开始逐个击破, 
-    parse_number 走起.
+    由 parse_value 引出了 parse_number, parse_literal, parse_string, 
+    parse_object, parse_array. 是不是后面五个写好了 parse_value 就写好了. 那随后
+    开始逐个击破, parse_number 走起.
 
 ```C
 // parse_number - number 解析
@@ -1333,7 +1337,7 @@ static const char * parse_literal(json_t item, const char * str) {
         ++etr;
     if (c != '`') return NULL;
 
-    // 开始构造 json string 节点
+    // 开始构造 json string 结点
     item->type = JSON_STRING;
     item->str = ntr = malloc(etr - str + 1);
     for (ptr = str; ptr < etr; ++ptr) 
@@ -1344,8 +1348,8 @@ static const char * parse_literal(json_t item, const char * str) {
 }
 ```
 
-    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字符的处理. 
-    我们了原先 cJSON 的代码. 作为程序员, 有些地方还是得低头 ~  
+    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字
+    符的处理. 我们了原先 cJSON 的代码. 作为程序员, 有些地方还是得低头 ~  
 
 ```C
 // parse_hex4 - parse 4 digit hexadecimal number
@@ -1405,7 +1409,9 @@ static const char * parse_string(json_t item, const char * str) {
         // transcode UTF16 to UTF8. See RFC2781 and RFC3629
         case 'u': {
             // first bytes of UTF8 encoding for a given length in bytes
-            static const unsigned char marks[] = { 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC };
+            static const unsigned char marks[] = { 
+                0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC 
+            };
             unsigned oc, uc = parse_hex4(ptr + 1);
             // check for invalid
             if ((ptr += 4) >= etr) goto err_free;
@@ -1468,11 +1474,11 @@ err_free:
 }
 ```
 
-    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字符的处理. 
-    编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 方案
-    , 将其移植到 winds 上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际标准的
-    来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面抄录了一份 utf8.h. 有兴趣
-    同学可以去作者主页找下来看看, 这里只带大家看看接口设计.
+    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字
+    符的处理. 编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是
+    libiconv 方案, 将其移植到 winds 上. 后面学到一招, 因为国内开发最多的需求就是 gbk
+    和 utf-8 国际标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面
+    抄录了一份 utf8.h. 有兴趣同学可以去作者主页找下来看看, 这里只带大家看看接口设计.
 
 ```C
 #ifndef _UTF8_H
@@ -1481,7 +1487,7 @@ err_free:
 #include "struct.h"
 
 //
-// utf8 和 gbk 基础处理能力的库
+// utf8 和 gbk 基础能力处理库
 //
 // g = gbk 是 ascii 扩展码, u8 = utf8
 // 2 * LEN(g) >= LEN(u8) >= LEN(g)
@@ -1517,7 +1523,8 @@ extern bool isu8(const char d[], size_t n);
 
 > 引述一丁点维基百科上 UTF-8 编码字节含义:
 >  
-> 对于 UTF-8 编码中的任意字节 B, 如果 B 的第一位为 0，则 B 独立的表示一个字符(是 ASCII 码);  
+> 对于 UTF-8 编码中的任意字节 B, 如果 B 的第一位为 0，则 B 独立的表示一个字符
+> (是 ASCII 码);  
 > 如果 B 的第一位为 1, 第二位为 0, 则 B 为一个多字节字符中的一个字节(非 ASCII 字符);  
 > 如果 B 的前两位为 1, 第三位为 0, 则 B 为两个字节表示的字符中的第一个字节;  
 > 如果 B 的前三位为 1, 第四位为 0, 则 B 为三个字节表示的字符中的第一个字节;  
@@ -1528,24 +1535,22 @@ extern bool isu8(const char d[], size_t n);
 > 可确定该字节为字符编码的第一个字节, 并且可判断对应的字符由几个字节表示;  
 > 根据前五位(如果前四位为 1), 可判断编码是否有错误或数据传输过程中是否有错误.
 
-    有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 有所帮助.
+    有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 
+    有所帮助.
 
 ```C
 //
-// isu8 - check is utf8
-// d        : mem
-// n        : size
+// isu8s - 判断字符串是否是utf8编码
+// s        : 输入的串
 // return   : true 表示 utf8 编码
 //
 bool 
-isu8(const char d[], size_t n) {
-    size_t i = 0;
+isu8s(const char * s) {
     bool ascii = true;
     // byts 表示编码字节数, utf8 [1, 6]字节编码
     unsigned char c, byts = 0;
 
-    while (i < n) {
-        c = d[i++];
+    while ((c = *s++)) {
         // ascii 码最高位为 0, 0xxx xxxx
         if ((c & 0x80)) ascii = false;
 
@@ -1574,8 +1579,8 @@ isu8(const char d[], size_t n) {
 
 ### 4.4.3 parse array value
 
-    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带给你不一样
-    的体验.
+    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带
+    给你不一样的体验.
 
 ```C
 // parse_array - array 解析
@@ -1607,8 +1612,8 @@ static const char * parse_array(json_t item, const char * str) {
 }
 ```
 
-    parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处理的格式如下 
-    '{ "key":..., "key":..., ... }'
+    parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处理的格
+    式如下 '{ "key":..., "key":..., ... }'
 
 ```C
 // parse_object - object 解析
@@ -1659,12 +1664,13 @@ static const char * parse_object(json_t item, const char * str) {
 }
 ```
 
-    关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演示的思路
-    , 花些心思也可以构建出 json 对象转 json 串的套路. 麻烦点有 JSON_STRING 转换, 我们简单提
-    提, 有心人可以作为拓展修炼. 有了 json 的处理库, 有没有感觉基础的业务配置就很轻松了. 
+    关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演
+    示的思路, 花些心思也可以构建出 json 对象转 json 串的套路. 麻烦点有 JSON_STRING
+    转换, 我们简单提提, 有心人可以作为拓展修炼. 有了 json 的处理库, 有没有感觉基础的业
+    务配置就很轻松了. 
 
 ```C
-/ print_string - string 编码
+// print_string - string 编码
 static char * print_string(char * str, tstr_t p) {
     unsigned char c;
     const char * ptr;
@@ -1730,10 +1736,10 @@ ret_out:
 
 ## 4.5 config 配置库
 
-        有了上面 json 解析库, 我们不妨运用 c json 解析能力, 构建配置解析库. 这年头配置解析库
-    有不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 我最推荐是 json 和 toml. 
-    json 推荐原因在于至今通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看
-    待解析的配置文件 conf/conf.conf.
+        有了上面 json 解析库, 我们不妨运用 C json 解析能力, 构建配置解析库. 这年头配
+    置解析库有不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 我最推荐是
+    json 和 toml. json 推荐原因在于至今通用性最好, 配置, 协议传输, javascript 可直
+    接使用等等优势. 我们先看待解析的配置文件 conf/conf.conf.
 
 ```json
 /*
@@ -1748,7 +1754,7 @@ ret_out:
 
   "image"       : 
 `*--------------------------------** struct c **--------------------------------*
-| Welcome to the struct c v2.2.2                                               |
+| Welcome to the struct c v1.1.2                                               |
 | More detailed information need to http://www.cnblogs.com/life2refuel/        |
 | Thank you so much by wangzhi @ https://github.com/wangzhione/structc         |
 |                                                                              |
@@ -1775,13 +1781,12 @@ ret_out:
   //
 
 }
-
 ```
 
 ### 4.5.1 config 配置库实现
 
-    conf.h 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应. 可以
-    从 struct conf 中字段看出来.
+    conf.h 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应
+    . 可以从 struct conf 中字段看出来.
 
 ```C
 #ifndef _CONF_H
@@ -1812,7 +1817,6 @@ extern struct conf * conf_instance(void);
 bool conf_init(const char * path);
 
 #endif//_CONF_H
-
 ```
 
     实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 具体见 locals 实现代码.
@@ -1837,22 +1841,21 @@ conf_instance(void) {
 // locals - 本地字符串特殊处理, winds 会把 utf8 转 gbk
 inline char * locals(char utf8s[]) {
 #ifdef _MSC_VER
-    if (isu8s(utf8s)) {
+    if (isu8s(utf8s))
         u82g(utf8s);
-    }
 #endif
     return utf8s;
 }
 
 // CONFIG_PARSE_JSON_STR - json field -> conf field
-#define CONFIG_PARSE_JSON_STR(json, conf, field)                     \
-json_t $##field = json_object(json, #field);                         \
-if (NULL == $##field || $##field->type != JSON_STRING) {             \
-    RETURN(false, "json_object err field = "#field", %p", $##field); \
-}                                                                    \
-free(conf->##field);                                                 \
-conf->##field = json_str($##field);                                  \
-locals(conf->##field)
+#define CONFIG_PARSE_JSON_STR(json, conf, field)            \
+json_t $##field = json_object(json, #field);                \
+if (NULL == $##field || $##field->type != JSON_STRING) {    \
+    RETURN(false, "json_object err "#field" %p", $##field); \
+}                                                           \
+free(conf->field);                                          \
+conf->field = json_str($##field);                           \
+locals(conf->field)
 
 // conf_parse - 解析内容, 并返回解析结果
 bool conf_parse(json_t json, struct conf * conf) {
@@ -1881,13 +1884,13 @@ conf_init(const char * path) {
 }
 ```
 
-    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容.
-    经过这些是不是觉得, 到筑基也不过如此. 心随意动.
+    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取
+    配置中内容. 经过这些是不是觉得, 到筑基也不过如此. 心随意动.
 
 ## 4.6 奥特曼, 通用头文件
 
-        在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个业务头文件都继承自它. 
-    同样此刻要出现的就是筑基期至强奥义, 一切从头开始 head.h.
+        在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个业务头文件都继承
+    自他. 同样此刻要出现的就是筑基期至强奥义, 一切从头开始 head.h.
 
 ```C
 #ifndef _HEAD_H
@@ -1914,33 +1917,34 @@ inline void cls(void) {
 #include <unistd.h>
 #include <termios.h>
 
-// cls - 屏幕清除宏, 依赖系统脚本
+// cls - 屏幕清除, 依赖系统脚本
 inline void cls(void) {
     printf("\ec");
 }
 
 // getch - 立即得到用户输入的一个字符
-inline int getch(void) {
-    struct termios nts, ots;
-    if (tcgetattr(0, &ots)) // 得到当前终端(0表示标准输入)的设置
+inline static int getch(void) {
+    struct termios now, old;
+    if (tcgetattr(0, &old)) // 得到当前终端(0表示标准输入)的设置
         return EOF;
+    now = old;
 
-    nts = ots;
     // 设置终端为 Raw 原始模式，该模式下输入数据全以字节单位被处理
-    cfmakeraw(&nts);
-    if (tcsetattr(0, TCSANOW, &nts)) // 设置上更改之后的设置
+    cfmakeraw(&now);
+    if (tcsetattr(0, TCSANOW, &now)) // 设置上更改之后的设置
         return EOF;
 
-    int cr = getchar();
-    if (tcsetattr(0, TCSANOW, &ots)) // 设置还原成老的模式
+    int c = getchar();
+
+    if (tcsetattr(0, TCSANOW, &old)) // 设置还原成老的模式
         return EOF;
-    return cr;
+    return c;
 }
 
 #endif
 
-// epause - 程序结束等待操作
-inline void epause(void) {
+// spause - 程序结束后等待
+inline static void spause(void) {
     rewind(stdin);
     fflush(stderr); fflush(stdout);
     printf("Press any key to continue . . .");
@@ -1949,75 +1953,57 @@ inline void epause(void) {
 
 //
 // STR - 添加双引号的宏 
-// v    : 待添加双引号的量
+// v        : 待添加双引号的量
 //
 #define STR(v) S_R(v)
 #define S_R(v) #v
 
 //
 // LEN - 获取数组长度
-// arr : 数组名
+// a        : 数组名
 //
 #define LEN(a) sizeof(a)/sizeof(*(a))
 
-// hton - 本地字节序转网络字节序(大端)
-// noth - 网络字节序转本地字节序
-inline uint32_t hton(uint32_t x) {
-#ifndef ISBENIAN
-    uint8_t t;
-    union { uint32_t i; uint8_t s[sizeof(uint32_t)]; } u = { x };
-    t = u.s[0]; u.s[0] = u.s[sizeof(u)-1]; u.s[sizeof(u)-1] = t;
-    t = u.s[1]; u.s[1] = u.s[sizeof(u)-2]; u.s[sizeof(u)-2] = t;
-    return u.i;
-#else
-    return x;
-#endif
-}
-
-inline uint32_t ntoh(uint32_t x) {
-    return hton(x);
-}
-
 //
-// EXTERN_RUN - 简单的声明, 并立即使用的宏
-// ftest    : 需要执行的函数名称
+// EXTERN_RUN - 简单声明, 并立即使用的宏
+// frun     : 需要执行的函数名称
 // ...      : 可变参数, 保留
 //
-#define EXTERN_RUN(ftest, ...)                                    \
-do {                                                              \
-    extern void ftest();                                          \
-    ftest (__VA_ARGS__);                                          \
+#define EXTERN_RUN(frun, ...)                          \
+do {                                                   \
+    extern void frun();                                \
+    frun (__VA_ARGS__);                                \
 } while(0)
 
 //
-// TEST_RUN - 测试代码块, 并输出简单时间信息
-// code : { ... } 包裹的代码块
+// CODE_RUN - 代码块测试, 并输出运行时间
+// code     : { ... } 包裹的代码块
 //
-#define TEST_RUN(code)                                            \
-do {                                                              \
-    clock_t $s = clock();                                         \
-    code                                                          \
-    double $e = (double)clock();                                  \
-    printf("test code run time:%lfs\n", ($e-$s)/CLOCKS_PER_SEC);  \
+#define CODE_RUN(code)                                 \
+do {                                                   \
+    clock_t $s = clock();                              \
+    code                                               \
+    double $e = (double)clock();                       \
+    printf("code run %lfs\n", ($e-$s)/CLOCKS_PER_SEC); \
 } while (0)
 
 #endif//_HEAD_H
 ```
 
-    head.h 相关内容是不是很简单, 很熟悉. cls -> getch -> epause 想想有了也挺好的. 而 
-    check.h 会放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只是加了个 
-    ipv4 和 email 校验操作.
+    head.h 相关内容是不是很简单, 很熟悉. cls -> getch -> epause 想想有了也挺好的. 
+    而 check.h 会放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只
+    是加了个 ipv4 和 email 校验操作.
 
 ```C
 #include "check.h"
 
 //
-// is_ip - 判断是否是 ipv4
+// is_ipv4 - 判断是否是 ipv4
 // ips      : ip 串
 // return   : true 是合法 ip
 //
 bool 
-is_ip(const char * ips) {
+is_ipv4(const char * ips) {
     //
     // [0-9].
     // 7       - 15
@@ -2117,18 +2103,18 @@ is_email(const char * mail) {
 }
 ```
 
-    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取配置中内容.
-    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如果有问题也可
-    以在修真岁月中道友间互相探讨补充. getch 函数可以重点关注下. 很久以前一位化神期巨擘说过: 由
-    于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是挺喜欢 getch 的,
-    让立即交互变得轻松. 所以就顺手补上了. 继承 head.h 让你的业务轻装上阵. 美好从此刻开始 ~ 新
-    的风暴已经出现, 怎么能够停滞不前. 穿越时空竭尽全力, 我会来到你身边 ~
+    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如
+    果有问题也可以在修真岁月中道友间互相探讨补充. getch 函数可以重点关注下. 很久以前一
+    位化神期巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏
+    开发人员. 我是挺喜欢 getch 的, 让立即交互变得轻松. 所以就顺手补上了. 继承 
+    head.h 让你的业务轻装上阵. 美好从此刻开始 ~ 新的风暴已经出现, 怎么能够停滞不前.
+    穿越时空竭尽全力, 我会来到你身边 ~
 
-## 4.7 阅读理解, csv 解析库
+## 4.7 阅读理解
 
-        很久以前桌面项目配置文件基本都走 csv 文件配置. 采用 ',' 分隔. 同 excel 表格形式. 维护
-    人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己写的解决方案, 灰常节
-    约内存. 首先展示 interface:
+        很久以前桌面项目配置文件多数采用 csv 文件配置. 采用 ',' 分隔. 同 excel 表格
+    形式. 维护人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己
+    写的解决方案, 灰常节约内存. 首先展示 interface:
 
 ```C
 #ifndef _CSV_H
@@ -2147,7 +2133,7 @@ is_email(const char * mail) {
 typedef struct {   // struct in heap malloc
     int    rlen;   // 数据行数, 索引 [0, rlen)
     int    clen;   // 数据列数, 索引 [0, clen)
-    char * data[]; // 保存数据, rlen * clen '二维数组
+    char * data[]; // 保存数据, rlen * clen 二维数组
 } * csv_t;
 
 //
@@ -2155,7 +2141,7 @@ typedef struct {   // struct in heap malloc
 // csv     : csv_t 对象
 // r       : 行索引 [0, csv->rlen)
 // c       : 列索引 [0, csv->clen)
-// return  : 返回 csv[r][c], 后面可以用 atoi, atof, strdup ...
+// return  : 返回 csv[r][c], 后续可以 atoi, atof, strdup ...
 //
 inline const char * csv_get(csv_t csv, int r, int c) {
     DCODE({
@@ -2192,9 +2178,9 @@ extern csv_t csv_create(const char * path);
 ```C
 #include "csv.h"
 
-// csv_check - 解析和检查 csv 文件内容, 返回构造的合法串
+// csv_check - 解析和检查 csv 文件内容, 返回构造的合法串长度
 static int csv_check(char * str, int * pr, int * pc) {
-    int c, n, rnt = 0, cnt = 0;
+    int c, rnt = 0, cnt = 0;
     char * tar = str, * s = str;
     while ((c = *tar++) != '\0') {
         // csv 内容解析, 状态机切换
@@ -2203,7 +2189,7 @@ static int csv_check(char * str, int * pr, int * pc) {
             while ((c = *tar++) != '\0') {
                 if ('"' == c) {
                     // 有效字符再次压入栈, 顺带去掉多余 " 字符
-                    if ((n = *tar) != '"') 
+                    if (*tar != '"') 
                         break;
                     ++tar;
                 }
@@ -2221,7 +2207,7 @@ static int csv_check(char * str, int * pr, int * pc) {
         }
     }
     // CRLF 处理
-    if (str != s && tar[-2] != '\n') {
+    if (str != s && (c = tar[-2]) && c != '\n') {
         *s++ = '\0'; ++cnt; ++rnt;
     }
 
@@ -2236,27 +2222,26 @@ err_faid:
     return (int)(s - str);
 }
 
-// csv_parse - 解析 csv 内容返回解析后的对象
-csv_t csv_parse(char * s) {
-    csv_t csv;
-    char * str;
-    int diff, rnt, cnt;
-    if ((diff = csv_check(s, &rnt, &cnt)) < 0)
+// csv_parse - 解析字节流返回 csv 对象
+csv_t csv_parse(char * str) {
+    int n, rnt, cnt;
+    if ((n = csv_check(str, &rnt, &cnt)) < 0)
         return NULL;
     
     // 分配最终内存
-    csv = malloc(diff + sizeof *csv + sizeof(char *) * cnt);
-    str = (char *)csv + sizeof *csv + sizeof(char *) * cnt ;
-    memcpy(str, s, diff);
-    // 开始内存整理
+    csv_t csv = malloc(n + sizeof *csv + sizeof(char *) * cnt);
+    char * s = (char *)csv + sizeof *csv + sizeof(char *) * cnt;
+    memcpy(s, str, n);
+
+    // 开始内存整理, csv 字段填充
+    n = 0;
     csv->rlen = rnt;
     csv->clen = cnt / rnt;
-    diff = 0;
     do {
-        csv->data[diff] = str;
-        while (*str ++)
+        csv->data[n] = s;
+        while (*s++)
             ;
-    } while (++diff < cnt);
+    } while (++n < cnt);
 
     return csv;
 }
@@ -2269,28 +2254,28 @@ csv_t csv_parse(char * s) {
 csv_t 
 csv_create(const char * path) {
     char * str = str_freads(path);
-    if (NULL == str) {
-        RETNUL("str_freads path = %s is error!", path);
+    if (str) {
+        // 开始解析 csv 文件内容, 并返回最终结果
+        csv_t csv = csv_parse(str);
+        free(str);
+        return csv;   
     }
-
-    // 开始解析 csv 文件内容
-    csv_t csv = csv_parse(str);
-    free(str);
-    // 返回最终结果
-    return csv;
+    // 意外返回 NULL
+    RETNUL("str_freads path = %s is error!", path);
 }
 ```
 
-    核心重点在 csv_parse 和 csv_create 上面. 前者负责预建和填充内存布局, 后者负责平滑过渡
-    . 代码很短, 但却很有效不是吗? 希望上面的阅读理解你能喜欢 ~
+    核心重点在 csv_parse 和 csv_create 上面. 前者负责预建和填充内存布局, 后者负责平
+    滑过渡. 代码很短, 但却很有效不是吗? 希望上面的阅读理解你能喜欢 ~
 
-## 4.8 筑基展望
+## 4.8 展望
 
-        妖魔战场逐渐急促起来, 筑基期顶天功法也就介绍到此. 数据结构算法可能要勤学苦练, 而这些
-    轮子多数只需 3 遍后, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮子开发套路.
-    从 clog -> rand -> json -> conf -> head -> csv 遇到的妖魔鬼怪也不过如此. 真实开发中
-    这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世组件. 但总的而言, 如果你
-    想把前辈英魂用的更自然, 显然你也得懂行(自己会写). 凡事总要瞎搞搞才能有所突破 <--:-o
+        妖魔战场逐渐急促起来, 筑基期顶级功法也就介绍到此. 数据结构算法可能要勤学苦练, 
+    而这些轮子多数只需 3 遍后, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮
+    子开发套路. 从 clog -> rand -> json -> conf -> head -> csv 遇到的妖魔鬼怪也
+    不过如此. 真实开发中这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世
+    组件. 但总的而言, 如果你想把前辈英魂用的更自然, 显然你得懂行(自己会写). 凡事总要瞎
+    搞搞才能有所突破 <--:-o
 
 ***
 
@@ -2320,6 +2305,8 @@ csv_create(const char * path) {
 
 ***
 
-思绪有些乱, 梦幻间想起 ~ 我们仨 ~ 飞升真仙 ~ 或许是她(他)们撑起种族底蕴 ~
+思绪有些乱, 梦幻间想起 ~ 我们仨 ~ 飞升真仙 ~ 是他们, 撑起种族底蕴 ~
+
+***
 
 ![我们仨](./img/我们仨.png)
