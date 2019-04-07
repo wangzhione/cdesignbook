@@ -647,6 +647,8 @@ GENERIC_ATOMIC(bool, b, 1)
 
 GENERIC_INT_ATOMIC(unsigned, u, 4)
 
+GENERIC_INT_ATOMIC(uint8_t, u8, 1)
+
 GENERIC_INT_ATOMIC(uint32_t, u32, 4)
 
 GENERIC_ATOMIC(void *, p, PTR_SIZEOF)
