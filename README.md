@@ -1,11 +1,11 @@
-# C 修真之旅
+# C 菜鸟之旅
 
     微笑有清风 :) 
     很久以前想写本关于 C 的华山剑法 § 无趣胜在苦练 ~
 
-    继续修炼参悟, 之后经年会为华山剑法, 迎来大纯粹 ~
+    之后经年修炼感悟, 为华山剑法, 迎来纯粹和简单 ~
 
-## 修炼号角
+## 修炼参悟
 
 >[虚虚实实 : http://music.163.com/#/song?id=189433](http://music.163.com/#/song?id=189433)  
 
@@ -21,27 +21,21 @@
     天大地大博大精深
     ...
 
-## 试炼储备
+## 试炼场
 
 ***
 
->[核心素材 : https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+>[基础素材 : https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+
+    1. 第1章讲解代码风格缘由
+    1. 2-6章构建开发中常用基础库套路
+    2. 第7章简单讲解 socket 编程片段
 
 ***
-
->[抄袭素材 : https://github.com/cloudwu/skynet](https://github.com/cloudwu/skynet) 
-
-***
-
-    1. 1-6章基于开发中常用基础库套路构建
-    2. 7章篇幅重, 浅议远古的 socket 修真法门
-    ...
     
-    码出故事, review, 迭代升级 ~ 
+菜鸟之旅核心在于**写**, Coding player ~
     
-    跳出杂思, 直指代码 ~ 
-    
-    Talk is cheap, show me the code.
+**Talk is cheap, show me the code.**
 
 ***
 
