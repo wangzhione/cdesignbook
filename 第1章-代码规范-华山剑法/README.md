@@ -688,13 +688,15 @@ __pragma (pack(push, 1))            \
 declare                             \
 __pragma (pack(pop))
 
-#define __attribute__(x)            /* 开眼不知何处, */
+                                    /* 开眼不知何处, */
                                     /* 但听满耳松风。*/
 #define likely(x)    (x)
 #define unlikely(x)  (x)
 
 #endif
 ```
+
+其中 Window 用最新的操作系统 + 最新的 Visual Studio 上面最新的 Clang 编译器. 当然我们本文核心是代码思路和代码训练环境方面最好能多简单就多简单.
 
 ## 1.7 夜太黑练剑好时光
 
