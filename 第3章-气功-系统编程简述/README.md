@@ -1,30 +1,18 @@
 # 第3章-气功-系统编程简述
 
-	    不妨仰望星海为编程行业引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 
-    那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编
-    程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 
-    一舒心中豪情啪的一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨
-    炼. 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 
-    挥洒鲜血, 一朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发
-    . 无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全
-    力支持, 通过大毅力破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是
-    白骨功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 
-    占一代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨
-    擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
-	    各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章
-    讲的气功, 等同于金丹期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖
-    于平台, 不同平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江.
-    
-## 3.1 原子库
+不妨仰望星海, 为编程行业引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒心中豪情啪的一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜血, 几朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通过大毅力和机缘破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
 
-	    原子锁一个古老的话题, 在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子库之前
-    需要科普些基本原子操作.
+各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章讲的气功, 等同于练气期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同平台的修炼会有所大不同. 本章就是在不同平台间练就一门气功, 剑元贯双江.
+    
+## 3.1 原子操作
+
+原子操作一个古老的庞大话题, 例如在不主动放弃 CPU 情况下解决资源竞争问题. 在说原子库之前简单科普些基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
 ### 3.1.1 引言
 
-    举个简单例子:
+举个简单例子:
 
 ```C
 volatile int i = 0;
@@ -37,11 +25,7 @@ volatile int i = 0;
 ++i;
 ```
 
-    以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期
-    的大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子
-    操作. 本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作
-    的原子性). 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 
-    就提供不少像下面指令.
+以上执行会导致一个问题, 如果两个线程同时执行到 1' 那么造成一个现象是 i 最终没有预期的大. 如何避免上面问题呢? 常见思路是互斥. 当然这里有更好路子, 利用编译器提供的原子操作. 本质利用 CPU 提供的原子指令的封装(CPU 提供总线锁定和缓存锁定保证复杂内存操作的原子性). 说直接点, 可以用编译器提供这方面基础能力, 让我们实现原子相加. 例如 GCC 就提供不少像下面指令.
 
 ```C
 type __sync_add_and_fetch (type * ptr, type value, ...);
@@ -49,12 +33,7 @@ type __sync_lock_test_and_set (type * ptr, type value, ...);
 bool __sync_bool_compare_and_swap (type * ptr, type old, type new, ...);
 ```
 
-    这类原子操作的特殊表达式可以直接边查编译手册, 边写个小例子, 就会知道窍门. 我们简单解
-	释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终
-    加好的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 
-    并且返回 ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 
-    指向的值和原先的 old 相等吗, 相等将其设置为 new. 并且返回 ptr 指向值和 old 相等
-    与否的 bool 值. 为了让大家更好认知, 不妨封装一层, 请收看注释:
+这类原子操作的特殊表达式可以直接边查编译手册, 边写个小例子, 就会知道窍门. 我们简单解释下, __sync_add_and_fetch 等同于将 ptr 指向的内存加上 value 值, 并且返回最终加好的值. __sync_lock_test_and_set 的意思是把 value 的值给 ptr 指向的内存, 并且返回 ptr 原先指向的内存值. __sync_bool_compare_and_swap 的意思是判断 ptr 指向的值和原先的 old 相等吗, 相等将其设置为 new. 并且返回 ptr 指向值和 old 相等与否的 bool 值. 为了让大家更好理解, 不妨封装一层, 请细看注释:
 
 ```C
 // v += a ; return v;
@@ -65,12 +44,63 @@ bool __sync_bool_compare_and_swap (type * ptr, type old, type new, ...);
 #define atom_cas(v, c, a)   __sync_bool_compare_and_swap(&(v), (c), (a))
 ```
 
-    以上定义了 add set cas 原子操作. 随后原子基础库中会封装更多更常用的. 下面展示哈全
-	貌. 更多细节可以细查 man 手册, 一切无所遁形.
+以上定义了 add set cas 原子操作. 随后原子基础库中会封装更多更常用的. 下面展示哈全貌. 更多细节可以细查 man 手册, 一切无所遁形.
 
-### 3.1.2 原子锁
+### 3.1.2 原子自旋锁
 
-    代码已经表述了一切好的坏的有得没得, 如果还不明白, 说明字帖抄写少了 ~
+```C
+#pragma once
+
+#include <stdbool.h>
+#include <stdatomic.h>
+
+/*
+    https://zh.cppreference.com/w/c/atomic
+
+    https://en.cppreference.com/w/c/atomic/atomic_compare_exchange
+
+    _Bool atomic_compare_exchange_strong(volatile A * obj,
+                                            C * expected, C desired);
+
+    _Bool atomic_compare_exchange_weak( volatile A * obj,
+                                        C * expected, C desired );
+
+    if (memcmp(obj, expected, sizeof *obj) == 0) {
+        memcpy(obj, &desired, sizeof *obj);
+        return true;
+    } else {
+        memcpy(expected, obj, sizeof *obj);
+        return false;
+    }
+*/
+
+inline bool atomic_bool_compare_exchange_weak(volatile atomic_bool * obj) {
+    bool expected = false;
+    return atomic_compare_exchange_weak(obj, &expected, true);
+}
+
+inline bool atomic_bool_compare_exchange_strong(volatile atomic_bool * obj) {
+    bool expected = false;
+    return atomic_compare_exchange_strong(obj, &expected, true);
+}
+
+// spin lock
+
+inline void atomic_flag_lock(volatile atomic_flag * lock) {
+    while (atomic_flag_test_and_set(lock)) {}
+}
+
+inline void atomic_flag_unlock(volatile atomic_flag * lock) {
+    atomic_flag_clear(lock);
+}
+
+inline bool atomic_flag_trylock(volatile atomic_flag * lock) {
+    return atomic_flag_test_and_set(lock) == 0;
+}
+
+```
+
+代码已经表述了一切好的坏的有得没得, 模仿字帖多抄写 ~
 
 ```C
 #ifndef _ATOM_H

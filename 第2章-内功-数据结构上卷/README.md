@@ -905,9 +905,13 @@ char *
 cstr_expand(cstr_t cs, size_t len) {
     size_t cap = cs->cap;
     if ((len += cs->len) > cap) {
-        // 走 1.5 倍内存分配, '合理'降低内存占用
-        while (cap < len) 
-            cap = cap * 3 / 2;
+        if (cap < CSTR_INT ) {
+            cap = CSTR_INT;
+        } else {
+            // 走 1.5 倍内存分配, '合理'降低内存占用
+            while (cap < len) 
+                cap = cap * 3 / 2;
+        }
 
         cs->str = realloc(cs->str, cs->cap = cap);
     }
