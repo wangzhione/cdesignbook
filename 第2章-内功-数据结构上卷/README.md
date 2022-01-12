@@ -1394,140 +1394,441 @@ inline void stack_push(struct stack * s, void * m) {
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
-struct noid {
-    struct noid * next;
+struct hashid_node {
     int id;
+    struct hashid_node * next;
 };
 
-struct haid {
-    struct noid ** hash;
-    struct noid * set;
-    int mod;
+struct hashid {
+    int hashmod;
     int cap;
     int len;
+    struct hashid_node * array;
+    struct hashid_node ** hash;
 };
 
-static void haid_init(struct haid * h, int max) {
-    int cap = sizeof(struct haid);
-    assert(h && max >= 0);
-    while (cap < max)
-        cap <<= 1;
-
-    for (int i = 0; i < max; ++i)
-        h->set[i] = (struct noid) { NULL, -1 };
-    h->hash = calloc(cap, sizeof(struct haid *));
-    assert(h->hash && cap);
-
-    h->set = malloc(max * sizeof(struct noid));
-    assert(h->set && max);
-
-    h->mod = cap - 1;
-    h->cap = max;
-    h->len = 0;
+static void hashid_init(struct hashid * hi, int max) {
+    int hashcap = 16;
+    while (hashcap < max) {
+        hashcap <<= 1;
+    }
+    hi->hashmod = hashcap - 1;
+    hi->cap = max;
+    hi->len = 0;
+    hi->array = malloc(max * sizeof(struct hashid_node));
+    for (int i = 0; i < max; i++) {
+        hi->array[i].id = -1;
+        hi->array[i].next = NULL;
+    }
+    hi->hash = calloc(hashcap, sizeof(struct hashid_node *));
 }
 
-static inline void haid_clear(struct haid * h) {
-    free(h->hash); h->hash = NULL;
-    free(h->set); h->set = NULL;
-    h->mod = 1;
-    h->len = h->cap = 0;
+static void hashid_clear(struct hashid * hi) {
+    free(hi->array);
+    free(hi->hash);
+    hi->array = NULL;
+    hi->hash = NULL;
+    hi->hashmod = 1;
+    hi->cap = 0;
+    hi->len = 0;
 }
 
-static int haid_lookup(struct haid * h, int id) {
-    struct noid * c = h->hash[id & h->mod];
-    while (c) {
-        if (c->id == id)
-            return c - h->set;
-        c = c->next;
+static int hashid_lookup(struct hashid * hi, int id) {
+    int h = id & hi->hashmod;
+    struct hashid_node * node = hi->hash[h];
+    while (node) {
+        if (node->id == id)
+            return node - hi->array;
+        node = node->next;
     }
     return -1;
 }
 
-static int haid_remove(struct haid * h, int id) {
-    int i = id & h->mod;
-    struct noid * c = h->hash[i];
-    if (NULL == c)
+static int hashid_remove(struct hashid * hi, int id) {
+    int h = id & hi->hashmod;
+    struct hashid_node * node = hi->hash[h];
+    if (NULL == node)
         return -1;
 
-    if (c->id == id) {
-        h->hash[i] = c->next;
+    if (node->id == id) {
+        hi->hash[h] = node->next;
         goto ret_clr;
     }
 
-    while (c->next) {
-        if (c->next->id == id) {
-            struct noid * tmp = c->next;
-            c->next = tmp->next;
-            c = tmp;
+    while (node->next) {
+        if (node->next->id == id) {
+            struct hashid_node * temp = node->next;
+            node->next = temp->next;
+            node = temp;
             goto ret_clr;
         }
-        c = c->next;
+
+        node = node->next;
     }
+    return -1;
 
 ret_clr:
-    c->id = -1;
-    c->next = NULL;
-    --h->len;
-    return c - h->set;
+    node->id = -1;
+    node->next = NULL;
+    --hi->len;
+    return node - hi->array;
 }
 
-static int haid_insert(struct haid * h, int id) {
-    int i;
-    struct noid * c = NULL;
-    for (i = 0; i < h->cap; ++i) {
-        int j = (i + id) % h->cap;
-        if (h->set[j].id == -1) {
-            c = h->set + j;
+static int hashid_insert(struct hashid * hi, int id) {
+    int h;
+    struct hashid_node * node = NULL;
+    for (h = 0; h < hi->cap; h++) {
+        int index = (h + id) % hi->cap;
+        if (hi->array[index].id == -1) {
+            node = hi->array + index;
             break;
         }
     }
-    assert(c && c->next == NULL);
+    assert(node && node->next == NULL);
+    node->id = id;
+    ++hi->len;
 
-    ++h->len;
-    c->id = id;
-    i = id & h->mod;
-    if (h->hash[i])
-        c->next = h->hash[i];
-    h->hash[i] = c;
-    return c - h->set;
+    h = id & hi->hashmod;
+    node->next = hi->hash[h];
+    hi->hash[h] = node;
+
+    return node - hi->array;
 }
 
-static inline int haid_full(struct haid * h) {
-    return h->len >= h->cap;
+static inline int hashid_full(struct hashid * hi) {
+    return hi->len == hi->cap;
 }
 
 ```
 
-我们这边小册子很多思想借鉴前辈云风思路. 他的代码非常不错, 读起来抄起来都很舒服, 这里再次感谢前辈的辛苦耕耘 /{|}\
+这本小册子很多思想借鉴前辈云风思路. 他的代码非常不错, 读起来抄起来都很舒服, 这里再次感谢前辈的辛苦耕耘 /{|}\
 
-代码比注释值钱. 一般书中也许会有习题, 我们这里独创"阅读理解", 辅助思考而不是考研. 哈哈. 来一同感受设计的细节. hash id 库设计这个阅读理解, 有些飘逸, 有些巧妙. 阅读完后讲解一点潜规则, 先入为主
+代码比注释值钱, 尝试通过代码理解代码. 一般书中会有习题, 我们这里推荐"阅读理解", 辅助思考而不是考研. 哈哈. 来一同感受设计的细节. hash id 库设计这个阅读理解, 有些飘逸, 有些巧妙. 多临摹多思考
     
 - **0' return -1;**
 
 没有找见就返回索引 -1, 作为默认错误和 POSIX 默认错误码相同. POSIX 错误码引入了 errno 机制, 不太好, 封装过度. 上层需要二次判断, 开发起来难受. 我们后续设计思路也是承接这种 POSIX 思路.
 
-- **1' cap <<= 1;**
+- **1' hashcap <<= 1;**
 
-这个 cap 初始值必须是 2 的幂数, 方便得到 h->mod = 2 ^ x - 1 = cap - 1
+这个 hashcap 初始值必须是 2 的幂数, 方便得到 h->hashmod = 2 ^ x - 1 = hashcap - 1
 
-- **2' h->hash = calloc(cap, sizeof(struct haid *));**
+- **2' hi->hash = calloc(hashcap, sizeof(struct hashid_node *));**
 
-这里表示, 当前 hash 实体已经全部申请好了, 只能用这些了. 所以有了 haid_full 接口.
+这里表示, 当前 hash 实体已经全部申请好了, 只能用这些了. 所以有了 hashid_full 接口.
 
-- **3' assert(c && c->next == NULL);**
+- **3' assert(node && node->next == NULL);**
 
-代码在 haid_insert 中出现, 表明插入一定会成功. 那么这个接口必须在 haid_full 之后执行. 
+代码在 hashid_insert 中出现, 表明插入一定会成功. 那么这个接口必须在 hashid_full 之后执行. 
 
-- **4' int j = (i + id) % h->cap;**
+- **4' int index = (h + id) % hi->cap;**
 
-一种查找策略, 可以有也可以无. 和 O(n) 纯 for 查找没啥区别. 看数据随机性.
+一种查找策略, 依赖数据随机性, 和 O(n) 纯 for 查找区别不大.
 
 - **5' 小总结**
 
 有了这些阅读理解会容易点. 上面构建的 hash id api, 完成的工作就是方便 int id 的映射工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 写一遍想一遍就能感受到那些游动于指尖的美好 ~
 
-## 2.5 展望
+## 2.5 拓展阅读
+
+在 **2.2.1 包装 string.h => strext.h** 小节中我们采用直白思路去实现相关功能. 这节带有兴趣同学拓展下视野, 看看标准库级别实现, 挑选了大家都常见 **strlen**. 编程可不是儿戏.
+
+```C
+/* Copyright (C) 1991-2020 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+   Written by Torbjorn Granlund (tege@sics.se),
+   with help from Dan Sahlin (dan@sics.se);
+   commentary by Jim Blandy (jimb@ai.mit.edu).
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <https://www.gnu.org/licenses/>.  */
+
+#include <string.h>
+#include <stdlib.h>
+
+#undef strlen
+
+#ifndef STRLEN
+# define STRLEN strlen
+#endif
+
+/* Return the length of the null-terminated string STR.  Scan for
+   the null terminator quickly by testing four bytes at a time.  */
+size_t
+STRLEN (const char *str)
+{
+  const char *char_ptr;
+  const unsigned long int *longword_ptr;
+  unsigned long int longword, himagic, lomagic;
+
+  /* Handle the first few characters by reading one character at a time.
+     Do this until CHAR_PTR is aligned on a longword boundary.  */
+  for (char_ptr = str; ((unsigned long int) char_ptr
+            & (sizeof (longword) - 1)) != 0;
+       ++char_ptr)
+    if (*char_ptr == '\0')
+      return char_ptr - str;
+
+  /* All these elucidatory comments refer to 4-byte longwords,
+     but the theory applies equally well to 8-byte longwords.  */
+
+  longword_ptr = (unsigned long int *) char_ptr;
+
+  /* Bits 31, 24, 16, and 8 of this number are zero.  Call these bits
+     the "holes."  Note that there is a hole just to the left of
+     each byte, with an extra at the end:
+
+     bits:  01111110 11111110 11111110 11111111
+     bytes: AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD
+
+     The 1-bits make sure that carries propagate to the next 0-bit.
+     The 0-bits provide holes for carries to fall into.  */
+  himagic = 0x80808080L;
+  lomagic = 0x01010101L;
+  if (sizeof (longword) > 4)
+    {
+      /* 64-bit version of the magic.  */
+      /* Do the shift in two steps to avoid a warning if long has 32 bits.  */
+      himagic = ((himagic << 16) << 16) | himagic;
+      lomagic = ((lomagic << 16) << 16) | lomagic;
+    }
+  if (sizeof (longword) > 8)
+    abort ();
+
+  /* Instead of the traditional loop which tests each character,
+     we will test a longword at a time.  The tricky part is testing
+     if *any of the four* bytes in the longword in question are zero.  */
+  for (;;)
+    {
+      longword = *longword_ptr++;
+
+      if (((longword - lomagic) & ~longword & himagic) != 0)
+    {
+      /* Which of the bytes was the zero?  If none of them were, it was
+         a misfire; continue the search.  */
+
+      const char *cp = (const char *) (longword_ptr - 1);
+
+      if (cp[0] == 0)
+        return cp - str;
+      
+      if (cp[1] == 0)
+        return cp - str + 1;
+      if (cp[2] == 0)
+        return cp - str + 2;
+      if (cp[3] == 0)
+        return cp - str + 3;
+      if (sizeof (longword) > 4)
+        {
+          if (cp[4] == 0)
+        return cp - str + 4;
+          if (cp[5] == 0)
+        return cp - str + 5;
+          if (cp[6] == 0)
+        return cp - str + 6;
+          if (cp[7] == 0)
+        return cp - str + 7;
+        }
+    }
+    }
+}
+libc_hidden_builtin_def (strlen)
+
+```
+
+**思考和分析**
+
+**1. unsigned long int 字节多大 4 字节, 8 字节 ?**
+
+```C
+  unsigned long int longword, himagic, lomagic;
+```
+
+long 具体多长和平台有关, 例如大多数 linux , x86 sizeof (long) = 4, x64 sizeof (long) = 8. window x86, x64 sizeof (long) = 4. C 标准保证 sizeof(long) >= sizeof (int) 具体多少字节交给了标准的实现方.
+
+**2. ((unsigned long int) char_ptr & (sizeof (longword) - 1)) 位对齐 ? **
+
+```C
+/* Handle the first few characters by reading one character at a time.
+     Do this until CHAR_PTR is aligned on a longword boundary.  */
+  for (char_ptr = str; ((unsigned long int) char_ptr
+            & (sizeof (longword) - 1)) != 0;
+       ++char_ptr)
+    if (*char_ptr == '\0')
+      return char_ptr - str;
+```
+
+起始的这些代码的作用是, 让 chart_ptr 按照 sizeof (unsigned long) 字节大小进行位对齐. 这涉及到多数计算机硬件对齐有要求和性能方面的考虑等等(性能是主要因素).
+
+**3. himagic = 0x80808080L; lomagic = 0x01010101L; what fuck ?**
+
+```C
+/* Bits 31, 24, 16, and 8 of this number are zero.  Call these bits
+     the "holes."  Note that there is a hole just to the left of
+     each byte, with an extra at the end:
+
+     bits:  01111110 11111110 11111110 11111111
+     bytes: AAAAAAAA BBBBBBBB CCCCCCCC DDDDDDDD
+
+     The 1-bits make sure that carries propagate to the next 0-bit.
+     The 0-bits provide holes for carries to fall into.  */
+  himagic = 0x80808080L;
+  lomagic = 0x01010101L;
+  if (sizeof (longword) > 4)
+    {
+      /* 64-bit version of the magic.  */
+      /* Do the shift in two steps to avoid a warning if long has 32 bits.  */
+      himagic = ((himagic << 16) << 16) | himagic;
+      lomagic = ((lomagic << 16) << 16) | lomagic;
+    }
+  if (sizeof (longword) > 8)
+    abort ();
+
+  /* Instead of the traditional loop which tests each character,
+     we will test a longword at a time.  The tricky part is testing
+     if *any of the four* bytes in the longword in question are zero.  */
+  for (;;)
+    {
+      longword = *longword_ptr++;
+
+      if (((longword - lomagic) & ~longword & himagic) != 0)
+    {
+```
+
+**3.1 (((longword - lomagic) & ~longword & himagic) != 0) ? mmp ?**
+
+可能这就是艺术吧. 想到这个想法的, 真是个天才啊! 好巧妙. 哈哈哈.  我们会分两个小点说明下. 首次看, 感觉有点萌. 我这里用个简单的思路来带大家理解这个问题. 上面代码主要围绕sizeof (unsigned long) 4 字节和 8 字节去处理得到. 我们简单点, 通过处理 1 字节, 类比递归机制. 搞懂这个公式背后的原理 (ˇˍˇ) ～
+
+```C
+/**
+ * himagic      : 1000 0000
+ * lomagic      : 0000 0001
+ * longword     : XXXX XXXX
+ * /
+unsigned long himagic = 0x80L;
+unsigned long lomagic = 0x01L;
+
+unsigned long longword ;
+```
+
+随后我们仔细分析下面公式
+
+```C
+((longword - lomagic) & ~longword & himagic)
+```
+
+( & himagic ) = ( & 1000 0000) 表明最终只在乎最高位. longword 分三种情况讨论
+
+```C
+longword     : 1XXX XXXX  128 =< x <= 255
+longword     : 0XXX XXXX  0 < x < 128
+longword     : 0000 0000  x = 0
+```
+
+- 第一种 longword = 1XXX XXXX 
+
+    那么 ~longword = 0YYY YYYY 显然 ~ longword & himagic = 0000 0000 不用继续了.
+
+- 第二种 longword = 0XXX XXXX 且不为 0, 及不小于 1
+
+    显然 (longword - lomagic) = 0ZZZ ZZZ >= 0 且 < 127, 因为 lomagic = 1; 
+    此刻 (longword - lomagic) & himagic = 0ZZZ ZZZZ & 1000 0000 = 0 , 所以也不需要继续了.
+
+- 第三种 longword = 0000 0000
+
+    那么 ~longword & himagic = 1111 1111 & 1000 0000 = 1000 000;
+    再看 (longword - lomagic) = (0000 0000 - 0000 0001) , 由于无符号数减法是按照
+    (补码(0000 0000) + 补码(-000 0001)) = (补码(0000 0000) + 补码(~000 0001 + 1))
+    = (补码(0000 0000) + 补码(1111 1111)) = 1111 1111 (快捷的可以查公式得到最终结果),
+    因而 此刻最终结果为 1111 1111 & 1000 0000 = 1000 0000 > 0.
+
+综合讨论, 可以根据上面公式巧妙的筛选出值是否为 0.  对于 2字节, 4 字节, 8 字节, 思路完全相似. 
+
+**3.2 (sizeof (longword) > 4) ? (sizeof (longword) > 8) 为什么不用宏, 大展宏图呗 ?**
+
+宏可以做到多平台源码共享, 无法做到多平台二进制共享. glibc 这么通用项目, 可移植性影响因子可能会很重. (性能是毒酒, 想活的久还是少喝 ~ ) 
+
+**4. libc_hidden_builtin_def (strlen) ? 闹哪样 ~**
+
+解这个东西, 要引入些场外信息  (不同编译参数会不一样, 这里只抽取其中一条分支解法)
+
+```C
+// file : glibc-2.31/include/libc-symbols.h
+
+libc_hidden_builtin_def (strlen)
+
+#define libc_hidden_builtin_def(name) libc_hidden_def (name)
+
+# define libc_hidden_def(name) hidden_def (name)
+
+/* Define ALIASNAME as a strong alias for NAME.  */
+# define strong_alias(name, aliasname) _strong_alias(name, aliasname)
+# define _strong_alias(name, aliasname) \
+  extern __typeof (name) aliasname __attribute__ ((alias (#name))) \
+    __attribute_copy__ (name);
+
+/* For assembly, we need to do the opposite of what we do in C:
+   in assembly gcc __REDIRECT stuff is not in place, so functions
+   are defined by its normal name and we need to create the
+   __GI_* alias to it, in C __REDIRECT causes the function definition
+   to use __GI_* name and we need to add alias to the real name.
+   There is no reason to use hidden_weak over hidden_def in assembly,
+   but we provide it for consistency with the C usage.
+   hidden_proto doesn't make sense for assembly but the equivalent
+   is to call via the HIDDEN_JUMPTARGET macro instead of JUMPTARGET.  */
+#  define hidden_def(name)    strong_alias (name, __GI_##name)
+
+/* Undefine (also defined in libc-symbols.h).  */
+#undef __attribute_copy__
+#if __GNUC_PREREQ (9, 0)
+/* Copies attributes from the declaration or type referenced by
+   the argument.  */
+# define __attribute_copy__(arg) __attribute__ ((__copy__ (arg)))
+#else
+# define __attribute_copy__(arg)
+#endif
+```
+
+利用上面宏定义, 进行展开  
+
+```C
+libc_hidden_builtin_def (strlen)
+|
+hidden_def (strlen)
+|
+strong_alias (strlen, __GI_strlen)
+|
+_strong_alias (strlen, __GI_strlen)
+|
+extern __typeof (strlen) __GI_strlen __attribute__ ((alias ("strlen"))) __attribute_copy__ (strlen);
+|
+extern __typeof (strlen) __GI_strlen __attribute__ ((alias ("strlen"))) __attribute__ ((__copy__ (strlen)));
+```
+
+其中 GUN C 扩展语法
+
+- __typeof (arg) : 获取变量的声明的类型
+- __attribute__ ((__copy__ (arg))) : GCC 9 以上版本 attribute copy 复制特性
+- alias_name __attribute__ ((alias (name))) : 为 name 声明符号别名 alias name.
+ 
+总结:  libc_hidden_builtin_def (strlen) 意思是基于 strlen 符号, 重新定义一个符号别名 __GI_strlen. (@see strong_alias 注释)
+
+strlen 工程代码有很多种, 我们这里选择一个通用 glibc 版本去思考和分析. 有兴趣可以自行查阅更多. 做人嘛开心最重要 ~
+
+## 2.6 展望
 
 ***
 
