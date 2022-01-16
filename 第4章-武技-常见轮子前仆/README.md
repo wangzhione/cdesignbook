@@ -1,64 +1,60 @@
 # 第4章-武技-常见轮子前仆
 
-        本章是关于系统中常见轮子的介绍. 构建框架中最基础最简单的组件. 算是咱们战斗过程中
-    的生命线. 定位是筑基期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套路. 
-    最大程度的发挥筑基的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场上苟延残
-    喘的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
+本章是关于系统中常见轮子的介绍. 构建框架中最基础最简单的组件. 保障咱们'战斗'过程中的生命线. 定位是练气期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套路的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场上能苟住能偷袭的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
 
 ## 4.1 那些年写过的日志库
 
-        用过太多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最
-    后展示核心代码不足 20 行的日志库, 来表达一切所要的美好 ~ 越简单越优美越让人懂的代
-    码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎
-        1' 缓存
-        2' 无锁
-        3' 定位
-    随后会对这个日志武技轮子, 深入剖析.
+用过很多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最后展示核心代码不足 20 行的日志库, 来追求最简单的美好. 越简单越优美越让人懂的代码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎 
+
+- 1' 缓存
+- 2' 无锁
+- 3' 定位
+
+那开始对这个日志武技轮子, 深入剖析.
 
 ### 4.1.1 小小日志库
 
-    先看接口 clog.h 设计部分, 感受几个宏解决一切幺蛾子的玄幻.
+先看接口 **log.h** 设计部分, 感受几个宏横扫幺蛾子的玄幻.
 
 ```C
-#ifndef _LOG_H
-#define _LOG_H
+#pragma once
 
-#include "times.h"
 #include <stdlib.h>
 #include <stdarg.h>
 
+#include "times.h"
+
 //
-// LOG_PRINTF - 拼接构建输出的格式串
-// pre      : 日志前缀串必须 "" 包裹
-// fmt      : 自己要打印的串, 必须 "" 包裹
-// return   : void
+// LOG_PRINTF - 构建拼接输出的格式串
+// pre        : 日志前缀串必须 "" 包裹
+// fmt        : 自己要打印的串, 必须 "" 包裹
+// return     : void
 //
 #define LOG_PRINTF(pre, fmt, ...)   \
 log_printf(pre"[%s:%s:%d]"fmt"\n", __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
 //
-// log 有些朴实, 也许极快 ~
+// log 有些朴实, 迅速 ~
 //
 #define LOG_ERROR(fmt, ...) LOG_PRINTF("[ERROR]", fmt, ##__VA_ARGS__)
 #define LOG_INFOS(fmt, ...) LOG_PRINTF("[INFOS]", fmt, ##__VA_ARGS__)
-#ifdef _DEBUG
+#ifndef NDEBUG
 #define LOG_DEBUG(fmt, ...) LOG_PRINTF("[DEBUG]", fmt, ##__VA_ARGS__)
 #else
 #define LOG_DEBUG(fmt, ...) /*  (^_−)☆ */
 #endif
 
 //
-// log_printf - 具体输出的日志内容
-// fmt      : 必须 "" 包裹的串
-// ...      : 对映 fmt 参数
-// return   : void
+// log_printf - 日志输出
+// fmt        : 必须 "" 包裹的串
+// ...        : 对映 fmt 参数
+// return     : void
 //
-void log_printf(const char * fmt, ...);
+void log_printf(const char * fmt, ...) __attribute__((format(printf, 1, 2))) ;
 
-#endif//_LOG_H
 ```
 
-    clog.h 继承自 times.h, 唯一依赖的是其中 times_fmt 接口, 用于得到特定时间格式串.
+**log.h** 继承自 **times.h**, 唯一依赖的是其中 **times_fmt** 接口. 协助得到特定时间格式串, 填充到日志的头部.  
 
 ```C
 // TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
@@ -66,10 +62,10 @@ void log_printf(const char * fmt, ...);
 
 //
 // times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt          : 推荐遵循 TIMES_STR 意图
-// out          : 最终保存的内容
-// sz           : buf 长度
-// return       : 返回生成串长度
+// fmt      : 推荐遵循 TIMES_STR 意图
+// out      : 最终保存的内容
+// sz       : buf 长度
+// return   : 返回生成串长度
 //
 int
 times_fmt(const char * fmt, char out[], size_t sz) {
@@ -77,32 +73,32 @@ times_fmt(const char * fmt, char out[], size_t sz) {
     struct timespec s;
 
     timespec_get(&s, TIME_UTC);
-    localtime_r(&s.tv_sec, &m);
+    localtime_get(&m, s.tv_sec);
 
     return snprintf(out, sz, fmt,
                     m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
                     m.tm_hour, m.tm_min, m.tm_sec,
-                    (int)s.tv_nsec / 1000000);
+                    (int)(s.tv_nsec / 1000000));
 }
 ```
 
-    填充到日志的头部进行标识. 日志库小小核心构造源码展开:
+日志库小小核心构造源码 **log.c** 展开:
 
 ```C
 #include "log.h"
 
-static FILE * log;
+static FILE * txt;
 
 // log_init - 单例, 日志库初始化
 void log_init(const char * path) {
-    if (!(log = fopen(path, "ab"))) {
+    if (!(txt = fopen(path, "ab"))) {
         fprintf(stderr, "fopen ab path err %s\n", path);
         exit(EXIT_FAILURE);
     }
 }
 
 //
-// log_printf - 具体输出的日志内容
+// log_printf - 日志输出
 // fmt      : 必须 "" 包裹的串
 // ...      : 对映 fmt 参数
 // return   : void
@@ -111,24 +107,25 @@ void
 log_printf(const char * fmt, ...) {
     va_list ap;
     // 每条日志大小, 按照系统缓冲区走
-    char str[BUFSIZ];
-    int len = times_fmt("["TIMES_STR"]", str, sizeof str);
+    char buf[BUFSIZ];
+    int n = times_fmt("["TIMES_STR"]", buf, sizeof buf);
 
     // 填入日志内容
     va_start(ap, fmt);
-    vsnprintf(str + len, sizeof str - len, fmt, ap);
+    vsnprintf(buf + n, sizeof buf - n, fmt, ap);
     va_end(ap);
 
     // 数据交给文件缓存层
-    fputs(str, log);
+    fputs(buf, txt);
 }
+
 ```
 
-	其中 log_init 可以通过 EXTERN_RUN 在 main 中初始化注册.
+其中 log_init 可以通过 EXTERN_RUN 在 main 中初始化注册.
 
 ```C
 //
-// EXTERN_RUN - 简单声明, 并立即使用的宏
+// EXTERN_RUN - 函数包装宏, 声明并立即使用
 // frun     : 需要执行的函数名称
 // ...      : 可变参数, 保留
 //
@@ -141,14 +138,11 @@ do {                                                   \
 EXTERN_RUN(log_init, LOG_PATH_STR);
 ```
 
-    是不是很恐怖, 一个日志库这就完了. fputs 是系统库输出函数, 默认自带缓冲机制. 缓冲说
-    白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇, 自带文件锁. 有兴趣
-    的可以详细研究 printf, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业
-    务了! 也就是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
+是不是很恐怖, 一个日志库这就完了. fputs 是系统库输出函数, 默认自带缓冲机制. 缓冲说白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇, 自带文件锁. 有兴趣的可以详细研究 **printf**, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业务了! 也就是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
 
 ### 4.1.2 小小 VT 二连
 
-    先构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 切换到 linux 平台. 依次看下去
+先构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 切换到 Linux 平台. 依次看下去
 
 ```C
 #include <stdio.h>
@@ -163,7 +157,7 @@ EXTERN_RUN(log_init, LOG_PATH_STR);
 int main(int argc, char * argv[]) {
     FILE * log = fopen(PATH_STR, "ab");
     if (NULL == log) {
-        fputs("fopen ab err path = "PATH_STR "!\n", stderr);
+        fputs("fopen ab err =%d, path = " PATH_STR "!\n", errno, stderr);
         exit(EXIT_FAILURE);
     }   
     
@@ -179,7 +173,7 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    顺带给个编译文件 Makefile
+顺带给个编译文件 Makefile
 
 ```C
 .PHONY : all clean
@@ -195,13 +189,11 @@ simplec.exe : simplec.c
     gcc -g -Wall -O2 -o $@ $^
 ```
 
-    通过 make 得到 simplec.exe 运行起来, 就开始持续在日志文件中输出. 有关试炼场的环境
-	已经搭建完成. 那么是时候主角 T logrotate 出场了. 很久前在 centos 测试构建过看图:
+通过 make 得到 simplec.exe 运行起来, 就开始持续在日志文件中输出. 有关试炼场的环境已经搭建完成. 那么是时候主角 **logrotate** 出场了. 很久前在 centos 测试构建过看图:
 
 ![logrotate](./img/logrotate.png)
 
-    安装好 logrotate 和 crontabs 工具, 那么日志轮询器就能够开始使用了. 推荐自己查相
-    关手册, 我这里只带大家弄个简单 Demo. Ok 开始搞起来, 看下面所做的 shell 批处理:
+安装好 logrotate 和 crontabs 工具, 那么日志轮询器就能够开始使用了. 推荐自己查相关手册, 我这里只带大家弄个简单 Demo. Ok 开始搞起来, 看下面所做的 shell 批处理:
 
 ```Bash
 su root
@@ -235,181 +227,98 @@ Esc
 logrotate -vf /etc/logrotate.d/simplec
 ```
 
-	copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失
-    那一瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识
-    . 最终所搭建的环境:
+copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失那一瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识. 最终所搭建的环境:
 
 ![logrotate log](./img/createlog.png)
 
-    如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双脚的主场. 如果没有那么是时候 -> 
-	冲冲冲, 四驱兄弟在心中 ~ 以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器
-    了, 例如 crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库
-    实战架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的
-    套路, 知彼知己才能舒心喝酒 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 
-    这类日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会
-    将业务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库
-    可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有
-    . 个人看法他很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 
-    fflush 的系统层面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依
-    赖对象池. 一环套一环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大
-    了, 还容易琢磨不透. 到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库
-    为什么高效. 记住
-	    1' 无锁编程, 利用 fprintf IO 锁
-	    2' fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
-	    3' 各司其职, 小小日志库只负责写, 其他交给系统层面最合适的工具搞. 定位单一
+如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双手双脚的主场. 如果没有那么是时候 -> 冲冲冲, 四驱兄弟在心中 ~ 
+
+以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器了, 例如 crontabs 等等以后的事情那就留给以后自己做吧 ~ 以上就是最精简的优质日志库实战架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路, 知彼知己才能舒心喝酒 ~ 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看法它很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
+	    
+- 1' 无锁编程, 利用 fprintf IO 锁
+- 2' fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
+- 3' 各司其职, 小小日志库只负责写, 其他交给系统层面最合适的工具搞. 定位单一
+
+随着日志业务和日志库接触多了, 我们决策时候, 首先基于日志业务**定位**, 承载和联动的**功能**. 选择或者构建出当下很合适, 满足核心需求, 就很不错 ~   
 
 ## 4.2 开胃点心, 高效随机数库
 
-        为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便
-    嫌弃系统 rand 函数不够快和安全. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定
-    了人类模拟未知的一种可能. 顺带扯一点概率分析学上一种神奇的事情是: "概率为 0 的事情,
-    也可能发生 ~". 还是有点呵呵(非标准分析中可能有答案). 数学的本源不是为了解决具体遇到
-    问题, 多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈
-    里·佩雷尔曼]渡劫真君, 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 
-    redis 源码上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息
-    . 哭 ~ 首先看接口设计.
+为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便嫌弃系统 rand 函数不够安全并且低效. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人类模拟未知的一种可能. 随机和概率非常有意思, 在概率分析学上一种神奇的常识是: "概率为 0 的事情, 也可能发生 ~". 还是有点呵呵(非标准分析中可能有答案). 数学的诞生与推动不是为了解决具体遇到问题, 多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷尔曼]渡劫真君(注: 渡劫 > 化神), 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息, 哭 ~ 首先看 **rand.h** 接口设计.
 
 ```C
-#ifndef _RAND_H
-#define _RAND_H
+#pragma once
 
-//
-// 线程安全的 rand 库, by redis
-//
-
-#include <time.h>
 #include <stdint.h>
 #include <assert.h>
 
+//
+// 传承(抄袭)不灭(创新) rand 库
+// 大体思路 
+//  { r | r[n+1] = (a*r[n] + c) mod m
+//      , n >= 0
+//      , m = 0xFFFFFFFFFFFF = 2 ^ 48
+//      , a = 0x0005DEECE66D = 0x5DEECE66D,
+//      , c = 0x000B         = 0xB
+//  }
+//
 struct rand {
-    uint32_t x[3];
-    uint32_t a[3];
+    uint32_t x0, x1, x2;
+    uint32_t a0, a1, a2;
     uint32_t c;
 };
 
 typedef struct rand rand_t[1];
 
-#define X0              (0x330E)
-#define X1              (0xABCD)
-#define X2              (0x1234)
-#define A0              (0xE66D)
-#define A1              (0xDEEC)
-#define A2              (0x0005)
-#define C               (0x000B)
-
-#define N               (16)
-#define MASK            ((1 << N) - 1)
-#define LOW(x)          ((unsigned)(x) & MASK)
-#define HIGH(x)         LOW((x) >> N)
+//
+// rand_init - 随机函数对象初始化种子
+// r         : 随机函数对象
+// seed      : 种子数
+// return    : void
+//
+extern void rand_init(rand_t r, int64_t seed);
 
 //
-// rand_init - 随机函数初始化种子方法
-// r        : 随机函数对象
-// seed     : 种子数
-// return   : void
+// rand_get  - 获取一个随机值
+// r         : 随机函数对象
+// return    : 返回 [0, INT32_MAX] 随机数
 //
-inline void rand_init(rand_t r, int64_t seed) {
-    r->x[0] = X0; r->x[1] = LOW(seed); r->x[2] = HIGH(seed);
-    r->a[0] = A0; r->a[1] = A1; r->a[2] = A2;
-    r->c = C;
-}
+extern int32_t rand_get(rand_t r);
 
 //
-// rand_rand - 获取一个随机值
-// r        : 随机函数对象
-// return   : 返回 [0, INT32_MAX] 随机数
-//
-extern int32_t rand_rand(rand_t r);
-
-//
-// r_rand  - 得到 [0, INT32_MAX] 随机数
-// r_randk - 得到一个 64 位的 key
-// r_rands - 得到 [min, max] 范围内随机数
+// r_rand - 得到 [0, INT32_MAX] 随机数
+// r_ranb - 得到 [0, INT64_MAX] (int64 = big int32) 随机数
+// r_rang - 得到 range [min, max] 随机数
 //
 extern int32_t r_rand(void);
 
-inline int64_t r_randk(void) {
-    uint64_t x = ((r_rand() << N) ^ r_rand()) & INT32_MAX;
-    uint64_t y = ((r_rand() << N) ^ r_rand()) & INT32_MAX;
-    return ((x << 2 * N) | y) & INT64_MAX;
-}
+extern int64_t r_ranb(void);
 
-inline int32_t r_rands(int32_t min, int32_t max) {
-    assert(max > min);
+inline int32_t r_rang(int32_t min, int32_t max) {
+    assert(max >= min);
     return r_rand() % (max - min + 1) + min;
 }
 
-#endif//_RAND_H
 ```
 
-    最核心是 rand_rand 函数实现, 小阅读理解来了, 感受下离散数学的魅力
+其中工程实现用到离散数学原理, 感兴趣同学可以查阅源码, 网上搜相关原理解释文章, 我们不做过多介入, 也介入不好. 我们宗旨是重工程部分, 培养开发工程师工程能力. 也没法介入研发工程师培养. 我们的小册子为什么成篇的刷代码? 主要是让你一个个对着敲到你的本地, 培养手感, 当然如果找出作者错误 ~ 非常的感谢 ❤ 
 
-rand.c
+其实我们写的也是个伪随机数, 它算法核心依赖前期输入种子. **seed** 种子确定了, 算法输出值就确定了, 反过来有特别多算法输出值也能够模拟出种子 **seed**, 这就是伪随机由来.
 
 ```C
-#include "rand.h"
-
-#define CARRY(x, y)     ((x + y) > MASK) // 基于 16位判断二者和是否进位
-#define ADDRQ(x, y, z)  (z = CARRY(x, y), x = LOW(x + y))
-
-#define MUL(l, x, y, z) l = (x) * (y); z[0] = LOW(l); z[1] = HIGH(l)
-
-inline void rand_next(rand_t r) {
-    uint32_t l, p[2], q[2], s[2], c[2];
-
-    MUL(l, r->a[0], r->x[0], p);
-    ADDRQ(p[0], r->c, c[0]);
-    ADDRQ(p[1], c[0], c[1]);
-    MUL(l, r->a[0], r->x[1], q);
-    ADDRQ(p[1], q[0], c[0]);
-    MUL(l, r->a[1], r->x[0], s);
-
-    l = c[0] + c[1] + CARRY(p[1], s[0]) + q[1] + s[1] + 
-        r->a[0] * r->x[2] + r->a[1] * r->x[1] + r->a[2] * r->x[0];
-    r->x[2] = LOW(l);
-    r->x[1] = LOW(p[1] + s[0]);
-    r->x[0] = LOW(p[0]);
-}
-
 //
-// rand_rand - 获取一个随机值
-// r        : 随机函数对象
-// return   : 返回 [0, INT32_MAX] 随机数
+// rand_init - 随机函数对象初始化种子
+// r         : 随机函数对象
+// seed      : 种子数
+// return    : void
 //
-inline int32_t 
-rand_rand(rand_t r) {
-    rand_next(r);
-    return (r->x[2] << (N - 1)) + (r->x[1] >> 1);
-}
-
-//
-// 我 - 想云, 因为不甘心 :0
-//
-static rand_t r_r = { { { X0, X1, X2 }, { A0, A1, A2 }, C } };
-
-// EXTERN_RUN(r_init) 启动初始化
-extern inline void r_init(void) {
-    rand_init(r_r, time(NULL));
-}
-
-//
-// r_rand  - 得到 [0, INT32_MAX] 随机数
-// r_randk - 得到一个 64 位的 key
-// r_rands - 得到 [min, max] 范围内随机数
-//
-inline int32_t 
-r_rand(void) {
-    return rand_rand(r_r);
+inline void rand_init(rand_t r, int64_t seed) {
+    r->x0 = X0; r->x1 = LOW(seed); r->x2 = HIGH(seed);
+    r->a0 = A0; r->a1 = A1; r->a2 = A2;
+    r->c = C;
 }
 ```
 
-    (为什么成篇的刷代码, 方便你一个个对着敲到你的电脑中, 也方便你找出作者错误 ~) 代码都
-	懂, rand_next 运算复杂点. 之后靠看自己悟了, 毕竟世界也是咱们的. r_randk, 
-    r_rands 思路很浅显分别根据位随机和区间范围. 从上面 r_r 能够看出来随机函数并不是线
-    程安全的. 在多线程环境中就会出现未知行为(至少咱们不清楚). 这样也很有意思, 毕竟不可
-    控的随机才会有点真随机味道吧? 同样我们也提供了 rand_rand 这种线程安全的伪随机函数.
-    不怕折腾可以把上面代码直接刷到你的项目中, 解决随机数的平台无关性 ~ 目前多平台测试良
-    好.
+代码整体解决随机数库的平台无关性 ~ 目前多平台测试良好.
 
 ```C
 /*
@@ -448,7 +357,7 @@ r_rand(void) {
  */
 ``` 
 	
-    到这基本前戏做的够足了. 这里不妨带大家去武当山抓个宝宝.
+有了这些信息, 前戏做的够足了, 这里不妨带大家去武当山抓个宝宝.
 
 ```C
 #include <stdio.h>
@@ -513,8 +422,7 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-	可以将 R_INT 修改为 (1024) 最终得到结果也是一样. 因为抓到了 window 平台上面 
-    rand() 伪随机函数的周期 G 点. 希望大家玩的开心.
+可以将 R_INT 修改为 (1024) 最终得到结果也是一样. 因为抓到了 window 平台上面 rand() 伪随机函数的周期 G 点. 希望大家玩的开心.
 
 ![rand T](./img/rand.png)
 

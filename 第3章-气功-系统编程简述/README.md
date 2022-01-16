@@ -1181,13 +1181,15 @@ inline int timer_list_id() {
     int id = atomic_fetch_add(&timer.id, 1) + 1;
     if (id < 0) {
         // INT_MAX + 1 -> INT_MIN
-        // 0x01 11 11 11 + 1 -> 0x10 00 00 00
+        // 0x7F FF FF FF + 1 -> 0x80 00 00 00
 
-        // INT_MIN + 1 -> -INT_MAX
-        // 0x10 00 00 00 + 1 -> 0x10 00 00 01
-        atomic_fetch_add(&timer.id, 1);
-        // -INT_MAX & INT_MAX => 0x10 00 00 01 & 0x01 11 11 11 => 0x00 00 00 01
-        id = atomic_fetch_and(&timer.id, INT_MAX) & INT_MAX;
+        // INT_MIN & INT_MAX => 0x80 00 00 00 & 0x7F FF FF FF => 0x00 00 00 00
+        // id = atomic_fetch_and(&timer.id, INT_MAX) & INT_MAX;
+        // Multiple operations atomic_fetch_and can ensure timer.id >= 0
+        atomic_fetch_and(&timer.id, INT_MAX);
+
+        // again can ensure id >= 1
+        id = atomic_fetch_add(&timer.id, 1) + 1;
     }
     return id;
 }
@@ -1324,19 +1326,21 @@ inline int timer_list_id() {
     int id = atomic_fetch_add(&timer.id, 1) + 1;
     if (id < 0) {
         // INT_MAX + 1 -> INT_MIN
-        // 0x01 11 11 11 + 1 -> 0x10 00 00 00
+        // 0x7F FF FF FF + 1 -> 0x80 00 00 00
 
-        // INT_MIN + 1 -> -INT_MAX
-        // 0x10 00 00 00 + 1 -> 0x10 00 00 01
-        atomic_fetch_add(&timer.id, 1);
-        // -INT_MAX & INT_MAX => 0x10 00 00 01 & 0x01 11 11 11 => 0x00 00 00 01
-        id = atomic_fetch_and(&timer.id, INT_MAX) & INT_MAX;
+        // INT_MIN & INT_MAX => 0x80 00 00 00 & 0x7F FF FF FF => 0x00 00 00 00
+        // id = atomic_fetch_and(&timer.id, INT_MAX) & INT_MAX;
+        // Multiple operations atomic_fetch_and can ensure timer.id >= 0
+        atomic_fetch_and(&timer.id, INT_MAX);
+
+        // again can ensure id >= 1
+        id = atomic_fetch_add(&timer.id, 1) + 1;
     }
     return id;
 }
 ```
 
-**timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思. 多想多实践.
+**timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思. 多想想多实操.
 
 ```C
 拓展举例, int 4 字节 32 位二进制(补码), 最终值计算公式如下, 多细品
