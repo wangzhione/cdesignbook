@@ -704,21 +704,16 @@ ret_out:
 
 红黑树代码是非线性的, 需要一点看材料的功夫. 就当扩展视野, 吸收成自己的代码库. 写代码很多时候要同姑苏慕容学习, 以彼之道还治彼身. 这里关于红黑树的梗过去了, 飞云逐日, 不如, 一切安好 ~ 
 
-其实我们不是写不出来, 而是想不出来这么巧妙数学结构. 真实实战中, 是走宏模板机制. 这本小册子实现的 list, red black tree 更多是学习机制, 距离实战还是不漂亮. 如果有第二版我们细致简单构造相关例子, 例如 list 库是否需要我们需要讨论讨论等等. 但其中设计思路学习和消化还是大有益处的. 同样对于红黑树, 跳表, 能看懂就好, 不要求能手写, 因为那些代码一直在哪里, 不用和科研的抢活, 毕竟分工不一样. 开发工程师是实施, 是拿来主义的匠人. 
+其实我们不是写不出来, 而是想不出来这么巧妙数学结构. 真实实战中, 是走宏模板机制. 这本小册子实现的 list, red black tree 更多是学习机制, 距离实战还是不漂亮. 不漂亮根源在于 C 很难抽离业务通用库. 如果有第二版我们细致简单构造相关例子, 例如 list 库是否需要我们需要讨论讨论等等. 但其中设计思路学习和消化还是大有益处的. 同样对于红黑树, 跳表, 能看懂就好, 不要求能手写, 因为那些代码一直在哪里, 不用和科研的抢活, 毕竟分工不一样. 开发工程师是实施, 是拿来主义的匠人. 
 
 ## 5.2 dict
 
-        趁热打铁 map -> dict. 红黑树是上层 map 库的实现基石, 同样另一种相似的查找库 
-    dict, 有时候采用的是 hash 桶算法去实现, 综合查找性能高于 map. 主要应用场景是通过
-    key -> value 映射查找业务操作. 由于应用场景更多, 我们带大家走遍形式, 直接看接口设
-    计 dict.h
+趁热打铁 map -> dict. 红黑树是上层 map 库的实现基石, 同样另一种相似的查找库 dict, 有时候采用的是 hash 桶算法去实现, 综合查找性能高于 map. 主要应用场景是通过 key -> value 映射查找业务操作. 由于应用场景更多, 我们带大家走遍形式, 直接看接口设计 **dict.h**
 
 ```C
-#ifndef _DICT_H
-#define _DICT_H
+#pragma once
 
 #include "struct.h"
-#include "strext.h"
 
 //
 // dict_t - C 字符串为 key 的字典结构
@@ -737,7 +732,7 @@ extern void dict_delete(dict_t d);
 // fdie     : node_f 销毁行为
 // return   : dict_t
 //
-extern dict_t dict_create(node_f fdie);
+extern dict_t dict_create(void * fdie);
 
 //
 // dict_get - 获取字典中对映的 v
@@ -755,15 +750,14 @@ extern void * dict_get(dict_t d, const char * k);
 // return   : void
 //
 extern void dict_set(dict_t d, const char * k, void * v);
-
-#endif//_DICT_H
 ```
 
-    内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那开始实
-    现意图剖析, 来看 dict 内功的气海结构.
+内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那开始实现意图剖析, 来看 dict 内功的气海结构.
 
 ```C
 #include "dict.h"
+
+#define DICT_INIT_UINT (1u<<6)
 
 struct keypair {
     struct keypair * next;
@@ -773,7 +767,7 @@ struct keypair {
 };
 
 // keypair_delete - 销毁结点数据
-inline void keypair_delete(node_f fdie, struct keypair * pair) {
+inline void keypair_delete(struct keypair * pair, node_f fdie) {
     if (pair->val && fdie)
         fdie(pair->val);
     free(pair);
@@ -792,71 +786,59 @@ inline struct keypair * keypair_create(unsigned hash,
 
 struct dict {
     node_f fdie;                // 结点注册的销毁函数
-    unsigned idx;               // 使用 _primes 质数表索引
     unsigned used;              // 用户已经使用的结点个数
-    struct keypair ** table;    // size = primes[idx][0]
+    unsigned size;              // 结点容量
+    struct keypair ** table;    // 集合
 };
 ```
 
-    dict::table 就是我们的 keypair 池子, 存放所有 struct keypair 结构. 如果冲突了
-    , 那就向 keypair::next 链式结构中接着插入. 如果池子满了, 那就重新挖一个大点的池子
-    , 重新调整所有关系. 这就是核心思想! 不妨详细看看池子漫了的时候的策略.
+dict::table 就是我们的 keypair 池子, 存放所有 struct keypair 结构. 如果冲突了, 那就向 keypair::next 链式结构中接着插入. 如果池子满了, 那就重新挖一个大点的池子, 重新调整所有关系. 这就是核心思想! 不妨详细看看池子漫了的时候的策略.
 
 ```C
-//
-// primes - 质数表
-//
-const unsigned primes[][2] = {
-    { (1<<6)-1  ,         53 },
-    { (1<<7)-1  ,         97 },
-    { (1<<8)-1  ,        193 },
-    { (1<<9)-1  ,        389 },
-    { (1<<10)-1 ,        769 },
-    { (1<<11)-1 ,       1543 },
-    { (1<<12)-1 ,       3079 },
-    { (1<<13)-1 ,       6151 },
-    { (1<<14)-1 ,      12289 },
-    { (1<<15)-1 ,      24593 },
-    { (1<<16)-1 ,      49157 },
-    { (1<<17)-1 ,      98317 },
-    { (1<<18)-1 ,     196613 },
-    { (1<<19)-1 ,     393241 },
-    { (1<<20)-1 ,     786433 },
-    { (1<<21)-1 ,    1572869 },
-    { (1<<22)-1 ,    3145739 },
-    { (1<<23)-1 ,    6291469 },
-    { (1<<24)-1 ,   12582917 },
-    { (1<<25)-1 ,   25165843 },
-    { (1<<26)-1 ,   50331653 },
-    { (1<<27)-1 ,  100663319 },
-    { (1<<28)-1 ,  201326611 },
-    { (1<<29)-1 ,  402653189 },
-    { (1<<30)-1 ,  805306457 },
-    { UINT_MAX  , 1610612741 },
-};
+static unsigned dict_get_resize(struct dict * d) {
+    unsigned used = d->used;
+    unsigned size = d->size;
+
+    // 看数据是否需要扩张
+    if (used >= size) {
+        return size << 1;
+    }
+
+    // 数据收缩, 拍脑门算法
+    while (used < (size >> 2) && size > DICT_INIT_UINT) {
+        size >>= 1;
+    }
+
+    // 没有变化数据不用管
+    return 0;
+}
 
 static void dict_resize(struct dict * d) {
-    unsigned size, prime, i;
+    unsigned used = 0;
     struct keypair ** table;
-    unsigned used = d->used;
 
-    if (used < primes[d->idx][0])
+    // 看是否需要收缩
+    unsigned size = dict_get_resize(d);
+    if (size == 0u) {
         return;
+    }
     
     // 构造新的内存布局大小
-    size = primes[d->idx][1];
-    prime = primes[++d->idx][1];
-    table = calloc(prime, sizeof(struct keypair *));
+    table = calloc(size, sizeof(struct keypair *));
 
     // 开始转移数据
-    for (i = 0; i < size; ++i) {
+    for (unsigned i = 0; i < d->size && d->used > used; i++) {
         struct keypair * pair = d->table[i];
         while (pair) {
             struct keypair * next = pair->next;
-            unsigned index = pair->hash % prime;
+
+            // 取余
+            unsigned index = pair->hash & (size - 1);
 
             pair->next = table[index];
             table[index] = pair;
+            ++used;
+
             pair = next;
         }
     }
@@ -864,30 +846,18 @@ static void dict_resize(struct dict * d) {
     // table 重新变化
     free(d->table);
     d->table = table;
+    d->size = size;
 }
 ```
 
-    dict_resize 中选择了 calloc prime 和 pair->hash % prime 写法. 还有种技巧是
+dict_resize 中选择了取 2 的幂大小当做 table 容量去操作. 这样写优势在于, 可以用 & 替代 % 运算. 减少运算指令. 存在的隐患就是 hash 取余的不够随机导致最终池子中数据分布不均, 依赖链表解冲突. 也有选取了素数表, 希望减少冲突, 提升性能. 接着看 dict_resize 做的工作, 判断容量是否够, 不够开始重构 table. 有了这些可以看看 dict 的 delete 和 create 操作实现.
 
 ```C
-// init
-unsigned prime = 1<<6; 
+void dict_delete_partial(dict_t d) {
+    free(d->table);
+    free(d);
+}
 
-// resize
-prime <<= 1;
-table = calloc(prime, sizeof(struct keypair *));
-
-// get
-unsigned index = pair->hash & (prime - 1);
-```
-
-    取 2 的幂大小当做 table 容量去操作. 这样写优势在于, 可以用 & 替代 % 运算. 减少运
-    算指令. 存在的隐患就是 hash 取余的不够随机导致最终池子中数据分布不均, 依赖链表解冲
-    突. 因而最终选取了素数表, 希望减少冲突, 提升性能. 接着看 dict_resize 做的工作, 
-    判断容量是否够, 不够开始重构 table. 有了这些可以看看 dict 的 delete 和 create
-    操作实现.    
-
-```C
 //
 // dict_delete - 字典删除
 // d        : dict_create 创建的字典对象
@@ -895,19 +865,18 @@ unsigned index = pair->hash & (prime - 1);
 //
 void 
 dict_delete(dict_t d) {
-    unsigned i, size;
-    if (NULL == d) return;
-    size = primes[d->idx][1];
-    for (i = 0; i < size; ++i) {
+    if (!d) return;
+
+    for (unsigned i = 0; i < d->size; i++) {
         struct keypair * pair = d->table[i];
         while (pair) {
             struct keypair * next = pair->next;
-            keypair_delete(d->fdie, pair);
+            keypair_delete(pair, d->fdie);
             pair = next;
         }
     }
-    free(d->table);
-    free(d);
+
+    dict_delete_partial(d);
 }
 
 //
@@ -916,22 +885,27 @@ dict_delete(dict_t d) {
 // return   : dict_t
 //
 inline dict_t 
-dict_create(node_f fdie) {
+dict_create(void * fdie) {
     struct dict * d = malloc(sizeof(struct dict));
-    unsigned size = primes[d->idx = 0][1];
     d->used = 0;
+    d->size = DICT_INIT_UINT;
     d->fdie = fdie;
     // 默认构建的第一个素数表 index = 0
-    d->table = calloc(size, sizeof(struct keypair *));
+    d->table = calloc(DICT_INIT_UINT, sizeof(struct keypair *));
     return d;
 }
 ```
 
-    聊到现在大家会发现, create and delete 都是成对出现. 命名很固定, 这是良好一种编码
-    态度, 创建和删除一定要做好. 特别是删除, 做人当如君子(伪君子也行). 有骨气. 渡人清风
-    , 知错能改, 不留坑. 苦练内功正能量(爱自己, 护亲人). 之后是获取字典中数据.
+聊到现在大家会发现, create and delete 都是成对出现. 命名很固定, 这是良好一种编码态度, 创建和删除一定要做好. 特别是删除, 不能留坑. 之后是获取字典中数据.
 
 ```C
+static unsigned SDBMHash(const char * k) {
+    register unsigned o,h = 0u;
+    while ((o = *k++))
+        h = o + h * 65599u;
+    return h;
+}
+
 //
 // dict_get - 获取字典中对映的 v
 // d        : dict_create 创建的字典对象
@@ -942,10 +916,10 @@ void *
 dict_get(dict_t d, const char * k) {
     unsigned hash, index;
     struct keypair * pair;
-    assert(NULL != d && k != NULL);
+    assert(d && k);
 
-    hash = str_hash(k);
-    index = hash % primes[d->idx][1];
+    hash = SDBMHash(k);
+    index = hash & (d->size - 1);
     pair = d->table[index];
 
     while (pair) {
@@ -958,10 +932,35 @@ dict_get(dict_t d, const char * k) {
 }
 ```
 
-    dict_get hash 之后 cmp 操作很普通. 随后 进入 dict 修炼最后一关, dict_set 操作
-    .
+dict_get hash 之后 cmp 操作很普通. 随后进入 dict 修炼最后一关, dict_set 操作.
 
 ```C
+void dict_del(dict_t d, const char * k) {
+    unsigned hash = SDBMHash(k);
+    unsigned index = hash & (d->size - 1);
+    struct keypair * pair = d->table[index];
+    struct keypair * prev = NULL;
+
+    while (pair) {
+        // 找见了数据
+        if (pair->hash == hash && !strcmp(pair->key, k)) {
+            // 删除操作
+            if (NULL == prev)
+                d->table[index] = pair->next;
+            else
+                prev->next = pair->next;
+
+            // 销毁结点并尝试缩减容量
+            keypair_delete(pair, d->fdie);
+            --d->used;
+            return dict_resize(d);
+        }
+
+        prev = pair;
+        pair = pair->next;
+    }
+}
+
 //
 // dict_set - 设置一个 <k, v> 结构
 // d        : dict_create 创建的字典对象
@@ -971,35 +970,27 @@ dict_get(dict_t d, const char * k) {
 //
 void 
 dict_set(dict_t d, const char * k, void * v) {
-    unsigned hash, index;
-    struct keypair * pair, * prev;
-    assert(NULL != d && k != NULL);
+    assert(d && k);
+
+    // 走删除分支
+    if (NULL == v) {
+        return dict_del(d, k);
+    }
 
     // 检查一下内存, 看是否要扩充
     dict_resize(d);
 
     // 开始寻找数据
-    hash = str_hash(k);
-    index = hash % primes[d->idx][1];
-    pair = d->table[index];
-    prev = NULL;
+    unsigned hash = SDBMHash(k);
+    unsigned index = hash & (d->size - 1);
+    struct keypair * pair = d->table[index];
 
     while (pair) {
         // 找见了数据
         if (pair->hash == hash && !strcmp(pair->key, k)) {
             // 相同数据直接返回什么都不操作
-            if (pair->val == v)
+            if (pair->val == v) {
                 return;
-
-            // 删除操作
-            if (NULL == v) {
-                if (NULL == prev)
-                    d->table[index] = pair->next;
-                else
-                    prev->next = pair->next;
-
-                // 销毁结点, 直接返回
-                return keypair_delete(d->fdie, pair);
             }
 
             // 更新结点
@@ -1009,54 +1000,41 @@ dict_set(dict_t d, const char * k, void * v) {
             return;
         }
 
-        prev = pair;
         pair = pair->next;
     }
 
     // 没有找见设置操作, 直接插入数据
-    if (NULL != v) {
-        pair = keypair_create(hash, v, k);
-        pair->next = d->table[index];
-        d->table[index] = pair;
-        ++d->used;
-    }
+    pair = keypair_create(hash, v, k);
+    pair->next = d->table[index];
+    d->table[index] = pair;
+    ++d->used;
 }
 ```
 
-    这里为 dict_set(d, k, NULL) 赋予新语义 dict_del 删除字典 k 操作. 单纯的 set 
-    操作仍然是三部曲 reset -> get -> set, 到这里 dict 完工了. 如果性能要求更高场
-    景可以 tree 和 hash 结合, 整体用 hash 局部冲突用 tree 替代 list. 是不是感觉很
-    简单, 苦练内功学什么都快. 类比奇遇太子张无忌 ~
+这里为 dict_set(d, k, NULL) 赋予新语义 dict_del 删除字典 k 操作. 单纯的 set 操作仍然是三部曲 reset -> get -> set, 到这里 dict 内核部分完工了, 更多的有兴趣可以翻阅更多代码. 如果性能要求更高场景可以 tree 和 hash 结合, 整体用 hash 局部冲突用 tree 替代 list. 当然真实底层库中比这些都复杂, 但都是这些基础概念和能力建构起来的, 苦练内功学什么都快. 类比奇遇太子张无忌 ~ 
 
 ## 5.3 来个队列吧
 
-        消息队列实战意义非凡, 基本偏 C 系列的开发中不是链表, 就是消息队列. 消息队列可
-    以比喻为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是消息队列作
-    用. 消息队列最大的功效是让异步编程变成同步并发. 说白了就是将异步程序变成顺序同步程序
-    . 开发起来很爽. 而在 C 中消息队列至高王的装逼是无锁, 而我们这里还是会老老实实带大家
-    用原子锁实现(不出错就是良). 大伙还记得 atom.h 吗? 金丹期之后的战斗, 无不是消息队
-    列领域的对撞. 随我打开简单的消息队列世界的传送门. 
+队列实战意义非凡, 基本偏 C 系列的开发中不是链表, 就是队列. 队列可以比喻为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是队列作用. 队列超好用的能力是让异步编程变成同步并发. 说白了就是将异步程序变成顺序同步程序. 不用考虑并发上资源冲突, 开发起来很爽. 而在 C 中队列至高王的装逼是无锁, 而我们这里还是会老老实实带大家用原子自旋锁实现(不出错至少是良). 大伙还记得 **stdatomic.h** 吗? 练气期之后的战斗, 无不是队列领域的对撞. 随我打开简单的队列世界的传送门. 
 
-### 5.3.1 简单队列
+### 5.3.1 简单版本队列
 
-	消息队列本质还是队列, 直白思路是通过动态循环数组和原子锁构建 pop 和 push. 凡事先看
-    接口, 熟悉起用法, 请阅 q.h
+普通队列数学本质是元素的先进先出. 我们实现采用直白思路是通过动态循环数组和原子锁构建 pop 和 push. 凡事先看接口, 熟悉起用法, 请阅 **q.h**
 
 ```C
-#ifndef _Q_H
-#define _Q_H
+#pragma once
 
 #include "struct.h"
 
 //
-// pop empty  <=> tail == -1 ( head == 0 )
-// push full  <=> head == (tail + 1) % size
+// pop empty <=> tail == -1 ( head == 0 )
+// push full <=> head == (tail + 1) % cap && tail >= 0
 //
 typedef struct q {
-    void ** queue;      // 队列实体
-    int size;           // 队列大小
-    int head;           // 头结点
-    int tail;           // 尾结点
+    int     head;       // 头结点
+    int     tail;       // 尾结点
+    int      cap;       // 队列容量
+    void ** data;       // 队列实体
 } q_t[1];
 
 //
@@ -1066,10 +1044,22 @@ typedef struct q {
 // Q_INT  - 队列初始大小, 必须是 2 的幂
 #define Q_INT     (1<< 6)
 inline void q_init(q_t q) {
-    q->queue = malloc(sizeof(void *) * Q_INT);
-    q->size = Q_INT;
-    q->head = 0;
+    q->data = malloc(sizeof(void *) * Q_INT);
+    q->cap = Q_INT;
+    q->head =  0;
     q->tail = -1;
+}
+
+inline void q_free(q_t q) {
+    free(q->data);
+}
+
+inline bool q_empty(q_t q) {
+    return q->tail < 0;
+}
+
+inline bool q_exist(q_t q) {
+    return q->tail >= 0;
 }
 
 //
@@ -1108,12 +1098,9 @@ extern void q_push(q_t q, void * m);
 //
 extern void q_delete(q_t q, node_f fdie);
 
-#endif//_Q_H
 ```
 
-    我写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满
-    , q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full
-    状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_delete 实现.
+我写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满, q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_delete 实现.
 
 ```C
 #include "q.h"
@@ -1127,22 +1114,20 @@ extern void q_delete(q_t q, node_f fdie);
 void 
 q_delete(q_t q, node_f fdie) {
     // 销毁所有对象
-    if (q->tail >= 0 && fdie) {
+    if (fdie && q_exist(q)) {
         for (;;) {
-            fdie(q->queue[q->head]);
+            fdie(q->data[q->head]);
             if (q->head == q->tail)
                 break;
-            q->head = (q->head + 1) & (q->size - 1);
+            q->head = (q->head + 1) & (q->cap - 1);
         }
     }
 
-    free(q->queue);
+    q_free(q);
 }
 ```
 
-    q->head == q->tail 是查找结束条件. 整个删除销毁操作, 等同于 array range. 重点
-    在于 q->head = (q->head + 1) & (q->size - 1); 找到数组下一个位置的索引. 那再
-    看看 q_pop 在队列中弹出元素.
+q->head == q->tail 是查找结束条件. 整个删除销毁操作, 等同于 array range. 重点在于 q->head = (q->head + 1) & (q->size - 1); 找到数组下一个位置的索引. 那再看看 q_pop 在队列中弹出元素.
 
 ```C
 //
@@ -1153,12 +1138,12 @@ q_delete(q_t q, node_f fdie) {
 void * 
 q_pop(q_t q) {
     void * m = NULL;
-    if (q->tail >= 0) {
-        m = q->queue[q->head];
+    if (q_exist(q)) {
+        m = q->data[q->head];
         if (q->tail != q->head)
-            q->head = (q->head + 1) & (q->size - 1);
+            q->head = (q->head + 1) & (q->cap - 1);
         else {
-            q->head = 0; // empty 情况, 重置 tail 和 head
+            q->head =  0; // empty 情况, 重置 tail 和 head
             q->tail = -1;
         }
     }
@@ -1166,23 +1151,21 @@ q_pop(q_t q) {
 }
 ```
 
-    q_push 操作包含了 q_expand 内存扩充操作, 用于内存重建, 同前面的 dict_resize 思
-    路相似. 此刻 q.c 实现部分 50 多行, 已经全部贴完了. 是不是觉得工程中用到的数据结构
-    也不过如此.   
+q_push 操作包含了 q_expand 内存扩充操作, 用于内存重建, 同前面的 dict_resize 思路相似. 此刻 q.c 实现部分 50 多行, 已经全部贴完了. 是不是觉得工程中用到的数据结构也不过如此.   
 
 ```C
 // q_expand - expand memory by twice
 static void q_expand(q_t q) {
-    int i, size = q->size << 1;
-    void ** p = malloc(sizeof(void *) * size);
-    for (i = 0; i < q->size; ++i)
-        p[i] = q->queue[(q->head + i) & (q->size - 1)];
-    free(q->queue);
+    int i, cap = q->cap << 1;
+    void ** p = malloc(sizeof(void *) * cap);
+    for (i = 0; i < q->cap; ++i)
+        p[i] = q->data[(q->head + i) & (q->cap - 1)];
+    free(q->data);
 
     // 重新构造内存关系
-    q->tail = q->size;
-    q->size = size;
-    q->queue = p;
+    q->tail = q->cap;
+    q->cap = cap;
+    q->data = p;
     q->head = 0;
 }
 
@@ -1194,31 +1177,29 @@ static void q_expand(q_t q) {
 // 
 void 
 q_push(q_t q, void * m) {
-    int tail = (q->tail + 1) & (q->size - 1);
+    int tail = (q->tail + 1) & (q->cap - 1);
     // 队列 full 直接扩容
     if (tail == q->head && q->tail >= 0)
         q_expand(q);
     else
         q->tail = tail;
-    q->queue[q->tail] = m;
+    q->data[q->tail] = m;
 }
 ```
 
-### 5.3.2 线程安全
+### 5.3.2 线程安全版本
 
-    看 q.h 实现也会发现, 他不是线程安全的. 并发的 push 和 pop 将未定义. 我们不妨将其
-    包装成线程安全的x消息队列 mq.h
+看 **q.h** 实现也会发现, 它不是线程安全的. 并发的 push 和 pop 将未定义. 我们不妨将其包装成线程安全的消息队列 **mq.h**
 
 ```C
-#ifndef _MQ_H
-#define _MQ_H
+#pragma once
 
 #include "q.h"
-#include "atom.h"
+#include "spinlock.h"
 
 struct mq {
-    q_t q;             // 队列
-    atom_t lock;       // 自旋锁
+    q_t       q;       // 队列
+    atomic_flag lock;  // 自旋锁
 };
 
 typedef struct mq * mq_t;
@@ -1242,7 +1223,7 @@ inline void mq_delete(mq_t q, node_f fdie) {
 inline mq_t mq_create(void) {
     struct mq * q = malloc(sizeof(struct mq));
     q_init(q->q);
-    q->lock = 0;
+    q->lock = (atomic_flag)ATOMIC_FLAG_INIT;
     return q;
 }
 
@@ -1252,9 +1233,9 @@ inline mq_t mq_create(void) {
 // return   : 若 mq empty return NULL
 //
 inline void * mq_pop(mq_t q) {
-    atom_lock(q->lock);
+    atomic_flag_lock(&q->lock);
     void * m = q_pop(q->q);
-    atom_unlock(q->lock);
+    atomic_flag_unlock(&q->lock);
     return m;
 }
 
@@ -1265,9 +1246,9 @@ inline void * mq_pop(mq_t q) {
 // return   : void
 //
 inline void mq_push(mq_t q, void * m) {
-    atom_lock(q->lock);
+    atomic_flag_lock(&q->lock);
     q_push(q->q, m);
-    atom_unlock(q->lock);
+    atomic_flag_unlock(&q->lock);
 }
 
 //
@@ -1275,88 +1256,40 @@ inline void mq_push(mq_t q, void * m) {
 // q        : 消息队列对象
 // return   : 返回消息队列长度
 //
-inline static int mq_len(mq_t q) {
-    int head, tail, size;
-    atom_lock(q->lock);
+extern inline int mq_len(mq_t q) {
+    int cap, head, tail;
+    atomic_flag_lock(&q->lock);
     if ((tail = q->q->tail) == -1) {
-        atom_unlock(q->lock);
+    atomic_flag_unlock(&q->lock);
         return 0;
     }
 
+    cap = q->q->cap;
     head = q->q->head;
-    size = q->q->size;
-    atom_unlock(q->lock);
+    atomic_flag_unlock(&q->lock);
 
     // 计算当前时间中内存队列的大小
     tail -= head - 1;
-    return tail>0 ? tail : tail+size;
+    return tail > 0 ? tail : tail+cap;
 }
 
-#endif//_MQ_H
 ```
 
-    不知道有没有同学好奇 mq_delete 为什么不是线程安全的? 这个是这样的, mq_delete 一
-    旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头
-    冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. 
-    mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略
-    . 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友
-    修炼 ~    
+不知道有没有同学好奇 **mq_delete** 为什么不是线程安全的? 这个是这样的, mq_delete 一旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~    
 
-### 5.3.3 队列拓展
+### 5.3.3 队列拓展小练习
 
-    本章已经轻微剧透了些元婴功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字
-    能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需
-    要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易
-    的解决方案 TLV. 首先定义消息结构.
+本章已经轻微剧透了些筑基功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的解决方案 TLV. 首先定义消息结构.
 
 ```C
-#ifndef _MSG_H
-#define _MSG_H
+#pragma once
 
 #include "struct.h"
-
-#ifdef _MSC_VER
-//
-// CPU 检测 x64 or x86
-// ISX64 defined 表示 x64 否则 x86
-//
-#  if defined(_M_ARM64) || defined(_M_X64)
-#    define ISX64
-#  endif
-//
-// _M_PPC 为 PowerPC 平台定义, 现在已不支持
-//
-#  if defined(_M_PPC)
-#    define ISBIG
-#  endif
-#else
-#  if defined(__x86_64__)
-#    define ISX64
-#  endif
-//
-// 大小端检测 : ISBENIAN defined 表示大端
-//
-#  if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
-#    define ISBIG
-#  endif
-#endif
-
-// small - 转本地字节序(小端)
-inline uint32_t small(uint32_t x) {
-#  ifndef ISBIG
-    return x;
-#  else
-    uint8_t t;
-    union { uint32_t i; uint8_t s[sizeof(uint32_t)]; }u = { x };
-    t = u.s[0]; u.s[0] = u.s[sizeof(u)-1]; u.s[sizeof(u)-1] = t;
-    t = u.s[1]; u.s[1] = u.s[sizeof(u)-2]; u.s[sizeof(u)-2] = t;
-    return u.i;
-#  endif
-}
+#include "system.h"
 
 //
 // msg_t 网络传输协议结构
-// sz -> type + len 网络字节序 -> data
+// sz -> type + len 本地小端字节序 -> data
 //
 typedef struct {
     // uint8_t type + uint24_t len + data[]
@@ -1372,6 +1305,18 @@ typedef struct {
 #define MSG_TYPE(sz)  (uint8_t)((uint32_t)(sz)>>24)
 #define MSG_LEN( sz)  ((uint32_t)(sz)&0xFFFFFF)
 #define MSG_SZ(t, n)  (((uint32_t)(uint8_t)(t)<<24)|(uint32_t)(n))
+
+// small - 转本地字节序(小端)
+inline uint32_t small(uint32_t x) {
+# ifdef ISBIG
+    uint8_t t;
+    uint8_t * p = (uint8_t *)&x;
+
+    t = p[0]; p[0] = p[3]; p[3] = t;
+    t = p[1]; p[1] = p[2]; p[2] = t;
+# endif
+    return x;
+}
 
 //
 // msg_create - msg 创建函数, send(fd, msg->data, msg->sz, 0)
@@ -1389,7 +1334,7 @@ inline static msg_t msg_create(const void * data, uint32_t len) {
     msg_t msg = malloc(sizeof(*msg) + sz);
     msg->sz = sz;
     
-    // type + len -> 协议值 -> 网络传输约定值
+    // sz -> type + len 本地小端字节序 -> data
     sz = MSG_SZ(0, len);
     sz = small(sz);
 
@@ -1409,18 +1354,12 @@ inline static void msg_delete(msg_t msg) {
     if (msg) free(msg);
 }
 
-#endif//_MSG_H
 ```
 
-    small 用于本地字节序转为小端字节序. 用于此消息一律走小端字节序的规则. 协议方面我们
-    采用 sz + data  构建 bit 流传输, 其中 sz = 8 bit type + 24 bit size. 用于
-    服务器和客户端基础通信协议. 其中 msg_create 主要将 data -> data + sz 
-     -> type size data 消息流构建过程, 代码比文字更有说服力. 这处代码很清晰好懂. 随
-    后分享的是 msg 切包部分, 不同人有不同见解, 这里纯当凑小怪兽, 辅助玩家提升经验 ~
+small 用于本地字节序转为小端字节序. 用于此消息一律走小端字节序的规则. 协议方面我们采用 sz + data  构建 bit 流传输, 其中 sz = 8 bit type + 24 bit size. 用于服务器和客户端基础通信协议. 其中 msg_create 主要将 data -> data + sz -> type size data 消息流构建过程, 代码比文字更有说服力. 这处代码很清晰好懂. 随后分享的是 msg 切包部分, 不同人有不同见解, 这里纯当凑小怪兽, 辅助玩家提升经验 ~
 
 ```C
-#ifndef _BUF_H
-#define _BUF_H
+#pragma once
 
 #include "msg.h"
 
@@ -1454,10 +1393,9 @@ extern int msg_buf_append(msg_buf_t q,
                           const void * data, uint32_t sz,
                           msg_t * p);
 
-#endif//_BUF_H
 ```
 
-    我们先看 struct msg_buf 结构设计. 
+我们先看 struct msg_buf 结构设计. 
 
 ```C
 #include "buf.h"
@@ -1489,7 +1427,7 @@ static void msg_buf_expand(struct msg_buf * q, int sz) {
 }
 ```
 
-    这样的结构对我们而言是不是太熟悉了. 随后阅读 create 和 delete 简单系列.
+这样的结构对我们而言是不是太熟悉了. 随后阅读 create 和 delete 简单系列.
 
 ```C
 //
@@ -1519,9 +1457,7 @@ msg_buf_delete(msg_buf_t q) {
 }
 ```
 
-    而对于 msg_buf_append 将会复杂一点. 我们将其分为两个环节, 如果传入的 data 内存够
-    , 我们直接从中尝试解析出 msg_t 消息体. 否则进入第二环节, 等待填充候, 再尝试解析. 
-    代码整体认识如下.
+而对于 msg_buf_append 将会复杂一点. 我们将其分为两个环节, 如果传入的 data 内存够, 我们直接从中尝试解析出 msg_t 消息体. 否则进入第二环节, 等待填充候, 再尝试解析. 代码整体认识如下.
 
 ```C
 //
@@ -1557,8 +1493,7 @@ msg_buf_append(msg_buf_t q,
 }
 ```
 
-    而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 
-    msg_create 着看. 注释很用心, 欢迎阅读 ~ 
+而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create 着看. 注释很用心, 欢迎阅读 ~ 
 
 ```C
 // msg_data_pop - data pop msg 
@@ -1589,7 +1524,7 @@ static msg_t msg_buf_data_pop(msg_buf_t q,
 }
 ```
 
-    那开始一键横扫了
+那开始一键横扫了
 
 ```C
 //
@@ -1653,12 +1588,7 @@ int msg_buf_pop(msg_buf_t q, msg_t * p) {
 }
 ```
 
-    对于 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 
-    msg_create 从 msg_buf_push 到 msg_buf_pop 到最后的 msg_buf_append 经历过多
-    少个日夜修炼. 此刻不知道有没有感觉上来, 代码中的能量越来越高, 适用性越来越针对. 码
-    多了会明白, 很多极致优化的方案, 都是偏方, 心智成本高. 咱们这里传授的武功秘籍, 只要
-    你多比划多实战. 必定不会被天外飞仙这种失传的绝技一招干死, 怎么着也有希望 Double 
-    kill.
+对于 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create 从 msg_buf_push 到 msg_buf_pop 到最后的 msg_buf_append 经历过多少个日夜修炼. 此刻不知道有没有感觉上来, 代码中的能量越来越高, 适用性越来越针对. 码多了会明白, 很多极致优化的方案, 都是偏方, 心智成本高. 咱们这里传授的武功秘籍, 只要你多比划多实战. 必定不会被天外飞仙这种失传的绝技一招干死, 怎么着也有希望 Double kill.
 
 ***
     ...
@@ -1673,73 +1603,71 @@ int msg_buf_pop(msg_buf_t q, msg_t * p) {
     ...
 ***
 
-    江湖中杜撰过一句话, 内功决定能飞多高, 武技决定有多快 ~ 
+武侠小说中杜撰过一句话, 内功决定能否成为宗师, 武技决定能否成为侠客 ~ 
 
 ## 5.4 阅读理解
 
-        我们在内功修炼中写了不少实战中操练的数据结构, 不妨来个简单的阅读理解. 构建一种
-    通用的堆结构库. 让你嗨嗨嗨 :0 请你我认真修炼, 让内力更加精纯 ~
+我们在内功修炼中写了不少实战中操练的数据结构, 不妨来个简单的阅读理解来调味. 构建一种通用的堆结构库. 让你嗨嗨嗨 :0 认真修炼, 精纯内功 ~
 
 ```C
 #include "heap.h"
 
-#define HEAP_UINT       (1<<5u)
+#define HEAP_INIT_INT   (1<<5)
 
 struct heap {
-    cmp_f   fcmp;       // 比较行为
-    unsigned len;       // heap 长度
-    unsigned cap;       // heap 容量
-    void ** data;       // 数据结点数组
+    void ** data;
+    int len;
+    int cap;
+    cmp_f fcmp;
 };
 
-// heap_expand - 添加结点扩容
-inline void heap_expand(struct heap * h) {
-    if (h->len >= h->cap) {
-        h->data = realloc(h->data, h->cap<<=1);
-        assert(h->data);
-    }
-}
-
-//
-// heap_create - 创建符合规则的堆
-// fcmp     : 比较行为, 规则 fcmp() <= 0
-// return   : 返回创建好的堆对象
-//
-inline heap_t 
+heap_t 
 heap_create(cmp_f fcmp) {
     struct heap * h = malloc(sizeof(struct heap));
-    assert(h && fcmp);
-    h->fcmp = fcmp;
+    if (h == NULL) {
+        return NULL;
+    }
+    
+    h->data = malloc(sizeof(void *) * HEAP_INIT_INT);
+    if (h->data == NULL) {
+        free(h);
+        return NULL;
+    }
+    h->cap = HEAP_INIT_INT;
     h->len = 0;
-    h->cap = HEAP_UINT;
-    h->data = malloc(sizeof(void *) * HEAP_UINT);
-    assert(h->data && HEAP_UINT > 0);
+    h->fcmp = fcmp;
+
     return h;
 }
 
-//
-// heap_delete - 销毁堆
-// h        : 堆对象
-// fdie     : 销毁行为, 默认 NULL
-// return   : void
-//
 void 
 heap_delete(heap_t h, node_f fdie) {
-    if (NULL == h || h->data == NULL) return;
-    if (fdie && h->len > 0)
-        for (unsigned i = 0; i < h->len; ++i)
+    if (h != NULL) {
+        return;
+    }
+    if (fdie != NULL && h->len > 0) {
+        for (int i = h->len - 1; i >= 0; i--)
             fdie(h->data[i]);
+    }
     free(h->data);
-    h->data = NULL;
-    h->len = 0;
     free(h);
 }
 
+inline int 
+heap_len(heap_t h) {
+    return h->len;
+}
+
+inline void * 
+heap_top(heap_t h) {
+    return h->len > 0 ? *h->data : NULL;
+}
+
 // down - 堆结点下沉, 从上到下沉一遍
-static void down(cmp_f fcmp, void * data[], unsigned len, unsigned x) {
+static void down(cmp_f fcmp, void * data[], int len, int x) {
     void * m = data[x];
-    for (unsigned i = x * 2 + 1; i < len; i = x * 2 + 1) {
-        if (i + 1 < len && fcmp(data[i+1], data[i]) < 0)
+    for (int i = (x<<1)+1; i < len; i = (x<<1)+1) {
+        if (i+1 < len && fcmp(data[i+1], data[i]) < 0)
             ++i;
         if (fcmp(m, data[i]) <= 0)
             break;
@@ -1750,7 +1678,7 @@ static void down(cmp_f fcmp, void * data[], unsigned len, unsigned x) {
 }
 
 // up - 堆结点上浮, 从下到上浮一遍
-static void up(cmp_f fcmp, void * node, void * data[], unsigned x) {
+static void up(cmp_f fcmp, void * node, void * data[], int x) {
     while (x > 0) {
         void * m = data[(x-1)>>1];
         if (fcmp(m, node) <= 0)
@@ -1761,88 +1689,90 @@ static void up(cmp_f fcmp, void * node, void * data[], unsigned x) {
     data[x] = node;
 }
 
-//
-// heap_insert - 堆插入数据
-// h        : 堆对象
-// node     : 操作对象
-// return   : void
-//
-inline void 
-heap_insert(heap_t h, void * node) {
-    heap_expand(h);
-    up(h->fcmp, node, h->data, h->len++);
-}
-
-//
-// heap_remove - 堆删除数据
-// h        : 堆对象
-// arg      : 操作参数
-// fcmp     : 比较行为, 规则 fcmp() == 0
-// return   : 找到的堆结点
-//
-void * 
-heap_remove(heap_t h, void * arg, cmp_f fcmp) {
-    if (h == NULL || h->len <= 0)
-        return NULL;
-
-    // 开始查找这个结点
-    unsigned i = 0;
-    fcmp = fcmp ? fcmp : h->fcmp;
-    do {
-        void * node = h->data[i];
-        if (fcmp(arg, node) == 0) {
-            // 找到结点开始走删除操作
-            if (--h->len > 0 && h->len != i) {
-                // 尾巴结点和待删除结点比较
-                int ret = h->fcmp(h->data[h->len], node);
-
-                // 小顶堆, 新的值比老的值小, 那么上浮
-                if (ret < 0)
-                    up(h->fcmp, h->data[h->len], h->data, i);
-                else if (ret > 0) {
-                    // 小顶堆, 新的值比老的值大, 那么下沉
-                    h->data[i] = h->data[h->len];
-                    down(h->fcmp, h->data, h->len, i);
-                }
-            }
-
-            return node;
+bool
+heap_push(heap_t h, void * node) {
+    if (h->len >= h->cap) {
+        void * ptr = realloc(h->data, h->cap<<1);
+        if (ptr == NULL) {
+            return false;
         }
-    } while (++i < h->len);
-
-    return NULL;
-}
-
-//
-// heap_top - 查看堆顶结点数据
-// h        : 堆对象
-// return   : 堆顶结点
-//
-inline void * 
-heap_top(heap_t h) {
-    return h->len <= 0 ? NULL : *h->data;
-}
-
-//
-// heap_top - 摘掉堆顶结点数据
-// h        : 堆对象
-// return   : 返回堆顶结点
-//
-inline void * 
-heap_pop(heap_t h) {
-    void * node = heap_top(h);
-    if (node && --h->len > 0) {
-        // 尾巴结点一定比小堆顶结点大, 那么要下沉
-        h->data[0] = h->data[h->len];
-        down(h->fcmp, h->data, h->len, 0);
+        h->cap <<= 1;
+        h->data = ptr;
     }
+
+    up(h->fcmp, node, h->data, h->len++);
+    return true;
+}
+
+static inline void heap_reduce(struct heap * h) {
+    if (h->cap > HEAP_INIT_INT && h->cap >> 1 > h->len) {
+        h->cap >>= 1;
+        h->data = realloc(h->data, sizeof(void *) * h->cap);
+    }
+}
+
+void *
+heap_pop(heap_t h) {
+    void * top = heap_top(h);
+    if (top && --h->len > 0) {
+        // 尾巴结点一定比(小堆)顶结点大, 那么要下沉
+        *h->data = h->data[h->len];
+        down(h->fcmp, h->data, h->len, 0);
+
+        heap_reduce(h);
+    }
+    return top;
+}
+
+void * 
+heap_remove(heap_t h, int i) {
+    if (h == NULL || h->len <= 0 || i < 0 || i >= h->len) {
+        return NULL;
+    }
+
+    void * node = h->data[i];
+
+    // 找到结点开始走删除操作
+    if (--h->len > 0) {
+        if (h->len != i) {
+            // 尾巴结点和待删除结点比较
+            int ret = h->fcmp(h->data[h->len], node);
+
+            if (ret < 0) {
+                // '小顶'堆, 新的值比老的值小, 那么上浮
+                up(h->fcmp, h->data[h->len], h->data, i);
+            } else if (ret > 0) {
+                // '小顶'堆, 新的值比老的值大, 那么下沉
+                h->data[i] = h->data[h->len];
+                down(h->fcmp, h->data, h->len, i);
+            }
+        }
+
+        heap_reduce(h);
+    }
+
     return node;
 }
+
+void * 
+heap_pop_push(heap_t h, void * node) {
+    assert(h != NULL && h->len > 0 && node != NULL);
+
+    // 获取堆顶数据准备弹出
+    void * top = *h->data;
+    
+    // 从堆顶压入新的数据
+    *h->data = node;
+    down(h->fcmp, h->data, h->len, 0);
+
+    return top;
+}
+
 ```
 
 ***
 
-	日月神教, 战无不胜. 东方教主, 文成武德. 千秋万载, 一统江湖.
+日月神教, 战无不胜. 东方教主, 文成武德. 千秋万载, 一统江湖.
 
 ***
 
