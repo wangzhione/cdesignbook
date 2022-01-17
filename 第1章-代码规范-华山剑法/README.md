@@ -525,12 +525,12 @@ static unsigned SDBMHash(const char * k) {
 //
 #define EXTERN_TEST(ftest, ...)                         \
 do {                                                    \
-    printf("> "STR(ftest)" run start ...\n");           \
+    printf("\n-> "STR(ftest)" run start ...\n");        \
     clock_t $s = clock();                               \
     extern void ftest ();                               \
     ftest ( __VA_ARGS__);                               \
     double $e = (double)clock();                        \
-    printf("> "STR(ftest)" run end time is %lfms\n",    \
+    printf("-> "STR(ftest)" run end time is %lfms\n\n", \
           ($e - $s) / (CLOCKS_PER_SEC / 1000));         \
 } while(0)
 ```
