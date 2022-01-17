@@ -1656,7 +1656,7 @@ ret_out:
 
 ## 4.5 C json 小练习 config 配置库
 
-有了上面 json 解析库, 我们不妨运用 C json 解析能力, 构建配置解析库. 这年头配置解析库有不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 比较推荐是 json 和 toml. json 推荐原因在于至今通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看**待解析的配置文件 conf/conf.conf**.
+有了上面 json 解析库, 我们不妨运用 C json 解析能力, 构建配置解析库. 这年头配置解析库有不少, 例如 ini, csv, xml, json, yaml, toml, 自定义 ... 比较推荐是 json 和 toml. json 推荐原因在于至今通用性最好, 配置, 协议传输, javascript 可直接使用等等优势. 我们先看待解析的 **配置文件 conf/conf.conf**.
 
 ```json
 /*
@@ -1707,8 +1707,7 @@ ret_out:
 **conf.h** 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应. 可以从 struct conf 中字段看出来.
 
 ```C
-#ifndef _CONF_H
-#define _CONF_H
+#pragma once
 
 #include "utf8.h"
 #include "json.h"
@@ -1734,10 +1733,9 @@ extern struct conf * conf_instance(void);
 //
 bool conf_init(const char * path);
 
-#endif//_CONF_H
 ```
 
-    实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 具体见 locals 实现代码.
+实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 具体见 locals 实现代码.
 
 ```C
 #include "conf.h"
@@ -1746,8 +1744,7 @@ bool conf_init(const char * path);
 // conf_instance - 获取配置
 // return   : 返回详细配置内容
 //
-inline struct conf * 
-conf_instance(void) {
+inline struct conf * conf_instance(void) {
     //
     // 配置存储信息
     //
@@ -1756,29 +1753,21 @@ conf_instance(void) {
     return &conf;
 }
 
-// locals - 本地字符串特殊处理, winds 会把 utf8 转 gbk
-inline char * locals(char utf8s[]) {
-#ifdef _MSC_VER
-    if (isu8s(utf8s))
-        u82g(utf8s);
-#endif
-    return utf8s;
-}
-
 // CONFIG_PARSE_JSON_STR - json field -> conf field
 #define CONFIG_PARSE_JSON_STR(json, conf, field)            \
 json_t $##field = json_object(json, #field);                \
-if (NULL == $##field || $##field->type != JSON_STRING) {    \
+if (!$##field || $##field->type != JSON_STRING) {           \
     RETURN(false, "json_object err "#field" %p", $##field); \
 }                                                           \
 free(conf->field);                                          \
-conf->field = json_str($##field);                           \
-locals(conf->field)
+conf->field = json_str($##field);
 
 // conf_parse - 解析内容, 并返回解析结果
-bool conf_parse(json_t json, struct conf * conf) {
+static bool conf_parse(json_t json, struct conf * conf) {
     CONFIG_PARSE_JSON_STR(json, conf, description);
     CONFIG_PARSE_JSON_STR(json, conf, image);
+
+    // ... .. .
 
     return true;
 }
@@ -1788,10 +1777,9 @@ bool conf_parse(json_t json, struct conf * conf) {
 // path     : 配置初始化路径
 // return   : true 表示解析成功
 //
-bool 
-conf_init(const char * path) {
+bool conf_init(const char * path) {
     json_t json = json_file(path);
-    if (NULL == json) {
+    if (!json) {
         RETURN(false, "json_file err path is %s", path);
     }
 
@@ -1800,98 +1788,38 @@ conf_init(const char * path) {
     json_delete(json);
     return ret;
 }
+
 ```
 
-    使用的时候先要在 main 中注册 conf_init, 随后就可以通过 conf_instance() 来获取
-    配置中内容. 经过这些是不是觉得, 到筑基也不过如此. 心随意动.
+使用的时候先要在业务使用之前注册 **conf_init**, 随后就可以通过 **conf_instance()** 来获取配置中内容. 经过这些是不是觉得, 到练气也不过如此. 气随心动.
 
 ## 4.6 奥特曼, 通用头文件
 
-        在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个业务头文件都继承
-    自他. 同样此刻要出现的就是筑基期至强奥义, 一切从头开始 head.h.
+在实战项目中, 都会有个出现频率特别高的一个头文件, 项目中基本每个业务头文件都继承自它. 同样此刻要出现的就是筑基期至强奥义, 一切从头开始 **base.h**.
 
 ```C
-#ifndef _HEAD_H
-#define _HEAD_H
+#pragma once
 
 #include "log.h"
-#include "conf.h"
-#include "file.h"
+#include "rand.h"
 #include "check.h"
 #include "thread.h"
-
-#ifdef _MSC_VER
-
-#include <conio.h>
-
-inline void cls(void) {
-    system("cls");
-}
-
-#endif
-
-#ifdef __GNUC__
-
-#include <unistd.h>
-#include <termios.h>
-
-// cls - 屏幕清除, 依赖系统脚本
-inline void cls(void) {
-    printf("\ec");
-}
-
-// getch - 立即得到用户输入的一个字符
-inline static int getch(void) {
-    struct termios now, old;
-    if (tcgetattr(0, &old)) // 得到当前终端(0表示标准输入)的设置
-        return EOF;
-    now = old;
-
-    // 设置终端为 Raw 原始模式，该模式下输入数据全以字节单位被处理
-    cfmakeraw(&now);
-    if (tcsetattr(0, TCSANOW, &now)) // 设置上更改之后的设置
-        return EOF;
-
-    int c = getchar();
-
-    if (tcsetattr(0, TCSANOW, &old)) // 设置还原成老的模式
-        return EOF;
-    return c;
-}
-
-#endif
-
-// spause - 程序结束后等待
-inline static void spause(void) {
-    rewind(stdin);
-    fflush(stderr); fflush(stdout);
-    printf("Press any key to continue . . .");
-    getch();
-}
+#include "strext.h"
 
 //
 // STR - 添加双引号的宏 
-// v        : 待添加双引号的量
+// v        : 变量标识
 //
-#define STR(v) S_R(v)
-#define S_R(v) #v
+#define STR(v)  S_R(v)
+#define S_R(v)  #v
 
+#ifndef LEN
 //
-// LEN - 获取数组长度
-// a        : 数组名
+// LEN - 计算获取数组长度
+// a        : 数组变量
 //
-#define LEN(a) sizeof(a)/sizeof(*(a))
-
-//
-// EXTERN_RUN - 简单声明, 并立即使用的宏
-// frun     : 需要执行的函数名称
-// ...      : 可变参数, 保留
-//
-#define EXTERN_RUN(frun, ...)                          \
-do {                                                   \
-    extern void frun();                                \
-    frun (__VA_ARGS__);                                \
-} while(0)
+#define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
+#endif
 
 //
 // CODE_RUN - 代码块测试, 并输出运行时间
@@ -1905,59 +1833,23 @@ do {                                                   \
     printf("code run %lfs\n", ($e-$s)/CLOCKS_PER_SEC); \
 } while (0)
 
-#endif//_HEAD_H
+//
+// EXTERN_RUN - 函数包装宏, 声明并立即使用
+// frun     : 需要执行的函数名称
+// ...      : 可变参数, 保留
+//
+#define EXTERN_RUN(frun, ...)                          \
+do {                                                   \
+    extern void frun();                                \
+    frun (__VA_ARGS__);                                \
+} while(0)
+
 ```
 
-    head.h 相关内容是不是很简单, 很熟悉. cls -> getch -> epause 想想有了也挺好的. 
-    而 check.h 会放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 我这里只
-    是加了个 ipv4 和 email 校验操作.
+base.h 相关内容比较很简单, 汇总常用头文件. 其中 check.h 可以放入一些参数校验的函数. 可以随着自身对修炼的理解, 自主添加. 目前这里只是加了个 email 校验操作.
 
 ```C
 #include "check.h"
-
-//
-// is_ipv4 - 判断是否是 ipv4
-// ips      : ip 串
-// return   : true 是合法 ip
-//
-bool 
-is_ipv4(const char * ips) {
-    //
-    // [0-9].
-    // 7       - 15
-    // 0.0.0.0 - 255.255.255.255
-    // 00 (x), > 255 (x), . . .
-    //
-    int i, c, m, d;
-    if (!ips || !*ips) return false;
-    // 处理前 16 个字符 = sizeof "255.255.255.255"
-    for (d = m = i = 0; i < sizeof "255.255.255.255"; ++i) {
-        c = ips[i];
-        if (c >= '0' && c <= '9') {
-            // 00 (x)
-            if (c == '0') {
-                if (ips[i+1] != '.' && ips[i+1] != '\0')
-                    return false;
-            }
-            m = m * 10 + c - '0';
-        } else if (c == '.' || c == '\0') {
-            // < 0 (x), > 255 (x)
-            if (m > 255 || d > 3)
-                return false;
-            if (c == '\0') {
-                // . . .
-                // sizeof "0.0.0.0" = 8
-                return d == 3 && i + 1 >= sizeof "0.0.0.0";
-            }
-            ++d;
-            m = 0;
-        } else {
-            // 不是 [0-9]. 字符非法
-            return false;
-        }
-    }
-    return false;
-}
 
 //
 // is_email - 判断是否是邮箱
@@ -2019,24 +1911,19 @@ is_email(const char * mail) {
     return b && d && !c && i < EMAIL_INT 
              && (mail[-1] < '0' || mail[-1] > '9');
 }
+
 ```
 
-    check.h 继承自 stdbool.h, 对于 is_ip 和 is_email 可以参阅相关资料对着看. 如
-    果有问题也可以在修真岁月中道友间互相探讨补充. getch 函数可以重点关注下. 很久以前一
-    位化神期巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏
-    开发人员. 我是挺喜欢 getch 的, 让立即交互变得轻松. 所以就顺手补上了. 继承 
-    head.h 让你的业务轻装上阵. 美好从此刻开始 ~ 新的风暴已经出现, 怎么能够停滞不前.
-    穿越时空竭尽全力, 我会来到你身边 ~
+如果有问题可以在修真岁月中道友间互相探讨补充. **stdext.h** 中 **getch** 函数可以重点关注下. 很久以前一位化神期巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是挺喜欢 getch 的, 让立即交互变得轻松. 所以就顺手补上了. 继承 base.h 会让业务轻装上阵. 美好从此刻开始 ~ 
+
+新的风暴已经出现, 怎么能够停滞不前. 穿越时空竭尽全力, 我会来到你身边 ~
 
 ## 4.7 阅读理解
 
-        很久以前桌面项目配置文件多数采用 csv 文件配置. 采用 ',' 分隔. 同 excel 表格
-    形式. 维护人员通过 notepad++ or excel 编辑操作. 程序人员直接读取开撸. 展示个自己
-    写的解决方案, 灰常节约内存. 首先展示 interface:
+很久以前桌面项目配置文件多数采用 csv 文件配置. 采用 ',' 分隔. 同 excel 表格形式. 维护人员通过 notepad++ or excel 编辑操作. 我们直接读取开撸, 展示个自己写的解决方案, 灰常节约内存. 首先展示 **csv.h** interface.
 
 ```C
-#ifndef _CSV_H
-#define _CSV_H
+#pragma once
 
 //
 // csv readonly parse
@@ -2088,17 +1975,17 @@ inline void csv_delete(csv_t csv) {
 //
 extern csv_t csv_create(const char * path);
 
-#endif//_CSV_H
 ```
 
-    我们这里只提供了读接口, 比较有特色的思路是 csv_t 采用一整块内存构建. 非常干净. 
+这里**只提供了读**接口, 比较有特色的思路是 csv_t 采用一整块内存构建. 非常干净. 
 
 ```C
 #include "csv.h"
 
-// csv_check - 解析和检查 csv 文件内容, 返回构造的合法串长度
-static int csv_check(char * str, int * pr, int * pc) {
-    int c, rnt = 0, cnt = 0;
+// csv_parse_partial - 解析和检查 csv 文件内容, 返回构造的合法串长度
+static int csv_parse_partial(char * str, int * pr, int * pc) {
+    int c;
+    int rnt = 0, cnt = 0;
     char * tar = str, * s = str;
     while ((c = *tar++) != '\0') {
         // csv 内容解析, 状态机切换
@@ -2143,7 +2030,7 @@ err_faid:
 // csv_parse - 解析字节流返回 csv 对象
 csv_t csv_parse(char * str) {
     int n, rnt, cnt;
-    if ((n = csv_check(str, &rnt, &cnt)) < 0)
+    if ((n = csv_parse_partial(str, &rnt, &cnt)) < 0)
         return NULL;
     
     // 分配最终内存
@@ -2181,19 +2068,14 @@ csv_create(const char * path) {
     // 意外返回 NULL
     RETNUL("str_freads path = %s is error!", path);
 }
+
 ```
 
-    核心重点在 csv_parse 和 csv_create 上面. 前者负责预建和填充内存布局, 后者负责平
-    滑过渡. 代码很短, 但却很有效不是吗? 希望上面的阅读理解你能喜欢 ~
+核心重点 **csv_parse** 负责内存布局和协议解析. 代码很短, 但却很有效不是吗? 希望上面的阅读理解你能喜欢 ~
 
 ## 4.8 展望
 
-        妖魔战场逐渐急促起来, 筑基期顶级功法也就介绍到此. 数据结构算法可能要勤学苦练, 
-    而这些轮子多数只需 3 遍后, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮
-    子开发套路. 从 clog -> rand -> json -> conf -> head -> csv 遇到的妖魔鬼怪也
-    不过如此. 真实开发中这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世
-    组件. 但总的而言, 如果你想把前辈英魂用的更自然, 显然你得懂行(自己会写). 凡事总要瞎
-    搞搞才能有所突破 <--:-o
+妖魔战场逐渐急促起来, 练气顶级功法也就介绍到此. 数据结构和算法可能要勤学苦练, 而这些轮子多数只需 3 遍后, 战无不利, 终身会用. 本章多数在抠细节, 协助熟悉常用基础轮子开发套路. 从 log -> rand -> json -> utf8 -> conf -> base -> csv 遇到的妖魔鬼怪也不过如此. 真实开发中这类基础库, 要么是行业前辈遗留下来的馈赠. 要么就是远古大能的传世组件. 但总的而言, 如果你想把前辈英魂用的更自然, 显然你得懂行(自己会写). 不要担心瞎搞, 有足够喜欢最终都是殊途同归 <--:-o
 
 ***
 
@@ -2223,7 +2105,7 @@ csv_create(const char * path) {
 
 ***
 
-思绪有些乱, 梦幻间想起 ~ 我们仨 ~ 飞升真仙 ~ 是他们, 撑起种族底蕴 ~
+思绪有些乱, 梦幻间想起 ~ 我们仨 ~ 是他们这些飞升地仙 ~, 撑起种族底蕴与苦难 ~
 
 ***
 
