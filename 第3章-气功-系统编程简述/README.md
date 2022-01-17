@@ -1340,13 +1340,59 @@ static inline int timer_list_id() {
 }
 ```
 
-**timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思, 前者保证原子自增, 后者保证 **>= 0**. 多想想多实操.
+以上 timer.c 模块实现思路, 核心是利用 list 构建了一个升序链表, 通过额外异步分离线程 loop 获取链表结点去执行. **timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思, 前者保证原子自增, 后者保证 **>= 0**. 
 
 ```C
 拓展举例, int 4 字节 32 位二进制(补码), 最终值计算公式如下, 多细品
 ______________(2)
 x1 x2 ... x31 x32 = -x1*2^(32-1) + x2*2^(32-2) + ... + x31*2^(32-31) + x32*2^(32-32)
 ```
+
+
+定时器一个通病, 不要放入阻塞函数, 容易失真. timer 使用方面也很简单, 例如一个技能, 吟唱 1s, 持续伤害 2s. 构造如下:
+
+```C
+struct skills {
+	int id;
+	bool exist; // 实战走状态机, true 表示施法状态中 
+};
+
+// 007 号技能 火球术, 没有释放
+struct skills fireball = { 007, false };
+
+static void skills_end(struct skills * kill) {
+	...
+	if (kill.id == fireball.id) {
+		puts("火球术持续输出结束...");
+		kill.exist = false;
+	}
+	...
+}
+
+static void continued(struct skills * kill) {
+	...
+	if (kill.id == fireball.id) {
+		puts("火球术吟唱成功, 开始持续输出...");
+		kill.exist = true;
+		timer_add(2000, skills_end, kill);
+	}
+	...
+}
+
+static void start(struct skills * kill) {
+	...
+	if (kill.id == fireball.id) {
+		puts("火球术开始吟唱...");
+		kill.exist = false;
+		timer_add(1000, continued, kill);
+	}
+	...
+}
+```
+
+调用 start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期根据标识统一绘制显示. 以上是简单到吐的思路说不定也很有效. 有点像优化过的 select 特定的时候出其不意 ~
+
+对于定时器常见的实现有三类套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆顶, 最先执行. 还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条刻度上的链表. 总的而言定时器的套路取舍得看应用的场景. 这篇 timer 阅读理解是基于有序链表. 可以说起缘 list, 终于 list. 希望这篇拓展练习能加深你对当前所学知识点的掌握和运用. 多想想多实操.
 
 ## 3.7 展望
 
