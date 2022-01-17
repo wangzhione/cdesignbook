@@ -1176,7 +1176,7 @@ struct timer_list {
 static struct timer_list timer = { .id = 1, .lock = ATOMIC_FLAG_INIT };
 
 // get atomic int 1 -> INT_MAX -> 1
-inline int timer_list_id() {
+static inline int timer_list_id() {
     // 0 -> INT_MAX -> INT_MIN -> 0
     int id = atomic_fetch_add(&timer.id, 1) + 1;
     if (id < 0) {
@@ -1321,7 +1321,7 @@ struct timer_list {
 static struct timer_list timer = { .id = 1, .lock = ATOMIC_FLAG_INIT };
 
 // get atomic int 1 -> INT_MAX -> 1
-inline int timer_list_id() {
+static inline int timer_list_id() {
     // 0 -> INT_MAX -> INT_MIN -> 0
     int id = atomic_fetch_add(&timer.id, 1) + 1;
     if (id < 0) {
@@ -1340,7 +1340,7 @@ inline int timer_list_id() {
 }
 ```
 
-**timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思. 多想想多实操.
+**timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思, 前者保证原子自增, 后者保证 **>= 0**. 多想想多实操.
 
 ```C
 拓展举例, int 4 字节 32 位二进制(补码), 最终值计算公式如下, 多细品

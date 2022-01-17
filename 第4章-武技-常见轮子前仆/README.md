@@ -426,80 +426,115 @@ int main(int argc, char* argv[]) {
 
 ![rand T](./img/rand.png)
 
-那如何产生**真随机数呢**? 相关研究很多, 核心原理是**升维**, 借助对我们不可控系统产生不可控值. 例如噪音, 天气, 量子等等, 当然实际算法远比说的复杂, 抛开神明, 对于普通人而言确实足够随机了. 
+那如何产生**真随机数呢**? 相关研究很多, 核心原理是**升维**, 借助对我们不可控系统产生不可控值. 例如噪音, 天气, 量子不可预测等等, 当然实际算法远比说的复杂, 抛开神明, 对于普通人而言确实足够随机了. 
 
-## 4.3 file 文件库
+## 4.3 文件操作
 
-        文件相关操作无外乎删除创建获取文件属性. 更加具体点的需求有, 想获取程序的运行目录
-    , 需要多级删除目录, 需要多级创建目录... 这里就是为了解决这个问题. 先展示部分设计, 
-    再逐个击破.
+文件相关操作包括删除创建获取文件属性等. 更加具体点的需求有, 想获取程序的运行目录, 需要多级删除目录, 需要多级创建目录... 这里先解决以上提出需求. 先展示部分设计, 再逐个击破.
+
+### 4.3.1 文件操作辅助库 stdext
+
+**stdext.h**
 
 ```C
-#ifndef _FILE_H
-#define _FILE_H
-
-#include "atom.h"
-#include "struct.h"
-#include "strext.h"
-
-#ifdef __GNUC__
+#pragma once
 
 #include <fcntl.h>
-#include <unistd.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include "alloc.h"
+#include "system.h"
+
+#if defined(__linux__) && defined(__GNUC__)
+
+#include <unistd.h>
+#include <termios.h>
 
 //
 // mkdir - 单层目录创建函数宏, 类比 mkdir path
 // path     : 目录路径
-// return   : 0 表示成功, -1 表示失败, 失败原因见 errno
+// return   : 0 表示成功, -1 表示失败, errno 存原因
 // 
 #undef  mkdir
 #define mkdir(path)                                 \
 mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 
+// getch - 立即得到用户输入的一个字符
+inline int getch(void) {
+    struct termios now, old;
+    // 得到当前终端标准输入的设置
+    if (tcgetattr(STDIN_FILENO, &old))
+        return EOF;
+    now = old;
+
+    // 设置终端为 Raw 原始模式，让输入数据全以字节单位被处理
+    cfmakeraw(&now);
+    // 设置上更改之后的设置
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &now))
+        return EOF;
+
+    int c = getchar();
+
+    // 设置还原成老的模式
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &old))
+        return EOF;
+    return c;
+}
+
+// cls - 屏幕清除, 依赖系统脚本
+inline void cls(void) { printf("\ec"); }
+
+#endif
+
+#if defined(_WIN32) && defined(_MSC_VER)
+
+#include <io.h>
+#include <conio.h>
+#include <direct.h>
+#include <windows.h>
+
+// int access(const char * path, int mode /* 四个检测宏 */);
+#ifndef     F_OK
+#  define   F_OK    (0)
+#endif
+#ifndef     X_OK
+#  define   X_OK    (1)
+#endif       
+#ifndef     W_OK
+#  define   W_OK    (2)
+#endif       
+#ifndef     R_OK
+#  define   R_OK    (4)
+#endif
+
+// cls - 屏幕清除, 依赖系统脚本
+inline void cls(void) { system("cls"); }
+
+#endif
+
 //
-// mtime - 得到文件最后修改时间
+// fmtime - 得到文件最后修改时间
 // path     : 文件路径
 // return   : 返回时间戳, -1 表示失败
 //
-inline time_t mtime(const char * path) {
+inline time_t fmtime(const char * path) {
     struct stat st;
     // 数据最后的修改时间
     return stat(path, &st) ? -1 : st.st_mtime;
 }
 
-#endif
-
-#ifdef _MSC_VER
-
-#include <io.h>
-#include <direct.h>
-#include <windows.h>
-
-// int access(const char * path, int mode /* 四个检测宏 */);
-#ifndef F_OK
-#   define  F_OK    (0)
-#endif       
-#ifndef X_OK 
-#   define  X_OK    (1)
-#endif       
-#ifndef W_OK 
-#   define  W_OK    (2)
-#endif       
-#ifndef R_OK 
-#   define  R_OK    (4)
-#endif
-
-inline time_t mtime(const char * path) {
-    WIN32_FILE_ATTRIBUTE_DATA st;
-    if (!GetFileAttributesEx(path, GetFileExInfoStandard, &st))
-        return -1;
-    // 基于 winds x64 sizeof(long) = 4
-    return *(time_t *)&st.ftLastWriteTime;
+//
+// fsize - 得到文件内容内存大小
+// path     : 文件路径
+// return   : 返回文件内存
+//
+inline int64_t fsize(const char * path) {
+    struct stat st;
+    // 数据最后的修改时间
+    return stat(path, &st) ? -1 : st.st_size;
 }
-
-#endif
 
 //
 // removes - 删除非空目录 or 文件
@@ -516,28 +551,26 @@ extern int removes(const char * path);
 extern int mkdirs(const char * path);
 
 //
-// mkfdir - 通过文件路径创建目录
+// fmkdir - 通过文件路径创建目录
 // path     : 文件路径
 // return   : < 0 is error, 0 is success
 //
-extern int mkfdir(const char * path);
+extern int fmkdir(const char * path);
 
 //
 // getawd - 得到程序运行目录, \\ or / 结尾
 // buf      : 存储地址
 // size     : 存储大小
-// return   : 返回长度, -1 is error 
+// return   : 返回长度, -1 or >= size is unusual 
 //
 extern int getawd(char * buf, size_t size);
 
-#endif//_FILE_H
 ```
 
-	removes, mkdirs, mkfdir, getawd 有了这些接口, 以后写操作目录代码方便了很多. 其
-    中 removes 借力的通过系统 shell 的能力来实现的.
+**removes, mkdirs, mkfdir, getawd** 有了这些接口, 以后写操作目录代码方便了很多. 其中 **removes** 借力的通过系统 shell 的能力来实现的.
 
 ```C
-#include "file.h"
+#include "stdext.h"
 
 //
 // removes - 删除非空目录 or 文件
@@ -547,13 +580,13 @@ extern int getawd(char * buf, size_t size);
 inline int removes(const char * path) {
     char s[BUFSIZ];
 
-#  ifndef RMRF_STR
-#    ifdef _MSC_VER
-#      define RMRF_STR    "rmdir /s /q \"%s\""
-#    else
-#      define RMRF_STR    "rm -rf '%s'"
-#    endif
-#  endif
+# ifndef RMRF_STR
+#   if defined(_WIN32) && defined(_MSC_VER)
+#     define RMRF_STR    "rmdir /s /q \"%s\""
+#   else
+#     define RMRF_STR    "rm -rf '%s'"
+#   endif
+# endif
 
     // path 超过缓冲区长度, 返回异常
     if (snprintf(s, sizeof s, RMRF_STR, path) == sizeof s) 
@@ -562,8 +595,7 @@ inline int removes(const char * path) {
 }
 ```
 
-	access 检查 path 是否存在, 存在返回 0. 不存在返回 -1, 并且执行 system 
-    RMRF_STR 相关操作. 而 mkdirs 和 mkfdir 核心在于 access 和 mkdir 来回瞎搞. 
+access 检查 path 是否存在, 存在返回 0. 不存在返回 -1, 并且执行 system RMRF_STR 相关操作. 而 mkdirs 和 fmkdir 核心同样 access 和 mkdir 来回瞎搞. 
 
 ```C
 //
@@ -576,7 +608,8 @@ mkdirs(const char * path) {
     char c, * p, * s;
 
     // 参数错误直接返回
-    if (!path || !*path) return -2;
+    if (!path || !*path) return -1;
+
     // 文件存在 or 文件一次创建成功 直接返回
     if (!access(path, F_OK) || !mkdir(path))
         return 0;
@@ -612,19 +645,19 @@ mkdirs(const char * path) {
         return 0;
 
     // 剩下最后文件路径, 开始构建
-    return mkdir(path) ? -1 : 0;
+    return mkdir(path);
 }
 
 //
-// mkfdir - 通过文件路径创建目录
+// fmkdir - 通过文件路径创建目录
 // path     : 文件路径
 // return   : < 0 is error, 0 is success
 //
 int 
-mkfdir(const char * path) {
+fmkdir(const char * path) {
     const char * r;
     char c, * p, * s;
-    if (!path) return -2;
+    if (!path) return -1;
 
     for (r = path + strlen(path); r >= path; --r)
         if ((c = *r) == '/' || c == '\\')
@@ -663,30 +696,30 @@ mkfdir(const char * path) {
 }
 ```
 
-	最后 getawd 获取程序运行目录
+最后 getawd 获取程序运行目录
 
 ```C
 //
 // getawd - 得到程序运行目录, \\ or / 结尾
 // buf      : 存储地址
 // size     : 存储大小
-// return   : 返回长度, -1 is error 
+// return   : 返回长度, -1 or >= size is unusual 
 //
 int 
 getawd(char * buf, size_t size) {
     char * tail;
 
-#  ifndef getawe
-#    ifdef _MSC_VER
-#      define getawe(b, s)    (int)GetModuleFileName(NULL, b, (DWORD)s);
-#    else
-#      define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
-#    endif
-#  endif
+# ifndef getawe
+#   if defined(_WIN32) && defined(_MSC_VER)
+#     define getawe(b, s)    (int)GetModuleFileNameA(NULL, b, (DWORD)s);
+#   else
+#     define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
+#   endif
+# endif
 
     int r = getawe(buf, size);
-    if (r <= 0 || r >= size)
-        return -1;
+    if (r <= 0)    return -1;
+    if ((size_t)r >= size) return  r;
 
     for (tail = buf + r - 1; tail > buf; --tail)
         if ((r = *tail) == '/' || r == '\\')
@@ -697,31 +730,35 @@ getawd(char * buf, size_t size) {
 }
 ```
 
-	主要使用场景, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
+主要使用场景, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
 
 ```C
 #define LOG_PATH_STR        "logs/structc.log"
 
-int n;
-char r[BUFSIZ];
-// 配置模块初始化
-//
-n = getawd(r, sizeof r);
+char path[BUFSIZ];
+// 一切皆有可能 🙂
+size_t n = getawd(path, LEN(path));
 assert(0 < n && n < sizeof r);
 
-memcpy(r+n, LOG_PATH_STR, LEN(LOG_PATH_STR));
-mkfdir(r);
-EXTERN_RUN(log_init, r);
+// 日志模块初始化
+memcpy(path + n, LOGS_PATH_STR, LEN(LOGS_PATH_STR));
+fmkdir(path);
+EXTERN_RUN(log_init, path);
 ```
 
-### 4.3.1 file 监控
+stdext 拓展库主要围绕文件, 创建和删除还有文件属性等. 这些功能用系统本地 api 也许更好, 我们这里不少是借助 **system shell** 能力, 也是一直能用思路欢迎借鉴.
 
-    很多时候有这样一个需求, 某个配置需要可刷新. 完成这个功能也很简单, 无外乎外部触发或者
-    内部监控. 两种方式, 内部触发是最省力, 我们也想把这种能力包含到 file.h 接口设计中.
+### 4.3.2 配置文件刷新小练习
+
+很多时候有这样一个需求, 某些配置需要支持可刷新. 完成这个功能方式大致有两种, **1' 主动监控 2' 系统推送**. 这类配置文件动态刷新刷新在业务场景也非常常见. 存在两个主要使用场景, 客户端和服务器. 客户端需求很直白, 我本地配置变更, 程序能及时和非及时的重刷到系统中. 服务器相比客户端做法要多些环节, 服务器本地会有一份配置兜底, 配置中心中配置发生改变会推送给触发给服务器触发内部更新操作. 我们这里主要聊场景偏向于客户端, 本地配置发生改变, 我们如何来更新内存中配置?
+
+我们这类简单点采用 **1' 主动监控** 附加是基于 **stdext.h 中的 mtime** 文件最后一次修改时间来处理这个需求. 对于 **2' 系统推送** 不同平台 api 不一样, 有兴趣可以多查查资料, 例如 **man inotify**. 好的我们先大致设计接口 **timer.h**
 
 ```C
-#ifndef _FILE_H
-#define _FILE_H
+#pragma once
+
+#include "struct.h"
+#include "strext.h"
 
 //
 // file_f - 文件更新行为
@@ -731,7 +768,7 @@ typedef void (* file_f)(FILE * c, void * arg);
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : NULL 标记清除, 正常 update -> func(path -> FILE, arg)
+// func     : NULL 标识清除, 正常 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
@@ -743,14 +780,15 @@ extern void file_set(const char * path, file_f func, void * arg);
 //
 extern void file_update(void);
 
-#endif//_FILE_H
 ```
 
-    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全
-    局的更新行为, 用于监控是否有文件发生了变化. 他的本质是依赖 mtime 获取最后一次文件变
-    化的时间. 用于确定此文件当前是否发生了变化. 其中核心的数据结构如下
+file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全局的更新行为, 用于监控是否有文件发生了变化. 他的本质是依赖 mtime 获取最后一次文件变化的时间. 用于确定此文件当前是否发生了变化. 有了这些我们开始三种思路实现.
+
+**1. 普通正常版本**
 
 ```C
+#include "file.h"
+
 struct file {
     time_t last;            // 文件最后修改时间点
     char * path;            // 文件全路径
@@ -763,165 +801,118 @@ struct file {
 };
 
 static struct files {
-    atom_t lock;            // 当前对象原子锁
     struct file * list;     // 当前文件对象集
 } f_s;
+```
 
-// files add 
-static void f_s_add(const char * p, unsigned h, file_f func, void * arg) {
-    struct file * fu;
-    if (mtime(p) == -1) {
-        RETNIL("mtime error p = %s", p);
-    }
+我们通过上面数据结构定义, 很清晰知道 **hash 和 path** 查找映射关系, **struct file * next;** 是个链表为 **file_update 循环遍历服务**. 因为上面是无锁的, 所以需要业务使用上避免线程并发问题, 需要程序启动一开始注册好所以需要主动监控的文件.
 
-    fu = malloc(sizeof(struct file));
-    fu->last = -1;
-    fu->path = strdup(p);
-    fu->hash = h;
-    fu->func = func;
-    fu->arg = arg;
+**2. 多线程走歪路版本**
 
-    // 直接插入到头结点部分
-    atom_lock(f_s.lock);
-    fu->next = f_s.list;
-    f_s.list = fu;
-    atom_unlock(f_s.lock);
-}
+```C
+#include "spinlock.h"
 
-// files get 
-static struct file * f_s_get(const char * p, unsigned * r) {
-    struct file * fu = f_s.list;
-    unsigned h = *r = str_hash(p);
+static struct files {
+    atomic_flag lock;
+    struct file * list;
+} f_s;
+```
 
-    while (fu) {
-        if (fu->hash == h && strcmp(fu->path, p) == 0)
-            break;
-        fu = fu->next;
-    }
+我们希望引入 **atomic_flag lock;** 来处理 **struct file * list;** 并发的 add 和 remove 还有 get 问题. lock 确实这个问题, 但同样引入另外一个问题. 因为 lock 为了 file_set 和 file_update 服务, **file_update 操作颗粒时间一般会较长, 会阻塞 file_set 操作**. 这种思路不可能出现在实战中.
 
-    return fu;
+**3. 多线程版本**
+
+```C
+#include "dict.h"
+#include "strext.h"
+#include "spinlock.h"
+
+struct file {
+    time_t last;            // 文件最后修改时间点
+    file_f func;            // 执行行为
+    void * arg;             // 行为参数
+};
+
+struct files {
+    atomic_flag data_lock;
+    // const char * path key -> value struct file
+    // 用于 update 数据
+    volatile dict_t data;
+
+    atomic_flag backup_lock;
+    // const char * path key -> value struct file
+    // 在 update 兜底备份数据
+    volatile dict_t backup;
+};
+
+static struct files F = {
+    .data_lock = ATOMIC_FLAG_INIT,
+    .backup_lock = ATOMIC_FLAG_INIT,
+};
+
+extern void file_init() {
+    F.data = dict_create(file_delete);
+    F.backup = dict_create(file_delete);
 }
 ```
 
-    file_set 注册需要监控的文件, file_f 是监控到变化后触发的行为. file_update 是全
-    局的更新行对于每个要监控的文件, 我们记录了最后一次修改时间 last, 文件全路径 path, 
-    执行体 func 和 arg. 有了这些基本上就差码代码了. 其中 file_set 设计包含了 del 操
-    作, 即当 file_f 设置为空 NULL 就认为是 file_del(path) 操作. 
+其中向 data 中添加数据时候, step 1 : 尝试竞争 data lock, step 2 : data lock 没有竞争到, 直接竞争 backup lock.
 
 ```C
 //
 // file_set - 文件注册更新行为
 // path     : 文件路径
-// func     : NULL 标记清除, 正常 update -> func(path -> FILE, arg)
+// func     : NULL 标识清除, 正常 update -> func(path -> FILE, arg)
 // arg      : func 额外参数
 // return   : void
 //
 void 
 file_set(const char * path, file_f func, void * arg) {
-    unsigned h;
+    struct file * fu = NULL;
     assert(path && *path);
-    struct file * fu = f_s_get(path, &h);
-    if (NULL == fu)
-        f_s_add(path, h, func, arg);
-    else {
-        atom_lock(f_s.lock);
-        fu->last = -1;
-        fu->func = func;
-        fu->arg = arg;
-        atom_unlock(f_s.lock);
-    }
-}
-```
 
-    随后就是 file_update 全局监控和更新
-
-```C
-//
-// file_update - 配置文件刷新操作
-// return   : void
-//
-void 
-file_update(void) {
-    atom_lock(f_s.lock);
-    struct file * fu = f_s.list;
-    while (fu) {
-        struct file * next = fu->next;
-
-        if (NULL == fu->func) {
-            // 删除的是头结点
-            if (f_s.list == fu)
-                f_s.list = next;
-
-            free(fu->path);
-            free(fu);
-        } else {
-            time_t last = mtime(fu->path);
-            if (fu->last != last && last != -1) {
-                FILE * c = fopen(fu->path, "rb+");
-                if (NULL == c) {
-                    CERR("fopen rb+ error = %s.", fu->path);
-                    continue;
-                }
-                fu->last = last;
-                fu->func(c, fu->arg);
-                fclose(c);
-            }
+    // step 1 : 尝试竞争 data lock
+    if (atomic_flag_trylock(&F.data_lock)) {
+        if (NULL != func) {
+            fu = file_create(path, func, arg);
         }
-
-        fu = next;
+        dict_set(F.data, path, fu);
+        return atomic_flag_unlock(&F.data_lock);
     }
-    atom_unlock(f_s.lock);
+
+    // step 2 : data lock 没有竞争到, 直接竞争 backup lock
+    atomic_flag_lock(&F.backup_lock);
+    fu = file_create(path, func, arg);
+    dict_set(F.backup, path, fu);
+    atomic_flag_unlock(&F.backup_lock);
 }
 ```
 
-    file_update 做的工作就是循环遍历 struct files::head 链表, 挨个检查文件最后一次
-    修改时间 mtime 是否发生变化. 如果不一样就触发 file_f 注册行为. 当然也会清除待删除
-    的注册文件. 到这里我们的文件操作就讲完了. 很枯燥, 但确是的鲤鱼跃龙门的阶梯.
+去感受其中数据结构设计的思路. 很多时候数据结构确定了, 整体设计也就确定了. 我用 C 写代码很顺手, 但有时候觉得 C 在现在阶段, 不是专业吃这个饭的, 可以尝试用其它更加高级语言来轻松快捷表达自己的想法和完成工程落地. 对于开发生涯作者花了很多年找到自己定位, 我的底层核心是一名软件开发工程师. 然后语言和技术以及商业工程问题陆续通顺起来了. 希望对你们有帮助, 思维的构建在工具使用的下一个阶段.
 
 ## 4.4 C 造 json 轮子
 
-        在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 
-    在国内刚兴起, 那会一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当
-    初写的那个删了. 用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行的, 就琢磨写了个简单
-    的 C json. 这小节, 就带大家写写这个 C json 的解析引擎, 清洁高效小. 能够保证的就
-    是比 cJSON 好学习.
+在我刚做开发的时候, 那时候维护的系统, 所有配置走的是 xml 和 csv. 刚好 json 在国内刚兴起. 就一时兴起为其写了个解释器. 过了 1 年接触到 cJSON 库, 直接把自己当初写的那个删了. 用起了 cJSON, 后面觉得 cJSON 真的丑的不行不行的, 就琢磨写了个简单的 C json. 这小节, 就带大家写写这个 C json 的解析引擎, 清洁高效小. 能够保证的就是和 cJSON 对比学习更佳.
 
 ### 4.4.1 C json 设计布局
 
-    首先分析 C json 的实现部分. 最关心的是 C json 的内存布局, 实现层面引入了 tstr 内
-    存布局. 设计结构图如下 :
+首先分析 C json 的实现部分. 最关心的是 C json 的内存布局, 实现层面引入了之前封装 str 库内存布局(tstr 已经 301 cstr). 设计结构图如下 :
 
 ![C json 内存布局](./img/json内存布局.png)
 
-    str 指向内存常量, tstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个
-    中转站. 因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 
-    这就是引入目的. 再看看 C json 结构代码设计:
+str 指向内存常量, cstr 指向内存不怎么变, 所以采用两块内存保存. tstr 存在目的是个中转站. 因为读取文件内容, 中间 json 内容清洗, 例如注释, 去空白, 压缩需要一块内存. 这就是引入目的. 再看看 C json 结构代码设计:
 
 ```C
-struct json {
-    unsigned char type;     // CJSON_NULL - JSON_ARRAY and JSON_CONST
-    struct json * next;     // type & OBJECT or ARRAY -> 下个结点链表
-    struct json * chid;     // type & OBJECT or ARRAY -> 对象结点数据
+#pragma once
 
-    char * key;             // json 结点的 key
-    union {
-        char * str;         // type & STRING -> 字符串
-        double num;         // type & NUMBER -> number
-    };
-};
+#include <math.h>
+#include <float.h>
+#include <limits.h>
+#include <stdbool.h>
 
-// 定义 json 对象类型
-//
-typedef struct json * json_t;
-```
+#include "cstr.h"
+#include "strext.h"
 
-    使用 C99 的匿名结构体挺爽的, 整个 struct json 内存详细布局如下:
-
-![C json内存结构](./img/json内存结构.png)
-
-    C json 中处理的类型类型无外乎:
-
-```C
 //
 // c json fast parse, type is all design
 //
@@ -934,6 +925,22 @@ typedef struct json * json_t;
 #define JSON_OBJECT         (1u << 4)
 #define JSON_ARRAY          (1u << 5)
 #define JSON_CONST          (1u << 6)
+
+struct json {
+    unsigned char type;     // C JSON_NULL - JSON_ARRAY and JSON_CONST
+    struct json * next;     // type & OBJECT or ARRAY -> 下个结点链表
+    struct json * chid;     // type & OBJECT or ARRAY -> 对象结点数据
+
+    char * key;             // json 结点的 key
+    union {
+        char * str;         // type & JSON_STRING -> 字符串
+        double num;         // type & JSON_NUMBER -> number
+    };
+};
+
+// 定义 json 对象类型
+//
+typedef struct json * json_t;
 
 //
 // json_int - 得到结点的 int 值
@@ -949,17 +956,20 @@ inline char * json_str(json_t item) {
     item->type &= JSON_CONST;
     return item->str;
 }
+
 ```
 
-    以上就是解析之后的具体结构类型. 下面简单分析一下文本解析规则. 思路是递归下降分析. 到
-    这里基本关于 C json 详细设计图介绍完毕了. 后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
+使用 C99 的匿名结构体挺爽的, 整个 struct json 内存详细布局如下:
+
+![C json内存结构](./img/json内存结构.png)
+
+C json 中处理的类型类型无外乎 JSON_NULL, JSON_BOOL, JSON_NUMBER, JSON_STRING, JSON_OBJECT, JSON_ARRAY. 其中 JSON_CONST 是用于实现修饰用的. JSON_NUMBER 本质是 double, 通过 json_int 包装得到 int 值. 基于以上具体结构类型, 下面简单分析一下文本解析规则. 思路是递归下降分析. 到这里基本关于 C json 详细设计图介绍完毕了. 后面会看见这只麻雀代码极少 ヽ(✿ﾟ▽ﾟ)ノ
 
 ![C json递归下降分析](./img/json递归下降分析.png)
 
 ### 4.4.2 C json 详细设计
 
-    当初写这类东西, 就是对着协议文档开撸 ~ 这类代码是协议文档和作者思路的杂糅体, 推荐最
-    好手敲一遍, 自行加注释, 琢磨后吸收. 来看看 C json 的删除函数
+当初写这类东西, 就是对着协议文档开撸 ~ 这类代码是协议文档和作者思路的杂糅体, 推荐最好对着 json 官方协议加代码手敲一遍, 自行加注释, 琢磨后吸收. 来看看 C json 的删除函数
 
 ```C
 #include "json.h"
@@ -979,19 +989,17 @@ json_delete(json_t c) {
         if ((t & JSON_STRING) && !(t & JSON_CONST))
             free(c->str);
 
-        // 子结点 继续递归删除
+        // 子结点继续走深度递归删除
         if (c->chid)
             json_delete(c->chid);
 
+        free(c);
         c = next;
     }
 }
 ```
 
-    上面操作无外乎就是递归找到最下面的儿子节点, 期间删除自己挂载的节点. 然后依次按照 
-    next 链表顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json 串, 这
-    个串中可能存在多余的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的 json 字
-    符串.
+上面操作无外乎就是递归找到最下面的儿子结点, 期间删除自己挂载的结点. 然后依次按照 next 链表顺序循环执行. 随后通过代码逐个分析思维过程, 例如我们得到一个 json 串, 这个串中可能存在多余的空格, 多余的注释等. 就需要做洗词的操作, 只留下最有用的 json 字符串.
 
 ```C
 // json_mini - 清洗 str 中冗余的串并返回最终串的长度. 纪念 mini 比男的还平 :)
@@ -1063,18 +1071,9 @@ size_t json_mini(char * str) {
 }
 ```
 
-    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上
-    真正的解析器入口函数:
+以上操作主要目的是让解析器能够处理 json 串中 // 和 /**/, 并删除些不可见字符. 开始上真正的解析器入口函数:
 
 ```C
-//
-// parse_value - 递归下降解析
-// item     : json 结点
-// str      : 语句源串
-// return   : 解析后剩下的串
-//
-static const char * parse_value(json_t item, const char * str);
-
 //
 // json_parse - json 解析函数
 // str      : json 字符串串
@@ -1113,31 +1112,27 @@ json_t
 json_create(const char * str) {
     json_t c = NULL;
     if (str && *str) {
-        TSTR_CREATE(tsr);
-        tstr_appends(tsr, str);
+        cstr_declare(cs);
+        cstr_appends(cs, str);
 
         // 清洗 + 解析
-        json_mini(tsr->str);
-        c = json_parse(tsr->str);
+        json_mini(cs->str);
+        c = json_parse(cs->str);
 
-        TSTR_DELETE(tsr);
+        cstr_free(cs);
     }
     return c;
 }
 ```
 
-    以上操作主要目的是让解析器能够处理 json串中 // 和 /**/, 并删除些不可见字符. 开始上
-    真正的解从 json_create 看起, 声明了栈上字符串 tsr 填充 str, 随后进行 json_mini
-    洗词, 然后通过 json_parse 解析出最终结果并返回. 随后可以看哈 json_parse 实现非
-    常好理解, 核心调用的是 parse_value. 而 parse_value 就是我们的重头戏, 本质就是走
-    分支. 不同分支走不同的解析操作.
+真正的解从 json_create 看起, 声明了栈上字符串 cs 填充 str, 随后进行 json_mini 洗词, 然后通过 json_parse 解析出最终结果并返回. 随后可以看哈 json_parse 实现非常好理解, 核心调用的是 parse_value. 而 parse_value 就是我们的重头戏, 本质就是走分支. 不同分支走不同的解析操作.
 
 ```C
 static const char * 
 parse_value(json_t item, const char * str) {
     if (!str) return NULL;
     switch (*str) {
-    // n or N = null, f or F = false, t or T = true ...
+    // node or N = null, f or F = false, t or T = true ...
     case 'n': case 'N':
         if (str_cmpin(str + 1, "ull", sizeof "ull" - 1)) return NULL;
         item->type = JSON_NULL;
@@ -1163,9 +1158,7 @@ parse_value(json_t item, const char * str) {
 }
 ```
 
-    由 parse_value 引出了 parse_number, parse_literal, parse_string, 
-    parse_object, parse_array. 是不是后面五个写好了 parse_value 就写好了. 那随后
-    开始逐个击破, parse_number 走起.
+由 parse_value 引出了 parse_number, parse_literal, parse_string, parse_object, parse_array. 是不是后面五个 parse 写好了 parse_value 就写好了. 那随后开始逐个击破, parse_number 走起.
 
 ```C
 // parse_number - number 解析
@@ -1222,9 +1215,10 @@ static const char * parse_number(json_t item, const char * str) {
     item->num = n * pow(10, eign * e);
     return str;
 }
+
 ```
 
-    parse_number 特别像下面两兄弟. 大体功能相似, 用于将字符串解析成浮点数.
+parse_number 特别像下面两兄弟. 大体功能相似, 用于将字符串解析成浮点数.
 
 ```C
 extern double __cdecl strtod(char const * _String, char ** _EndPtr);
@@ -1234,32 +1228,34 @@ inline double __cdecl atof(char const * _String) {
 }
 ```
 
-    parse_literal 用于解析 `` 包裹的字符常量. 输入额外添加的私货. 
+parse_literal 用于解析 `` 包裹的字符常量. 输入额外添加的私货. 
 
 ```C
 // parse_literal - 字面串解析
 static const char * parse_literal(json_t item, const char * str) {
-    char c, * ntr;
-    const char * ptr, * etr = str;
+    char c;
+    size_t size;
+    const char * etr = '\n' == *str ? ++str : str;
 
     // 获取到 '`' 字符结尾处
     while ((c = *etr) != '`' && c)
         ++etr;
-    if (c != '`') return NULL;
+    if ('`' != c) return NULL;
 
-    // 开始构造 json string 结点
+    // 尝试吃掉 `` 开头第一个和结尾最后一个 \n, 方便整齐划一
+    size = '\n' == etr[-1] ? etr - str - 1 : etr - str;
+
+    // 开始构造和填充 json string 结点
     item->type = JSON_STRING;
-    item->str = ntr = malloc(etr - str + 1);
-    for (ptr = str; ptr < etr; ++ptr) 
-        *ntr++ = *ptr;
-    *ntr = '\0';
+    item->str = malloc(size + 1);
+    memcpy(item->str, str, size);
+    item->str[size] = '\0';
 
-    return ptr + 1;
+    return etr + 1;
 }
 ```
 
-    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字
-    符的处理. 我们了原先 cJSON 的代码. 作为程序员, 有些地方还是得低头 ~  
+是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字符的处理. 我们 copy 原先 cJSON 的代码. 作为程序员, 有些地方还是得低头 ~  
 
 ```C
 // parse_hex4 - parse 4 digit hexadecimal number
@@ -1384,15 +1380,10 @@ err_free:
 }
 ```
 
-    是不是也很骨骼精奇. 快要进入小高潮了 parse_string 解析难点在于 UTF-8 \uxxxx 字
-    符的处理. 编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是
-    libiconv 方案, 将其移植到 winds 上. 后面学到一招, 因为国内开发最多的需求就是 gbk
-    和 utf-8 国际标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面
-    抄录了一份 utf8.h. 有兴趣同学可以去作者主页找下来看看, 这里只带大家看看接口设计.
+编码转换非内幕人员多数只能看看. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 方案, 将其移植到 window 上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面抄录了一份 **utf8.h**. 有兴趣同学可以去作者主页找下来看看, 这里只带大家看看接口设计.
 
 ```C
-#ifndef _UTF8_H
-#define _UTF8_H
+#pragma once
 
 #include "struct.h"
 
@@ -1428,7 +1419,6 @@ extern bool isu8s(const char * s);
 //
 extern bool isu8(const char d[], size_t n);
 
-#endif//_UTF8_H
 ```
 
 > 引述一丁点维基百科上 UTF-8 编码字节含义:
@@ -1445,10 +1435,34 @@ extern bool isu8(const char d[], size_t n);
 > 可确定该字节为字符编码的第一个字节, 并且可判断对应的字符由几个字节表示;  
 > 根据前五位(如果前四位为 1), 可判断编码是否有错误或数据传输过程中是否有错误.
 
-    有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 
-    有所帮助.
+有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 有所帮助.
 
 ```C
+// isu8_local - 判断是否是 utf8 串的临时状态
+static bool isu8_local(unsigned char c, unsigned char * byts, bool * ascii) {
+    // ascii 码最高位为 0, 0xxx xxxx
+    if ((c & 0x80)) *ascii = false;
+
+    // 计算字节数
+    if (0 == *byts) {
+        if (c >= 0x80) {
+            if (c >= 0xFC && c <= 0xFD) *byts = 6;
+            else if (c >= 0xF8) *byts = 5;
+            else if (c >= 0xF0) *byts = 4;
+            else if (c >= 0xE0) *byts = 3;
+            else if (c >= 0xC0) *byts = 2;
+            else return false; // 异常编码直接返回
+            --*byts;
+        }
+    } else {
+        // 多字节的非首位字节, 应为 10xx xxxx
+        if ((c & 0xC0) != 0x80) return false;
+        // byts 来回变化, 最终必须为 0
+        --*byts;
+    }    
+    return true;
+}
+
 //
 // isu8s - 判断字符串是否是utf8编码
 // s        : 输入的串
@@ -1457,40 +1471,40 @@ extern bool isu8(const char d[], size_t n);
 bool 
 isu8s(const char * s) {
     bool ascii = true;
-    // byts 表示编码字节数, utf8 [1, 6]字节编码
-    unsigned char c, byts = 0;
+    // byts 表示编码字节数, utf8 [1, 6] 字节编码
+    unsigned char byts = 0;
 
-    while ((c = *s++)) {
-        // ascii 码最高位为 0, 0xxx xxxx
-        if ((c & 0x80)) ascii = false;
-
-        // 计算字节数
-        if (0 == byts) {
-            if (c >= 0x80) {
-                if (c >= 0xFC && c <= 0xFD) byts = 6;
-                else if (c >= 0xF8) byts = 5;
-                else if (c >= 0xF0) byts = 4;
-                else if (c >= 0xE0) byts = 3;
-                else if (c >= 0xC0) byts = 2;
-                else return false; // 异常编码直接返回
-                --byts;
-            }
-        } else {
-            // 多字节的非首位字节, 应为 10xx xxxx
-            if ((c & 0xC0) != 0x80) return false;
-            // byts 来回变化, 最终必须为 0
-            --byts;
-        }
-    }
+    for (unsigned char c; (c = *s); ++s)
+        if (!isu8_local(c, &byts, &ascii)) 
+            return false;
 
     return !ascii && byts == 0;
 }
+
+//
+// isu8 - check is utf8
+// d        : mem
+// n        : size
+// return   : true 表示 utf8 编码
+//
+bool 
+isu8(const char d[], size_t n) {
+    bool ascii = true;
+    // byts 表示编码字节数, utf8 [1, 6] 字节编码
+    unsigned char byts = 0;
+
+    for (size_t i = 0; i < n; ++i)
+        if (!isu8_local(d[i], &byts, &ascii)) 
+            return false;
+
+    return !ascii && byts == 0;
+}
+
 ```
 
 ### 4.4.3 parse array value
 
-    最后就到了结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带
-    给你不一样的体验.
+到结尾戏了. 递归下降分析的两位主角 parse_array 和 parse_object. 希望带给你不一样的体验.
 
 ```C
 // parse_array - array 解析
@@ -1503,7 +1517,7 @@ static const char * parse_array(json_t item, const char * str) {
     // 开始解析数组中数据
     item->chid = chid = json_new();
     str = parse_value(chid, str);
-    if (NULL == str) return NULL;
+    if (!str) return NULL;
 
     // array ',' cut
     while (',' == *str) {
@@ -1515,15 +1529,14 @@ static const char * parse_array(json_t item, const char * str) {
         chid = chid->next;
         // 继续间接递归处理值
         str = parse_value(chid, str);
-        if (NULL == str) return NULL;
+        if (!str) return NULL;
     }
 
     return ']' == *str ? str + 1 : NULL;
 }
 ```
 
-    parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处理的格
-    式如下 '{ "key":..., "key":..., ... }'
+parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处理的格式如下 '{ "key":..., "key":..., ... }'
 
 ```C
 // parse_object - object 解析
@@ -1536,10 +1549,10 @@ static const char * parse_object(json_t item, const char * str) {
 
     // {"key":value,...} 先处理 key 
     item->chid = chid = json_new();
-    if ('"' != *str)
+    if ('"' == *str)
+        str = parse_string (chid, str + 1);
+    else 
         str = parse_literal(chid, str + 1);
-    else
-        str = parse_string(chid, str + 1);
 
     if (!str || *str != ':') return NULL;
     chid->key = chid->str;
@@ -1547,7 +1560,7 @@ static const char * parse_object(json_t item, const char * str) {
 
     // 再处理 value
     str = parse_value(chid, str + 1);
-    if (NULL == str) return NULL;
+    if (!str) return NULL;
 
     // 开始间接递归解析
     while (*str == ',') {
@@ -1557,37 +1570,34 @@ static const char * parse_object(json_t item, const char * str) {
 
         chid->next = json_new();
         chid = chid->next;
-        if ('"' != *str)
+        if ('"' == *str)
+            str = parse_string (chid, str + 1);
+        else 
             str = parse_literal(chid, str + 1);
-        else
-            str = parse_string(chid, str + 1);
 
         if (!str || *str != ':') return NULL;
         chid->key = chid->str;
         chid->str = NULL;
 
         str = parse_value(chid, str + 1);
-        if (NULL == str) return NULL;
+        if (!str) return NULL;
     }
 
     return '}' == *str ? str + 1 : NULL;
 }
 ```
 
-    关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演
-    示的思路, 花些心思也可以构建出 json 对象转 json 串的套路. 麻烦点有 JSON_STRING
-    转换, 我们简单提提, 有心人可以作为拓展修炼. 有了 json 的处理库, 有没有感觉基础的业
-    务配置就很轻松了. 
+关于 json 串的解析部分就完工了. 核心是学习递归下降分析的套路, 间接递归. 通过上面演示的思路, 花些心思也可以构建出 json 对象转 json 串的套路. 麻烦点有 JSON_STRING 转换, 我们简单提提, 有心人可以作为拓展修炼. 有了 json 的处理库, 有没有感觉基础的业务配置就很轻松了. 
 
 ```C
 // print_string - string 编码
-static char * print_string(char * str, tstr_t p) {
+static char * print_string(char * str, cstr_t p) {
     unsigned char c;
     const char * ptr;
     char * ntr, * out;
     // 什么都没有 返回 "" empty string
     if (!str || !*str) {
-        out = tstr_expand(p, 3);
+        out = cstr_expand(p, 3);
         out[0] = out[1] = '"'; out[2] = '\0';
         return out;
     }
@@ -1609,12 +1619,12 @@ static char * print_string(char * str, tstr_t p) {
     }
 
     // 开始分配内存
-    ntr = out = tstr_expand(p, len + 3);
+    ntr = out = cstr_expand(p, len + 3);
     *ntr++ = '"';
     ntr[len+1] = '\0';
 
     // 没有特殊字符直接返回
-    if (len == ptr - str) {
+    if (len == (size_t)(ptr - str)) {
         memcpy(ntr, str, len);
         goto ret_out;
     }
