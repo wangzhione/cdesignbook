@@ -1,25 +1,15 @@
 # 第5章-内功-数据结构下卷
 
-        恭喜你, 来到这里. 此刻将是新开始的临界点. 本章算是开发中, 数据结构使用的实战阶
-    段. 将会展示金丹, 元婴战斗中时常出现部分数据结构的内功. 漫天飛絮, 气流涌动 ~ 也许
-    你会觉得点复杂(也许觉得点简单). 而 C 修真一个要求就是, 需要你懂得实现. 才能运用流
-    畅. 一切都会是钻木取火, 自生自灭的务实. 扯一点, 编译型语言要是有, 那种万能数据结构
-     array 或者 table, 那生产力会飙升 10 倍吧. 写代码就和玩似的 ~ 本章完工宗旨是数
-     据结构可以入得厨房. 代码写的越多, 越发觉得喜欢就好! 也许谁都想在这个元气稀薄的江
-    湖中成就元婴, 何不乘早, 打码穿键盘 ~ 看书出心眼 ~ 
+恭喜你, 来到这里. 此刻将是新开始的临界点. 本章算是开发中, 数据结构使用的实战阶段. 将会在数据结构上卷部分继续精进, 争取练习完美, 增强数据结构的内功. 漫天飛絮, 气流涌动 ~ 也许你会觉得点复杂(也许觉得点简单). 而 C 修真一个要求就是, 需要你懂得实现. 才能运用流畅. 一切都会是钻木取火, 自生自灭的务实. 扯一点, 编译型语言要是有, 那种万能数据结构 array 或者 table, 那生产力会飙升 10 倍吧. 写代码就和玩似的 ~ 本章完工宗旨是数据结构可以入得厨房. 代码写的越多, 越发觉得喜欢就好! 也许谁都想在这个元气稀薄的江湖中铸就金身, 何不乘早, 打码穿键盘 ~ 看书出智慧 ~ 
 
 ## 5.1 红黑树, 一道坎
 
-        红黑树的理论, 推荐搜索多方资料恶补. 他解决的问题是, 防止查找二叉搜索树退化为有
-    序的双向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只是站在
-    自己框架用到的, 实现角度出发. 带大家去感受, 那些瞎逼调整的二叉树结点 ~ 是如何张狂
-    的出现在编程的世界里 ~ 啊哈 ~ 首先瞄一下总设计野路子 rtree.h
+红黑树的理论, 推荐搜索多方资料恶补. 它解决的问题是, 防止查找二叉搜索树退化为有序的双向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只是站在自己框架用到的, 实现角度出发. 带大家去感受, 那些瞎逼调整的二叉树结点 ~ 是如何张狂的出现在编程的世界里 ~ 啊哈 ~ 首先瞄一下总设计野路子 **rtree.h**
 
 ```C
-#ifndef _RTREE_H
-#define _RTREE_H
+#pragma once
 
-#include "struct.h"
+#include "stack.h"
 
 //
 // 红黑树通用结构, 需要将 $RTREE 放在结构开头部位
@@ -35,20 +25,17 @@ struct $rtree {
 
 typedef struct {
     struct $rtree * root;
-    cmp_f  fget; // cmp_f 结点查找时比较行为
     cmp_f  fcmp;
-    new_f  fnew;
     node_f fdie;
 } * rtree_t;
 
 //
 // rtee_create - 创建一个红黑树对象
-// fcmp     : cmp_f 结点插入时比较行为
-// fnew     : new_f 结点插入时构造行为
-// fdie     : node_f 结点删除时销毁行为
+// fcmp     :  cmp_f 结点的比较行为
+// fdie     : node_f 结点的销毁行为
 // return   : 返回构建红黑树对象
 //
-extern rtree_t rtree_create(void * fcmp, void * fnew, void * fdie);
+extern rtree_t rtree_create(void * fcmp, void * fdie);
 
 //
 // rtree_delete - 红黑树删除函数
@@ -60,6 +47,7 @@ extern void rtree_delete(rtree_t tree);
 //
 // rtree_search - 红黑树查找函数
 // tree     : 待查找的红黑树结构
+// pack     : 树结点, fcmp(x, pack)
 // return   : 返回查找的结点
 //
 extern void * rtree_search(rtree_t tree, void * pack);
@@ -75,22 +63,14 @@ extern void rtree_insert(rtree_t tree, void * pack);
 //
 // rtree_remove - 红黑树中删除结点
 // tree     : 红黑树结构
-// pack     : 待删除基础结构
+// pack     : 此树中待删除结点
 // return   : void
 //
 extern void rtree_remove(rtree_t tree, void * pack);
 
-#endif//_RTREE_H
 ```
 
-    通过上面结构先体会下设计意图, 例如 rtree_t 结构中 fget, fnew, fcmp, fdie 分别
-    用于红黑树中 search 查找结点, insert 创建结点, insert 查找结点, delete 销毁结
-    点时候的处理规则. 使用的套路是基于注册的设计思路. $RTREE 可类比 $LIST 套路. C 中
-    一种结构继承的技巧, 运用地址重叠确定 struct $rtree 首地址. 而对于 
-    struct $rtree 中 uintptr_t parentc 他表示红黑树的父亲结点地址和当前是红是黑标
-    识两种状态. 利用原理是, 当前结构的内存布局以指针(x86 4 字节, x64 8 字节)位对齐的.
-    因为地址一定是 4 的倍数, 即 0100 的倍数. 所以最后两位默认用不上, 扩展用于标识结点
-    的红黑属性. 有了这些知识那么就有如下代码.
+通过上面结构先体会下设计意图, 例如 rtree_t 结构中 fget, fnew, fcmp, fdie 分别用于红黑树中 search 查找结点, insert 创建结点, insert 查找结点, delete 销毁结点时候的处理规则. 使用的套路是基于注册的设计思路. $RTREE 可类比 $LIST 套路. C 中一种结构继承的技巧, 运用地址重叠确定 struct $rtree 首地址. 而对于 struct $rtree 中 uintptr_t parentc 它表示红黑树的父亲结点地址和当前是红是黑标识两种状态. 利用原理是, 当前结构的内存布局以指针(x86 4 字节, x64 8 字节)位对齐的. 因为地址一定是 4 的倍数, 即 0100 的倍数. 所以最后两位默认用不上, 扩展用于标识结点的红黑属性. 有了这些知识那么就有如下代码.
 
 ```C
 #include "rtree.h"
@@ -101,55 +81,64 @@ extern void rtree_remove(rtree_t tree, void * pack);
 // p    : 父结点
 // c    : 当前结点颜色, 1 is black, 0 is red
 //
-#define rtree_parent(r)      ((struct $rtree *)((r)->parentc & ~3))
+#define rtree_parent(r)      ((struct $rtree *)((r)->parentc & ~1))
 #define rtree_color(r)       ((r)->parentc & 1)
 #define rtree_is_red(r)      (!rtree_color(r))
 #define rtree_is_black(r)    rtree_color(r)
 #define rtree_set_red(r)     (r)->parentc &= ~1
-#define rtree_set_black(r)   (r)->parentc |= 1
+#define rtree_set_black(r)   (r)->parentc |=  1
 
 inline void rtree_set_parent(struct $rtree * r, struct $rtree * p) {
-    r->parentc = (r->parentc & 3) | (uintptr_t)p;
+    r->parentc = (r->parentc & 1) | (uintptr_t)p;
 }
 
 inline void rtree_set_color(struct $rtree * r, int color) {
     r->parentc = (r->parentc & ~1) | (1 & color);
 }
 
-inline static int rtree_default_cmp(const void * l, const void * r) {
+inline static int rtree_cmp_default(const void * l, const void * r) {
     return (int)((intptr_t)l - (intptr_t)r);
 }
+
 ```
 
-    rtree_parent 通过当前结点获取父结点, rtree_color 获取当前结点颜色标识. 有了这些
-    我们就可以写些简单的部分代码. rtree_create 红黑树创建, rtree_delete 红黑树删除.
+rtree_parent 通过当前结点获取父结点, rtree_color 获取当前结点颜色标识. 有了这些我们就可以写些简单的部分代码. rtree_create 红黑树创建, rtree_delete 红黑树删除.
 
 ```C
 //
 // rtee_create - 创建一个红黑树对象
-// fcmp     : cmp_f 结点插入时比较行为
-// fnew     : new_f 结点插入时构造行为
-// fdie     : node_f 结点删除时销毁行为
+// fcmp     :  cmp_f 结点的比较行为
+// fdie     : node_f 结点的销毁行为
 // return   : 返回构建红黑树对象
 //
 inline rtree_t 
-rtree_create(void * fcmp, void * fnew, void * fdie) {
+rtree_create(void * fcmp, void * fdie) {
     rtree_t tree = malloc(sizeof *tree);
     tree->root = NULL;
-    tree->fcmp = fcmp ? fcmp : rtree_default_cmp;
-    tree->fnew = fnew;
+    tree->fcmp = fcmp ? fcmp : (void *)rtree_cmp_default;
     tree->fdie = fdie;
-    tree->fget = NULL;
     return tree;
 }
 
 // rtree_die - 后序删除树结点
 static void rtree_die(struct $rtree * root, node_f fdie) {
-    if (root->left)
-        rtree_die(root->left, fdie);
-    if (root->right)
-        rtree_die(root->right, fdie);
-    fdie(root);
+    struct $rtree * pre = NULL;
+    struct stack s; stack_init(&s);
+    stack_push(&s, root);
+    do {
+        struct $rtree * cur = stack_top(&s);
+        if ((!cur->left && !cur->right) 
+         || ((cur->left == pre || cur->right == pre) && pre)) {
+            fdie(pre = cur);
+            stack_pop(&s);
+        } else {
+            if (cur->right)
+                stack_push(&s, cur->right);
+            if (cur->left)
+                stack_push(&s, cur->left);
+        }
+    } while (!stack_empty(&s));
+    stack_free(&s);
 }
 
 //
@@ -159,31 +148,28 @@ static void rtree_die(struct $rtree * root, node_f fdie) {
 //
 inline void 
 rtree_delete(rtree_t tree) {
-    if (NULL == tree) return;
-    if (tree->root && tree->fdie)
-        rtree_die(tree->root, tree->fdie);
-    tree->root = NULL;
-    free(tree);
+    if (tree) {
+        if (tree->root && tree->fdie)
+            rtree_die(tree->root, tree->fdie);
+        tree->root = NULL;
+        free(tree);
+    }
 }
 ```
 
-    同样 rtree_search 红黑树查找操作也是很普通, 和有序二叉树操作一样. 只是多了步查找行
-    为 tree->fget 的选择. 
+同样 rtree_search 红黑树查找操作也是很普通, 和有序二叉树操作一样. 只是多了步查找行为 tree->fget 的选择. 
 
 ```C
 //
 // rtree_search - 红黑树查找函数
 // tree     : 待查找的红黑树结构
+// pack     : 树结点, fcmp(x, pack)
 // return   : 返回查找的结点
 //
 void * 
 rtree_search(rtree_t tree, void * pack) {
-    cmp_f fcmp;
-    struct $rtree * node;
-    if (!tree) return NULL;
-
-    fcmp = tree->fget ? tree->fget : tree->fcmp;
-    node = tree->root;
+    cmp_f fcmp = tree->fcmp;
+    struct $rtree * node = tree->root;
     while (node) {
         int diff = fcmp(node, pack);
         if (diff == 0)
@@ -199,8 +185,7 @@ rtree_search(rtree_t tree, void * pack) {
 
 ### 5.1.1 红黑树调整
 
-    后续逐渐拉开了红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要调整旋转操作. 被称
-    为左旋和右旋, 例如左旋代码如下:
+后续逐渐拉开了红黑树大戏. 继续细化代码, 逐个分析. 红黑树中有个重要调整旋转操作. 被称为左旋和右旋, 例如左旋代码如下:
 
 ```C
 /* 
@@ -211,10 +196,10 @@ rtree_search(rtree_t tree, void * pack) {
  *       px                             px
  *      /                              /
  *     x                              y
- *    /  \       --- (左旋) -->       / \
- *   lx   y                         x  ry
- *      /   \                      /  \
- *     ly   ry                    lx  ly  
+ *    / \       --- (左旋) -->       / \
+ *   lx  y                          x   ry
+ *      / \                        /     \
+ *    ly   ry                    lx       ly  
  *
  */
 static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
@@ -225,21 +210,21 @@ static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
     // 将 [y的左孩子] 设为 [x的右孩子]；
     x->right = y->left;
     // 如果 y的左孩子 非空，将 [x] 设为 [y的左孩子的父亲]
-    if (y->left != NULL)
+    if (y->left)
         rtree_set_parent(y->left, x);
 
     // 将 [x的父亲] 设为 [y的父亲]
     rtree_set_parent(y, xparent);
 
-    if (xparent == NULL) {
+    if (!xparent) {
         // 如果 [x的父亲] 是空结点, 则将 [y] 设为根结点
         tree->root = y;
     } else {
         if (xparent->left == x) {
-            // 如果 [x] 是他父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
+            // 如果 [x] 是它父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
             xparent->left = y;
         } else {
-            // 如果 [x] 是他父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
+            // 如果 [x] 是它父结点的左孩子, 则将 [y] 设为 [x的父结点的左孩子]
             xparent->right = y;
         }
     }
@@ -251,13 +236,15 @@ static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
 }
 ```
 
-    为什么有这些额外辅助调整操作呢, 主要是为了满足红黑树五大特性.
-        特性 1: 每个结点或者是黑色, 或者是红色.
-        特性 2: 根结点是黑色.
-        特性 3: 每个叶子结点(NIL)是黑色. [这里是指为空(NIL或NULL)的叶子结点]
-        特性 4: 如果一个结点是红色的, 则他的子结点必须是黑色的.
-        特性 5: 从一个结点到该结点的子孙结点的所有路径上包含相同数目的黑色结点.
-    而左右旋转操作, 就是为了调整出特性 5设计的. 相应的右旋操作如下:
+为什么有这些额外辅助调整操作呢, 主要是为了满足红黑树五大特性.
+
+- 特性 1: 每个结点或者是黑色, 或者是红色.
+- 特性 2: 根结点是黑色.
+- 特性 3: 每个叶子结点(NIL)是黑色. [这里是指为空(NIL或NULL)的叶子结点]
+- 特性 4: 如果一个结点是红色的, 则他的子结点必须是黑色的.
+- 特性 5: 从一个结点到该结点的子孙结点的所有路径上包含相同数目的黑色结点.
+
+而左右旋转操作, 就是为了调整出**特性 5**设计的. 相应的右旋操作如下:
 
 ```C
 /* 
@@ -267,11 +254,11 @@ static void rtree_left_rotate(rtree_t tree, struct $rtree * x) {
  * 
  *         py                            py
  *        /                             /
- *       y                             x                  
- *      /  \      --- (右旋) -->      /  \
- *     x   ry                        lx   y  
- *    / \                                / \
- *   lx  rx                             rx  ry
+ *       y                             x
+ *      / \      --- (右旋) -->       / \
+ *     x   ry                       lx   y  
+ *    / \                               / \
+ *  lx   rx                           rx   ry
  * 
  */
 static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
@@ -282,20 +269,20 @@ static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
     // 将 [x的右孩子] 设为 [y的左孩子]
     y->left = x->right;
     // 如果 x的右孩子 不为空的话，将 [y] 设为 [x的右孩子的父亲]
-    if (x->right != NULL)
+    if (x->right)
         rtree_set_parent(x->right, y);
 
     // 将 [y的父亲] 设为 [x的父亲]
     rtree_set_parent(x, yparent);
-    if (yparent == NULL) {
+    if (!yparent) {
         // 如果 [y的父亲] 是空结点, 则将 [x] 设为根结点
         tree->root = x;
     } else {
         if (y == yparent->right) {
-            // 如果 [y] 是他父结点的右孩子, 则将 [x] 设为 [y的父结点的右孩子]
+            // 如果 [y] 是它父结点的右孩子, 则将 [x] 设为 [y的父结点的右孩子]
             yparent->right = x;
         } else {
-            // 如果 [y] 是他父结点的左孩子, 将 [x] 设为 [x的父结点的左孩子]
+            // 如果 [y] 是它父结点的左孩子, 将 [x] 设为 [x的父结点的左孩子]
             yparent->left = x;
         }
     }
@@ -307,24 +294,20 @@ static void rtree_right_rotate(rtree_t tree, struct $rtree * y) {
 }
 ```
 
-    注释很详细, 看起来也有点头痛. 木办法, 需要各自课间花功夫. 疯狂的吸收相关元气, 照着
-    算法解释抄一遍代码, 写一遍代码, 理解一遍, 坎就过了. 毕竟上面是工程代码, 和教学过家
-    家有些不同. 旋转调整相比后面的插入调整, 删除调整, 要简单很多. 因而趁着他简单, 我们
-    再额外补充些. 红黑树存在父亲结点, 左右旋转相对容易点. 如果一个普通二叉数没有父亲结点
-    , 该如何旋转呢? 我们以陈启峰 2006 高中的时候构建的 Size Balanced Tree 为例子演
-    示哈. 分别观望数据结构和旋转实现, 坐山观虎斗(眼睛看), 净收渔翁之利(动手写). 
+注释很详细, 看起来也有点头痛. 木办法, 需要各自课间花功夫. 疯狂的吸收相关元气, 照着算法解释抄一遍代码, 写一遍代码, 理解一遍, 坎就过了. 毕竟上面是工程代码, 和教学过家家有些不同. 旋转调整相比后面的插入调整, 删除调整, 要简单很多. 因而趁着他简单, 我们再额外补充些. 红黑树存在父亲结点, 左右旋转相对容易点. 如果一个普通二叉数没有父亲结点, 该如何旋转呢? 我们以陈启峰 2006 高中的时候构建的 **Size Balanced Tree** 为例子演示哈. 分别观望数据结构和旋转实现, 坐山观虎斗(眼睛看), 净收渔翁之利(动手写). 
 
 ```C
-#ifndef _STREE_H
-#define _STREE_H
+#pragma once
 
 typedef unsigned long long stree_key_t;
 
 typedef union {
+    int i;
+    unsigned u;
     void * ptr;
     double number;
-    signed long long i;
-    unsigned long long u;
+    long long ll;
+    unsigned long long llu;
 } stree_value_t;
 
 struct stree {
@@ -342,7 +325,6 @@ inline unsigned stree_size(const struct stree * const node) {
     return node ? node->size : 0;
 }
 
-#endif//_STREE_H
 ```
 
 ![SBT](./img/sbt.png)
@@ -384,33 +366,36 @@ static void stree_right_rotate(stree_t * pode) {
 
 ### 5.1.2 红黑树 insert
 
-    请原谅作者借(chao)花(xi)献(mei)佛(lian), 弄了个大概无关痛痒的步骤说明. 将一个节
-    点插入到红黑树中. 首先, 将红黑树当作一颗二叉查找树, 将结点插入. 然后, 将结点着色为
-    红色. 最后通过旋转和重新着色等方法来修正该树, 使之重新成为一颗红黑树. 详细过程描述.
-    第一步:    
-	将红黑树当作一颗二叉查找树, 将结点插入红黑树本身就是一颗二叉查找树, 将结点插入后, 该
-    树仍然是一颗二叉查找树. 也就意味着, 树的键值仍然是有序的. 此外, 无论是左旋还是右旋, 
-    若旋转之前这棵树是二叉查找树, 旋转之后他一定还是二叉查找树. 这也就意味着, 任何的旋转
-    和重新着色操作, 都不会改变他仍然是一颗二叉查找树的事实.
-    第二步:
-	将插入的结点着色为'红色'. 将插入的结点着色为红色, 不会违背'特性 5'!
-    第三步:     
-	通过一系列的旋转或着色等操作, 使之重新成为一颗红黑树. 第二步中, 将插入结点着色为'红
-    色'之后, 不会违背'特性 5'. 那他会违背哪些特性呢? 
-    对于'特性 1': 不会违背. 因为我们已经将他涂成红色了.
-    对于'特性 2': 也不会违背. 在第一步中, 我们是将红黑树当作二叉查找树, 然后执行的插入
-    操作. 而根据二叉查找数的特点, 插入操作不会改变根结点. 所以，根结点仍然是黑色.
-    对于'特性 3': 不会违背. 叶子结点是指的空叶子结点, 插入非空结点并不会对其造成影响
-    对于'特性 4': 是有可能违背的！    
-    那接下来工作就是想办法'满足特性 4', 就可以将搜索树重新生成一棵红黑树了. 来看看热闹, 
-    代码到底是怎样实现这三大步的.
+请原谅作者借(chao)花(xi)献(mei)佛(lian), 弄了个大概无关痛痒的步骤说明. 将一个结点插入到红黑树中. 首先, 将红黑树当作一颗二叉查找树, 将结点插入. 然后, 将结点着色为红色. 最后通过旋转和重新着色等方法来修正该树, 使之重新成为一颗红黑树. 详细过程描述.
+
+- 第一步:
+
+将红黑树当作一颗二叉查找树, 将结点插入红黑树本身就是一颗二叉查找树, 将结点插入后, 该树仍然是一颗二叉查找树. 也就意味着, 树的键值仍然是有序的. 此外, 无论是左旋还是右旋, 若旋转之前这棵树是二叉查找树, 旋转之后他一定还是二叉查找树. 这也就意味着, 任何的旋转和重新着色操作, 都不会改变他仍然是一颗二叉查找树的事实.
+
+- 第二步:
+
+将插入的结点着色为'红色'. 将插入的结点着色为红色, 不会违背'特性 5'!
+
+- 第三步:
+
+通过一系列的旋转或着色等操作, 使之重新成为一颗红黑树. 第二步中, 将插入结点着色为'红色'之后, 不会违背'特性 5'. 那他会违背哪些特性呢? 
+
+对于'特性 1': 不会违背. 因为我们已经将他涂成红色了.
+
+对于'特性 2': 也不会违背. 在第一步中, 我们是将红黑树当作二叉查找树, 然后执行的插入操作. 而根据二叉查找数的特点, 插入操作不会改变根结点. 所以，根结点仍然是黑色.
+
+对于'特性 3': 不会违背. 叶子结点是指的空叶子结点, 插入非空结点并不会对其造成影响
+
+对于'特性 4': 是有可能违背的!
+
+那接下来工作就是想办法'满足特性 4', 就可以将搜索树重新生成一棵红黑树了. 来看看热闹, 代码到底是怎样实现这三大步的.
 
 ```C
 /*
  * 红黑树插入修正函数
  *
  * 在向红黑树中插入结点之后(失去平衡), 再调用该函数.
- * 目的是将他重新塑造成一颗红黑树.
+ * 目的是将它重新塑造成一颗红黑树.
  *
  * 参数说明:
  *     tree 红黑树的根
@@ -477,13 +462,6 @@ static void rtree_insert_fixup(rtree_t tree, struct $rtree * node) {
     rtree_set_black(tree->root);
 }
 
-// rtree_new - 插入时候构造一个新结点 | static 用于解决符号重定义
-static inline struct $rtree * rtree_new(rtree_t tree, void * pack) {
-    struct $rtree * node = tree->fnew ? tree->fnew(pack) : pack;
-    // 默认构建结点是红色的
-    return  memset(node, 0, sizeof *node);
-}
-
 //
 // rtree_insert - 红黑树中插入结点 fnew(pack)
 // tree     : 红黑树结构
@@ -492,12 +470,10 @@ static inline struct $rtree * rtree_new(rtree_t tree, void * pack) {
 //
 void 
 rtree_insert(rtree_t tree, void * pack) {
-    if (!tree || !pack) return;
-
     cmp_f fcmp = tree->fcmp;
     struct $rtree * x = tree->root, * y = NULL;
     // 1. 构造插入结点, 并设置结点的颜色为红色
-    struct $rtree * node = rtree_new(tree, pack);
+    struct $rtree * node = memset(pack, 0, sizeof(struct $rtree));
 
     // 2. 将红黑树当作一颗二叉查找树, 将结点添加到二叉查找树中. 默认 从小到大
     while (x) {
@@ -509,7 +485,7 @@ rtree_insert(rtree_t tree, void * pack) {
     }
     rtree_set_parent(node, y);
 
-    if (NULL == y) {
+    if (!y) {
         // 情况 1: 若 y是空结点, 则将 node设为根
         tree->root = node;
     } else {
@@ -524,46 +500,39 @@ rtree_insert(rtree_t tree, void * pack) {
         }
     }
 
-    // 3. 将他重新修正为一颗二叉查找树
+    // 3. 将它重新修正为一颗二叉查找树
     rtree_insert_fixup(tree, node);
 }
+
 ```
 
-    手写红黑树是个挑战. 参照无数金丹前辈们筑基期历练的手稿, 顺带从 linux 上拔下来的原始
-    代码敲个几遍后, 构造了上面库. 学习的话 1 查 2 抄 3 默写, 应该能蒙蒙胧吧 ~
+手写红黑树是个挑战. 参照很多前辈们筑基期历练的手稿, 顺带从 linux 上拔下来的原始代码敲个几遍后, 构造了上面库. 学习的话 1 查 2 抄 3 默写, 应该能蒙蒙胧吧 ~
 
 ### 5.1.3 红黑树 remove
 
-    将红黑树内某一个结点删除. 需要执行的操作顺序是: 首先, 将红黑树当作一颗二叉查找树, 
-    将该结点从二叉查找树中删除. 然后, 通过'旋转和重新着色' 等一系列来修正该树, 使之重新
-    成为一棵红黑树. 详细描述参照下面步骤.
-    第一步:     
-	将红黑树当作一颗二叉查找树, 将结点删除. 这和'删除常规二叉查找树中删除结点的方法是一
-    样的'. 分 3 种情况:  
-    情况 1. 被删除结点没有儿子, 即为叶结点. 那么直接将该结点删除就 OK 了.
-    情况 2. 被删除结点只有一个儿子. 那么直接删除该结点, 并用该结点的儿子结点顶替他的位
-           置.
-    情况 3. 被删除结点有两个儿子. 那么, 先找出他的后继结点. 然后把'他的后继结点的内容
-           '复制给'该结点的内容'. 之后, 删除'他的后继结点'. 在这里, 后继结点相当于替
-           身, 在将后继结点的内容复制给'被删除结点'之后, 再将后继结点删除. 这样就巧妙
-           的将问题转换为'删除后继结点'的情况了, 下面就考虑后继结点. 在'被删除结点'有
-           两个非空子结点的情况下, 他的后继结点不可能是双子非空. 既然'被删除结点的后继
-           结点'不可能双子都非空, 就意味着'该结点的后继结点'要么没有儿子, 要么只有一个
-           儿子. 若没有儿子, 则按'情况 1' 进行处理. 若只有一个儿子, 则按'情况 2' 进
-           行处理.
-    第二步:   
-	通过'旋转和重新着色'等一系列来修正该树, 使之重新成为一棵红黑树. 因为'第一步'中删除
-    结点之后, 可能会违背红黑树的特性. 所以需要通过'旋转和重新着色'来修正该树, 使之重新
-    成为一棵红黑树. 
-    最终对着算法说明和 linux 红黑树源码构造的一种工程实现. 构造了 rtree_remove 纯属
-    一起作死一起嗨.
+将红黑树内某一个结点删除. 需要执行的操作顺序是: 首先, 将红黑树当作一颗二叉查找树, 将该结点从二叉查找树中删除. 然后, 通过'旋转和重新着色' 等一系列来修正该树, 使之重新
+成为一棵红黑树. 详细描述参照下面步骤.
+
+- 第一步:
+
+将红黑树当作一颗二叉查找树, 将结点删除. 这和'删除常规二叉查找树中删除结点的方法是一样的'. 分 3 种情况: 
+
+情况 1. 被删除结点没有儿子, 即为叶结点. 那么直接将该结点删除就 OK 了.
+
+情况 2. 被删除结点只有一个儿子. 那么直接删除该结点, 并用该结点的儿子结点顶替他的位置.
+
+情况 3. 被删除结点有两个儿子. 那么, 先找出他的后继结点. 然后把'他的后继结点的内容'复制给'该结点的内容'. 之后, 删除'他的后继结点'. 在这里, 后继结点相当于替身, 在将后继结点的内容复制给'被删除结点'之后, 再将后继结点删除. 这样就巧妙的将问题转换为'删除后继结点'的情况了, 下面就考虑后继结点. 在'被删除结点'有两个非空子结点的情况下, 他的后继结点不可能是双子非空. 既然'被删除结点的后继结点'不可能双子都非空, 就意味着'该结点的后继结点'要么没有儿子, 要么只有一个儿子. 若没有儿子, 则按'情况 1' 进行处理. 若只有一个儿子, 则按'情况 2' 进行处理.
+
+- 第二步:
+
+通过'旋转和重新着色'等一系列来修正该树, 使之重新成为一棵红黑树. 因为'第一步'中删除结点之后, 可能会违背红黑树的特性. 所以需要通过'旋转和重新着色'来修正该树, 使之重新成为一棵红黑树. 最终对着算法说明和 linux 红黑树源码构造的一种工程实现. 构造了 rtree_remove 纯属一起作死一起嗨.
 
 ```C
 /*
  * 红黑树删除修正函数
  *
  * 在从红黑树中删除插入结点之后(红黑树失去平衡), 再调用该函数.
- * 目的是将他重新塑造成一颗红黑树.
+ * 目的是将它重新塑造成一颗红黑树.
  *
  * 参数说明:
  *     tree 红黑树的根
@@ -645,43 +614,44 @@ static void rtree_remove_fixup(rtree_t tree,
 //
 // rtree_remove - 红黑树中删除结点
 // tree     : 红黑树结构
-// pack     : 待删除基础结构
+// pack     : 此树中待删除结点
 // return   : void
 //
 void 
 rtree_remove(rtree_t tree, void * pack) {
     int color;
     struct $rtree * child, * parent, * node = pack;
-    if (NULL != tree) return;
 
     // 被删除结点的 "左右孩子都不为空" 的情况
-    if (NULL != node->left && node->right != NULL) {
+    if (node->left && node->right) {
         // 被删结点的后继结点. (称为 "取代结点")
-        // 用他来取代 "被删结点" 的位置, 然后再将 "被删结点" 去掉
+        // 用它来取代 "被删结点" 的位置, 然后再将 "被删结点" 去掉
         struct $rtree * replace = node;
 
         // 获取后继结点
         replace = replace->right;
-        while (replace->left != NULL)
+        while (replace->left)
             replace = replace->left;
 
-        // "node结点" 不是根结点(只有根结点不存在父结点)
-        if ((parent = rtree_parent(node))) {
+        // "node结点" 是根结点, 更新根结点
+        if (!(parent = rtree_parent(node)))
+            tree->root = replace;
+        else {
+            // "node结点" 不是根结点(只有根结点不存在父结点)
             if (parent->left == node)
                 parent->left = replace;
             else
                 parent->right = replace;
-        } else // "node结点" 是根结点, 更新根结点
-            tree->root = replace;
+        }
 
         // child 是 "取代结点" 的右孩子, 也是需要 "调整的结点"
-        // "取代结点" 肯定不存在左孩子! 因为他是一个后继结点
+        // "取代结点" 肯定不存在左孩子! 因为它是一个后继结点
         child = replace->right;
         parent = rtree_parent(replace);
         // 保存 "取代结点" 的颜色
         color = rtree_color(replace);
 
-        // "被删除结点" 是 "他的后继结点的父结点"
+        // "被删除结点" 是 "它的后继结点的父结点"
         if (parent == node)
             parent = replace; 
         else {
@@ -702,7 +672,7 @@ rtree_remove(rtree_t tree, void * pack) {
         goto ret_out;
     }
 
-    if (NULL != node->left)
+    if (node->left)
         child = node->left;
     else 
         child = node->right;
@@ -715,7 +685,7 @@ rtree_remove(rtree_t tree, void * pack) {
         rtree_set_parent(child, parent);
 
     // "node结点" 不是根结点
-    if (NULL == parent)
+    if (!parent)
         tree->root = child;
     else {
         if (parent->left == node)
@@ -732,9 +702,9 @@ ret_out:
 }
 ```
 
-    红黑树代码是非线性的, 需要一点看材料的功夫. 就当扩展视野, 吸收成自己的代码库. 写代
-    码很多时候要同姑苏慕容学习, 以彼之道还治彼身. 这里关于红黑树的梗过去了, 飞云逐日, 
-    不如, 一切安好 ~
+红黑树代码是非线性的, 需要一点看材料的功夫. 就当扩展视野, 吸收成自己的代码库. 写代码很多时候要同姑苏慕容学习, 以彼之道还治彼身. 这里关于红黑树的梗过去了, 飞云逐日, 不如, 一切安好 ~ 
+
+其实我们不是写不出来, 而是想不出来这么巧妙数学结构. 真实实战中, 是走宏模板机制. 这本小册子实现的 list, red black tree 更多是学习机制, 距离实战还是不漂亮. 如果有第二版我们细致简单构造相关例子, 例如 list 库是否需要我们需要讨论讨论等等. 但其中设计思路学习和消化还是大有益处的. 同样对于红黑树, 跳表, 能看懂就好, 不要求能手写, 因为那些代码一直在哪里, 不用和科研的抢活, 毕竟分工不一样. 开发工程师是实施, 是拿来主义的匠人. 
 
 ## 5.2 dict
 
