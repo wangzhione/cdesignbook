@@ -9,13 +9,7 @@
 
 ## 6.1 传说中的线程池
 
-        线程池这个很古老的旧话题, 讨论的很多, 深入也挺难. 也就在一些基础库中才能见到这
-    类有点精妙的模型技巧. 此处也会随大流深入简述简单且控制性强的一种线程池实现. 先引入一
-    个概念"惊群". 举个简单例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米渣. 扔
-	出去, 立马无数麻雀过来争抢. 而最终会有一只或多只麻雀会得到. 而那些没有抢到的麻雀会很
-	累 ... .. . 编程中惊群, 同样是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣
-    的可以自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用
-    的 POSIX 跨平台的线程库 pthread 来演示和克服. 
+线程池这个很古老的旧话题, 讨论的很多, 深入也挺难. 也就在一些基础库或编程语言设计中才能见到这类有点精妙的模型技巧. 此处也会随大流深入简述简单且控制性强的一种线程池实现. 先引入一个概念"惊群". 举个简单例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米渣. 扔出去, 立马无数麻雀过来争抢. 而最终会有一只或多只麻雀会得到. 而那些没有抢到的麻雀会很累 ... .. . 编程中惊群, 同样是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的 POSIX 跨平台的线程库 pthread 来演示和克服. 
 
 ```C
 //
@@ -35,10 +29,7 @@ extern int __cdecl pthread_cond_wait (pthread_cond_t * cond,
                                       pthread_mutex_t * mutex);
 ```
 
-    上面 pthread_cond_signal 接口就是线程池中出现惊群现象的原因所在. 他会激活一个或多
-    个 pthread_cond_wait 等待状态线程. 同样我们解决惊群的方法很直接, 定向激活, 每个
-    实际运行线程对象都有自己的条件变量. 这样每次只要激活需要激活的线程变量就可以了. 惊群
-    现象就自然巧妙的避过去了.
+上面 pthread_cond_signal 接口就是线程池中出现惊群现象的原因所在. 它会激活一个或多个 pthread_cond_wait 等待状态线程. 同样我们解决惊群的方法很直接, 定向激活, 每个实际运行线程对象都有自己的条件变量. 这样每次只要激活需要激活的线程变量就可以了. 惊群现象就自然巧妙的避过去了.
 
 ***
 
@@ -49,8 +40,7 @@ extern int __cdecl pthread_cond_wait (pthread_cond_t * cond,
 ### 6.1.1 线程池设计
 
 ```C
-#ifndef _THREADS_H
-#define _THREADS_H
+#pragma once
 
 #include "thread.h"
 
@@ -81,18 +71,13 @@ extern void threads_delete(threads_t pool);
 //
 extern void threads_insert(threads_t pool, void * frun, void * arg);
 
-#endif//_THREADS_H
 ```
 
-    不完全类型 threads_t 就是我们定义的线程池对象, 并有创建删除添加行为. 其中使用函数
-    参数 void * frun 是用于去掉警告. 设计的如果不好, 那还不如不设计, 同样功能越少出错
-    的概率越小.
+不完全类型 threads_t 就是我们定义的线程池对象, 并有创建删除添加行为. 其中使用函数参数 void * frun 是用于去掉警告. 设计的如果不好, 那还不如不设计, 同样功能越少出错的概率越小.
 
 ### 6.1.2 线程池实现
 
-    线程池解决的问题是避免创建过多线程对象, 加重操作系统切换的负担. 从而换了一种方式, 将
-	多个线程业务转成多个任务被固定的线程来回处理. 这个思路是牺牲优先级来换取性能. 先说说
-	线程池容易实现的部分, 任务结构的设计.
+线程池解决的问题是避免创建过多线程对象, 加重操作系统切换的负担. 从而换了一种方式, 将多个线程业务转成多个任务被固定的线程来回处理. 这个思路是牺牲优先级来换取性能. 先说说线程池容易实现的部分, 任务结构的设计.
 
 ```C
 #include "threads.h"
@@ -113,8 +98,7 @@ inline struct job * job_new(node_f frun, void * arg) {
 }
 ```
 
-	job_new 创建一个 job 任务结构, 很直白. job::frun(job::arg) 去执行任务. 继续设
-    计线程池结构, 线程对象和线程池对象结构如下:
+job_new 创建一个 job 任务结构, 很直白. job::frun(job::arg) 去执行任务. 继续设计线程池结构, 线程对象和线程池对象结构如下:
 
 ```C
 // struct thread 线程结构体, 每个线程一个信号量, 定点触发
@@ -189,16 +173,7 @@ static pthread_cond_t * threads_cond(struct threads * pool) {
 }
 ```
 
-    通过 struct thread 可以看出线程运行对象中, 都有个 pthread_cont_t 条件变量. 这
-    就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来
-    避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这
-    类有风险的设计. 由上两个结构衍生了几个辅助行为 threads_del threads_get 
-    threads_cond 等. 对于 struct threads 结构中 struct job * head, * tail; 是
-    个待处理的任务队列. struct thread * thrs; 是线程对象的链表. 线程池对象中共用 
-    struct threads 中 mutex 一个互斥量, 方便写代码. 希望还记得前面章节数据结构部分
-    扯的, 链表是 C 结构中基础的内丹, 所有代码都是或多或少围绕他这个结构. 要在勤磨练中熟
-    悉提高, 对于刚学习的人. 上面代码其实和业务代码没啥区别, 创建删除添加查找等. 前戏营
-    造的估计够了, 现在开搞其他接口实现.
+通过 struct thread 可以看出线程运行对象中, 都有个 pthread_cont_t 条件变量. 这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这类有风险的设计. 由上两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列. struct thread * thrs; 是线程对象的链表. 线程池对象中共用 struct threads 中 mutex 一个互斥量, 方便写代码. 希望还记得前面章节数据结构部分扯的, 链表是 C 结构中基础的内丹, 所有代码都是或多或少围绕他这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码其实和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其它接口实现.
 
 ```C
 // THREADS_INT - 开启的线程数是 2 * CPU
@@ -217,9 +192,7 @@ threads_create(void) {
 }
 ```
 
-    创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 配套
-	还有一个删除释放资源函数. 设计意图允许创建多个线程池对象, 因为有了创建和删除成对操作. 
-	请看下面优雅的删除销毁操作:
+创建接口的实现代码中, calloc 相比 malloc 多调用了 bzero 的相关置零清空操作. 配套还有一个删除释放资源函数. 设计意图允许创建多个线程池对象, 因为有了创建和删除成对操作. 请看下面优雅的删除销毁操作:
 
 ```C
 //
@@ -265,12 +238,7 @@ threads_delete(threads_t pool) {
 }
 ```
 
-    用到很多 pthread api. 不熟悉的多研究, 多做笔记. 不懂的时候说明又是提升功力的机会哈
-    ! 对于删除函数, 先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任
-    务队列并置空, 随后解锁. 再去准备销毁每个线程, 激活他并等待他退出. 最后销毁自己. 优
-    雅结束了线程池的生成周期. 如果不知道是不是真爱, 那就追求优雅 ~ 如果是真爱, 那么什么
-    都不想要 ~ 随后步入核心部分只有两个函数, 一个是线程轮询处理任务的函数, 另一个是构建
-    线程池函数. 
+用到很多 pthread api. 不熟悉的多研究, 多做笔记. 不懂的时候说明又是提升功力的机会哈! 对于删除函数, 先监测销毁标识, 后竞争唯一互斥量, 竞争到后就开始释放过程. 先清除任务队列并置空, 随后解锁. 再去准备销毁每个线程, 激活他并等待他退出. 最后销毁自己. 优雅结束了线程池的生成周期. 如果不知道是不是真爱, 那就追求优雅 ~ 如果是真爱, 那么什么都不想要 ~ 随后步入核心部分只有两个函数, 一个是线程轮询处理任务的函数, 另一个是构建线程池函数. 
 
 ```C
 // thread_consumer - 消费线程
@@ -375,15 +343,14 @@ threads_insert(threads_t pool, void * frun, void * arg) {
 }
 ```
 
-	对于消费者线程 thread_consumer 函数运行起来后, 只有内部出现异常 status == -1 时
-    候会进入自销毁 pthread_detach 操作. 外部 pool->cancel == true 的时候会让其退
-    出, 走 pthread_join 关联接收. 再次想起以前扯的一句闲篇, 关于提升技术好办法
-    	1' 多望书
-    	2' 多写代码, 搜搜, 问问
-    	3' 多看好代码, 临摹源码
-    	4' 多创造, 改进, 实战
-    等该明白的都明白了, 多数会变得那就这样吧. 期待这样的场景重复, 到这里线程池是结束了,
-    不妨为其写段测试代码 ~
+对于消费者线程 thread_consumer 函数运行起来后, 只有内部出现异常 status == -1 时候会进入自销毁 pthread_detach 操作. 外部 pool->cancel == true 的时候会让其退出, 走 pthread_join 关联接收. 再次想起以前扯的一句闲篇, 关于提升技术好办法
+
+- 1' 多望书
+- 2' 多写代码, 搜搜, 问问
+- 3' 多看好代码, 临摹源码
+- 4' 多创造, 改进, 实战
+
+等该明白的都明白了, 多数会变得那就这样吧. 期待这样的场景重复, 到这里线程池是结束了, 不妨为其写段测试代码 ~
 
 ```C
 #include "times.h"
@@ -420,24 +387,16 @@ void test_threads(void) {
 }
 ```
 
-	线程模型有点廉颇老矣, 尚能饭否的味道. 在现代服务业务处理上面, 切换代价, 资源数量(线
-    程栈大小, 线程数量)消耗大. 所以 goroutine 这类模型很吃香. 但如果你足够自信通过设置
-    CPU 硬亲和性, 有时候会获得更高性能. 总而言之咱们费了老大劲写了个线程池, 99% 业务基
-    本都不会用到(实战中进程线程协程模型常混搭). 密集型业务目前修真界都流行少量线程加轮询
-    消息队列的方式处理, 下一个主角该登场了 ~
+线程模型有点廉颇老矣, 尚能饭否的味道. 在现代服务业务处理上面, 切换代价, 资源数量(线程栈大小, 线程数量)消耗大. 所以 goroutine 这类模型很吃香. 但如果你足够自信通过设置 CPU 硬亲和性, 有时候会获得更高性能. 总而言之咱们费了老大劲写了个线程池, 99% 业务基本都不会用到(实战中进程线程协程模型常混搭). 密集型业务目前修真界都流行少量线程加轮询消息队列的方式处理, 下一个主角该登场了 ~
 
 ## 6.2 消息轮序器
 
-    	服务开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务统一封
-    装 push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的无上大阵. 
-    下面就带大家写个超炫迈的封魔大阵, 收获门派一世繁华 ~ 接口设计部分 loop.h
+服务开发中, 消息轮询器基本上就是整个服务器调度处理的核心! 所有待处理的业务统一封装 push 进去, 单独线程异步 loop 去处理, 周而复始. 等同于守护门派安定的无上大阵. 下面就带大家写个超炫迈的封魔大阵, 收获门派一世繁华 ~ 接口设计部分 loop.h
 
 ```C
-#ifndef _LOOP_H
-#define _LOOP_H
+#pragma once
 
 #include "q.h"
-#include "atom.h"
 #include "thread.h"
 
 typedef struct loop * loop_t;
@@ -465,28 +424,24 @@ extern void loop_push(loop_t p, void * m);
 //
 extern loop_t loop_create(void * frun, void * fdie);
 
-#endif//_LOOP_H
 ```
 
-    函数 loop_create 创建一个消息轮序器并启动, 需要注册两个函数 frun 和 fdie, 前者
-    用于处理每个 push 进来的消息, fdie 用于用户 push 进来消息的善后工作销毁清除操作. 
-    这个库实现的非常精简. 直贴代码, 比较有价值. 多感受其中的妙用, 做戏, 小就不能满足你
-    了吗. 
+函数 loop_create 创建一个消息轮序器并启动, 需要注册两个函数 frun 和 fdie, 前者用于处理每个 push 进来的消息, fdie 用于用户 push 进来消息的善后工作销毁清除操作. 这个库实现的非常精简. 直贴代码, 比较有价值. 多感受其中的妙用, 入戏, 小就不能满足你了吗. 
 
 ```C
 #include "loop.h"
 
 // loop 轮询器结构
 struct loop {
-    q_t rq;             // 读消息
-    q_t wq;             // 写消息
-    atom_t lock;        // 消息切换锁
-    node_f frun;        // 消息处理行为
-    node_f fdie;        // 消息销毁行为
-    sem_t block;        // 线程信号量
-    pthread_t id;       // 运行的线程id
-    volatile bool loop; // true 线程正在运行
-    volatile bool wait; // true 线程空闲等待
+    q_t rq;                // 读消息
+    q_t wq;                // 写消息
+    node_f frun;           // 消息处理行为
+    node_f fdie;           // 消息销毁行为
+    sem_t block;           // 线程信号量
+    pthread_t id;          // 运行的线程id
+    atomic_flag lock;      // 消息切换锁
+    volatile bool loop;    // true 线程正在运行
+    volatile bool wait;    // true 线程空闲等待
 };
 
 // run - 消息处理行为
@@ -527,9 +482,9 @@ loop_delete(loop_t p) {
 void 
 loop_push(loop_t p, void * m) {
     assert(p && m);
-    atom_lock(p->lock);
+    atomic_flag_lock(&p->lock);
     q_push(p->rq, m);
-    atom_unlock(p->lock);
+    atomic_flag_unlock(&p->lock);
     if (p->wait) {
         p->wait = false;
         sem_post(&p->block);
@@ -546,9 +501,9 @@ static void loop_run(loop_t p) {
         }
 
         // read q <- write q
-        atom_lock(p->lock);
+        atomic_flag_lock(&p->lock);
         q_swap(p->rq, p->wq);
-        atom_unlock(p->lock);
+        atomic_flag_unlock(&p->lock);
 
         m = q_pop(p->rq);
         if (m) run(p, m);
@@ -569,7 +524,7 @@ static void loop_run(loop_t p) {
 loop_t 
 loop_create(void * frun, void * fdie) {
     loop_t p = malloc(sizeof(struct loop));
-    p->lock = 0;
+
     q_init(p->rq);
     q_init(p->wq);
     p->frun = frun;
@@ -577,40 +532,33 @@ loop_create(void * frun, void * fdie) {
     p->wait = p->loop = true;
     // 初始化 POSIX 信号量, 进程内线程共享, 初始值 0
     sem_init(&p->block, 0, 0);
+    p->lock = (atomic_flag)ATOMIC_FLAG_INIT;
     if (pthread_run(&p->id, loop_run, p)) {
         sem_destroy(&p->block);
-        free(p->rq->queue);
-        free(p->wq->queue);
-        free(p); p = NULL;
+        free(p->rq->data);
+        free(p->wq->data);
+        free(p); 
+        return NULL;
     }
+    
     return p;    
 }
+
 ```
 
-	对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些,
-    那就爽了. 整体思路是乒乓交换, 亮点在于 sem_wait. 分析会, 假如是多线程环境 
-    loop_push 多次并发操作, 并触发相应的 sem_post 会执行多次 P 操作. 但 loop_run 
-    是单线程轮询处理的, 只会触发对应次的 sem_wait V 操作. 所以 push 的 sem_post 不
-    加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是高效的保
-    证. 武技修炼中, loop 库是继 clog 库之后, 基于最小意外的实现 ~ 感悟至今, 进出妖魔
-    战场更加频繁, 修炼也越发坚深, 然而心境中域外天魔也逐渐在另一个次元逼近而来. 他会拷
-    问你的内心, 你为何修炼编程? 随之进入弥天幻境, 太多太多人在幻境的路中间 ~ 不曾解脱 
-    ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
+对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些, 那就爽了. 整体思路是乒乓交换, 亮点在于 sem_wait. 分析会, 假如是多线程环境 loop_push 多次并发操作, 并触发相应的 sem_post 会执行多次 P 操作. 但 loop_run 是单线程轮询处理的, 只会触发对应次的 sem_wait V 操作. 所以 push 的 sem_post 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是高效的保证. 武技修炼中, loop 库是继 clog 库之后, 基于最小意外的实现 ~ 感悟至今, 进出妖魔战场更加频繁, 修炼也越发坚深, 然而心境中域外天魔也逐渐在另一个次元逼近而来. 他会拷问你的内心, 你为何修炼编程? 随之进入弥天幻境, 太多太多人在幻境的路中间 ~ 不曾解脱 ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
 
 ## 6.3 阅读理解
 
 ***
 
-	好快好快, 修炼之路已经走过小一半. 从华山剑法练起, 到现在的一步两步三步. 此刻自己可
-    以出门踏草原, 风和日丽. 遇到呢些业务中的小妖精, 分分钟可以干掉了吧. loop 日月轮在实
-    战中会用的最多. 对于定时器, 多数内嵌到主线程轮询模块(update) 中. 恭喜同行, 同行历
-    练求索, 在血与歌中感受生的洗礼. 尝悟心中的道. 此景想起宋代大文豪的一首喜悦 ❀
+好快好快, 修炼之路已经走过小一半. 从华山剑法练起, 到现在的一步两步三步. 此刻自己可以出门踏草原, 风和日丽. 遇到呢些业务中的小妖精, 分分钟可以干掉了吧. loop 日月轮在实战中会用的最多. 对于定时器, 多数内嵌到主线程轮询模块(update) 中. 恭喜同行, 同行历练求索, 在血与歌中感受生的洗礼. 尝悟心中的道. 此景想起宋代大文豪的一首喜悦 ❀
 
 ***
 
-	元日(宋-王安石)
-	爆竹声中一岁除，春风送暖入屠苏。
-	千门万户曈曈日，总把新桃换旧符。
+    元日(宋-王安石)
+    爆竹声中一岁除，春风送暖入屠苏。
+    千门万户曈曈日，总把新桃换旧符。
 
 ***
 
