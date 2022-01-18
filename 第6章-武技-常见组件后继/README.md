@@ -550,6 +550,93 @@ loop_create(void * frun, void * fdie) {
 
 ## 6.3 阅读理解
 
+本文阅读理解抽自 glibc 库中 pt-mutext-lock.c 部分. 非常清晰讲述互斥锁大致原理. 首先要知道互斥锁提供那些功能, PT_MTX_NORMAL, PT_MTX_RECURSIVE, PT_MTX_ERRORCHECK, PTHREAD_MUTEX_ROBUST 业务语义. 然后是 lll_lock, lll_robust_lock 借助 atomic 和 syscall __NR_futex 等标准和系统能力. 经过之前几章训练感兴趣同学, 完全有能力看懂这些用户线程级别代码. 系统开发宝藏就是**最新的 glibc 库, 然后是 man 手册**. 有一说一这些成名库, 起的变量名确实**言简意赅, 一看就懂**. 
+
+```C
+/* pthread_mutex_lock.  Hurd version.
+   Copyright (C) 2016-2021 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library;  if not, see
+   <https://www.gnu.org/licenses/>.  */
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <pt-internal.h>
+#include "pt-mutex.h"
+#include <hurdlock.h>
+
+int
+__pthread_mutex_lock (pthread_mutex_t *mtxp)
+{
+  struct __pthread *self;
+  int flags = mtxp->__flags & GSYNC_SHARED;
+  int ret = 0;
+
+  switch (MTX_TYPE (mtxp))
+    {
+    case PT_MTX_NORMAL:
+      lll_lock (mtxp->__lock, flags);
+      break;
+
+    case PT_MTX_RECURSIVE:
+      self = _pthread_self ();
+      if (mtx_owned_p (mtxp, self, flags))
+	{
+	  if (__glibc_unlikely (mtxp->__cnt + 1 == 0))
+	    return EAGAIN;
+
+	  ++mtxp->__cnt;
+	  return ret;
+	}
+
+      lll_lock (mtxp->__lock, flags);
+      mtx_set_owner (mtxp, self, flags);
+      mtxp->__cnt = 1;
+      break;
+
+    case PT_MTX_ERRORCHECK:
+      self = _pthread_self ();
+      if (mtx_owned_p (mtxp, self, flags))
+	return EDEADLK;
+
+      lll_lock (mtxp->__lock, flags);
+      mtx_set_owner (mtxp, self, flags);
+      break;
+
+    case PT_MTX_NORMAL | PTHREAD_MUTEX_ROBUST:
+    case PT_MTX_RECURSIVE | PTHREAD_MUTEX_ROBUST:
+    case PT_MTX_ERRORCHECK | PTHREAD_MUTEX_ROBUST:
+      self = _pthread_self ();
+      ROBUST_LOCK (self, mtxp, lll_robust_lock, flags);
+      break;
+
+    default:
+      ret = EINVAL;
+      break;
+    }
+
+  return ret;
+}
+
+hidden_def (__pthread_mutex_lock)
+strong_alias (__pthread_mutex_lock, _pthread_mutex_lock)
+weak_alias (__pthread_mutex_lock, pthread_mutex_lock)
+
+```
+
 ***
 
 **年轻人的故事**
