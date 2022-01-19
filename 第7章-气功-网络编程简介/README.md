@@ -1150,22 +1150,22 @@ socket 编程让你沮丧吗? 从 man pages 中很难明白有用的信息吧? �
 此刻我们终于讲到声名狼藉的网络分层模型(LayeredNetwork Model). 这种网络模型在描述网络系统上相对其它模型有很多优点. 例如, 你可以写一个套接字程序而不用关心数据的物理传输(串行口, 以太网, 连接单元接口 AUI 还是其它介质), 因为底层的程序会为你处理它们. 实际的网络硬件和拓扑对于程序员来说是透明的. 不说其它废话了, 现在列出整个层次模型. 如果你要参加网络考试, 可一定要记住:
 
 ```
-        应用层      (Application)
-        表示层      (Presentation)
-        会话层      (Session)
-        传输层      (Transport)
-        网络层      (Network)
-        数据链路层   (Data Link)
-        物理层      (Physical) 
+应用层      (Application)
+表示层      (Presentation)
+会话层      (Session)
+传输层      (Transport)
+网络层      (Network)
+数据链路层  (Data Link)
+物理层      (Physical) 
 ```
 
 物理层是硬件(串口, 以太网等等). 应用层是和硬件层相隔最远的, 它是用户和网络交互的地方. 这个模型如此通用, 如果你想, 你可以把它作为修车指南. 把它对应到 linux 映射是:
 
 ```
-        应用层      (Application Layer) (telnet, ftp, 等等)
-        传输层      (Host-to-Host Transport Layer) (TCP, UDP)
-        Internet 层 (Internet Layer) (IP和路由)
-        网络访问层   (Network Access Layer) (网络层, 数据链路层和物理层)   
+应用层      (Application Layer) (telnet, ftp, 等等)
+传输层      (Host-to-Host Transport Layer) (TCP, UDP)
+Internet 层 (Internet Layer) (IP和路由)
+网络访问层  (Network Access Layer) (网络层, 数据链路层和物理层)   
 ```
 
 现在, 你可能看到这些层次如何协调来封装原始的数据了. 看看建立一个简单的数据包有多少工作? 哎呀, 你将不得不使用 "cat" 来建立数据包头! 这仅仅是个玩笑. 对于流式套接字你要作的是 send() 发送数据. 对于数据报式套接字, 你按照你选择的方式封装数据然后使用 sendto(). 内核将为你建立传输层和 Internet 层, 硬件完成网络访问层. 这就是现代科技, 现在结束我们的网络理论速成班. 哦, 忘记告诉你关于路由的事情了. 但是我不准备谈它, 如果你真的关心, 那你可以自行搜阅 RFC 相关的协议说明部分.
@@ -1174,16 +1174,9 @@ socket 编程让你沮丧吗? 从 man pages 中很难明白有用的信息吧? �
 
 **结构体**
 
-    终于快谈到编码了. 这小节, 将谈到被套接字用到的各种数据类型. 因为它们中的一些内容很重
-    要. 首先是简单的一个 socket 描述符. 它在 unix 类系统的类型是 int, 仅仅是一个常见
-    的 int. 从现在起, 事情变得不可思议了, 而你所需做的就是继续看下去. 注意这样的事实:
-    
-    有两种字节排列顺序: 重要的字节(有时叫 octet, 即八位位组)在前面, 或者不重要的字节在
-    前面. 前一种叫"网络字节顺序(Network Byte Order)". 有些机器在内部是按照这个顺序储
-    存数据, 而另外一些则不然. 当我说某数据必须按照 NBO 顺序, 那么你要调用函数(例如 
-    htons) 来将它从本机字节顺序(Host Byte Order)转换过来. 如果我没有提到 NBO, 那么
-    就让它保持本机字节顺序. 介绍的第一个结构 struct sockaddr. 这个结构为许多类型的套
-    接字储存套接字地址信息:
+终于快谈到编码了. 这小节, 将谈到被套接字用到的各种数据类型. 因为它们中的一些内容很重要. 首先是简单的一个 socket 描述符. 它在类 unix 系统的类型是 int, 仅仅是一个常见的 int. 从现在起, 事情变得不可思议了, 而你所需做的就是继续看下去. 注意这样的事实:
+
+有两种字节排列顺序: 重要的字节(有时叫 octet, 即八位位组)在前面, 或者不重要的字节在前面. 前一种叫"网络字节顺序(Network Byte Order)". 有些机器在内部是按照这个顺序储存数据, 而另外一些则不然. 当我说某数据必须按照 NBO 顺序, 那么你要调用函数(例如 htons) 来将它从本机字节顺序(Host Byte Order)转换过来. 如果我没有提到 NBO, 那么就让它保持本机字节顺序. 介绍的第一个结构 struct sockaddr. 这个结构为许多类型的套接字储存套接字地址信息:
 
 ```C
 struct sockaddr {
@@ -1192,9 +1185,7 @@ struct sockaddr {
 };
 ```
 
-    sa_family 能够是各种各样的类型, 但是在这篇文章中都是 AF_INET. sa_data 包含套接
-    字中的目标地址和端口信息. 这好像有点不明智. 为了处理 struct sockaddr, 程序员创造
-    了一个并列的结构: struct sockaddr_in("in" 代表 "Internet")
+sa_family 能够是各种各样的类型, 例如 AF_INET, AF_INET6, AF_UNSPEC. sa_data 包含套接字中的目标地址和端口信息. 这好像有点不明智. 为了处理 struct sockaddr, 程序员创造了一个并列的结构: struct sockaddr_in("in" 代表 "Internet")
 
 ```C
 struct sockaddr_in {
@@ -1205,16 +1196,9 @@ struct sockaddr_in {
 };
 ```
 
-    用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中
-    , 主要为了 struct sockaddr_in 长度和 struct sockaddr 保持一样) 应该使用函数 
-    memset 来全部置零. 同时, 这一重要的细节, 一个指向 sockaddr_in 结构体的指针也可以
-    被指向结构体 sockaddr 并且代替它. 这样的话即使 socket 想要的是 struct sockaddr
-    , 你仍然可以使用 struct sockaddr_in, 函数内部会转换. 同时, 注意 sin_family 要
-    一致并能够设置为 "AF_INET". 最后, sin_port 和 sin_addr 必须是网络字节顺序 
-    (Network Byte Order)!
+用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中, 主要为了 struct sockaddr_in 长度和 struct sockaddr 保持一样) 应该使用函数 memset 来全部置零. 同时, 这一重要的细节, 一个指向 sockaddr_in 结构体的指针也可以被指向结构体 sockaddr 并且代替它. 这样的话即使 socket 想要的是 struct sockaddr, 你仍然可以使用 struct sockaddr_in, 函数内部会转换. 同时, 注意 sin_family 要一致并能够设置为 "AF_INET". 最后, sin_port 和 sin_addr 必须是网络字节顺序 (Network Byte Order)!
 
-    你也许会反驳道: "但是, 怎么让整个数据结构 struct in_addr sin_addr 按照网络字节
-    顺序呢?" 要知道这个问题的答案, 我们就要仔细的看一看这个数据结构: 
+你也许会反驳道: "但是, 怎么让整个数据结构 struct in_addr sin_addr 按照网络字节顺序呢?" 要知道这个问题的答案, 我们就要仔细的看一看这个数据结构: 
 
 ```C
 /* Internet address.  */
@@ -1225,10 +1209,7 @@ struct in_addr {
 };
 ```
 
-    它曾经是个最坏的联合(知道的都是有点年头了, 哎), 但是现在那些日子过去了. 如果你声明 
-    ina 是数据结构 struct sockaddr_in 的实例, 那么 ina.sin_addr.s_addr 就储存 
-    4 字节的 IP 地址(使用网络字节顺序). 如果你不幸的系统使用的还是同下面相似的恐怖联合 
-    struct in_addr, 你还是可以放心 4 字节的 IP 地址并且和上面我说的一样.
+它曾经是个最坏的联合(知道的都是有点年头了, 哎), 但是现在那些日子过去了. 如果你声明 ina 是数据结构 struct sockaddr_in 的实例, 那么 ina.sin_addr.s_addr 就储存 4 字节的 IP 地址(使用网络字节顺序). 如果你不幸的系统使用的还是同下面相似的恐怖联合 struct in_addr, 你还是可以放心 4 字节的 IP 地址并且和上面我说的一样.
 
 ```C
 #ifndef s_addr
@@ -1259,59 +1240,51 @@ struct in_addr {
 
 **本机转换**
 
-    用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中
-    , 我们现在讲了很多网络到本机字节顺序的转换, 现在可以实践了! 你能够转换两种类型: 
-    short (2 个字节) 和 uint32_t (4 个字节). 假设你想将 short 从本机字节顺序转换为
-    网络字节顺序. 用 "h" 表示 "本机 (host)", 接着是 "to", 然后用 "n" 表示 " 网络 
-    (network)", 最后用 "s" 表示 "short": h-to-n-s, 或者 htons() 
-    ("Host to Network Short"). 是不是太简单了.
+用这个数据结构可以轻松处理套接字地址的基本元素. 注意 sin_zero (它被加入到这个结构中, 我们现在讲了很多网络到本机字节顺序的转换, 现在可以实践了! 你能够转换两种类型: short (2 个字节) 和 uint32_t (4 个字节). 假设你想将 short 从本机字节顺序转换为网络字节顺序. 用 "h" 表示 "本机 (host)", 接着是 "to", 然后用 "n" 表示 " 网络 (network)", 最后用 "s" 表示 "short": h-to-n-s, 或者 htons() ("Host to Network Short"). 是不是太简单了.
 
-    如果不是太傻的话, 你一定想到了由 "n", "h", "s", 和 "l" 形成的正确组合, 例如这里
-    肯定没有 stolh() ("Short to Long Host") 函数, 不仅在这里没有, 所有场合都没有. 
-    但是这里有:
-        htons() -- "Host to Network Short"
-        htonl() -- "Host to Network Long"
-        ntohs() -- "Network to Host Short"
-        ntohl() -- "Network to Host Long"       
-    现在, 你可能想你已经知道它们了. 你也可能想: "如果我想改变 char 的顺序要怎么办呢?"     
-    但是你也许马上就意识到这用不着考虑的, 因为只有一个字节. 你也许会想到: 在 IBM 机器已
-    经使用了网络字节顺序, 就没有必要去调用 htonl() 转换 IP 地址吧! 此刻你可能是对的, 
-    但是当你移植你的程序到别的机器上的时候, 你的程序将失败. 可移植性! 这里是 linux 世
-    界! 记住: 在你将数据放到网络上的时候, 确信它们是网络字节顺序的. 最后一点: 为什么在
-    数据结构 struct sockaddr_in 中 sin_addr 和 sin_port 需要转换为网络字节顺序, 
-    而 sin_family 需不需要呢? 答案是: sin_addr 和 sin_port 分别封装在包的 IP 和    
-    UDP 层. 因此, 它们必须要是网络字节顺序. 但是 sin_family 没有发送到网络上, 它们可
-    以是本机字节顺序. 最主要的是 sin_family 域只是被内核(kernel)使用来决定在数据结构
-    中包含什么类型的地址, 所以它必须是本机字节顺序.
+如果不是太傻的话, 你一定想到了由 "n", "h", "s", 和 "l" 形成的正确组合, 例如这里肯定没有 stolh() ("Short to Long Host") 函数, 不仅在这里没有, 所有场合都没有. 但是这里有:
+
+```
+htons() -- "Host to Network Short"
+htonl() -- "Host to Network Long"
+ntohs() -- "Network to Host Short"
+ntohl() -- "Network to Host Long"
+```
+
+现在, 你可能想你已经知道它们了. 你也可能想: "如果我想改变 char 的顺序要怎么办呢?" 但是你也许马上就意识到这用不着考虑的, 因为只有一个字节. 你也许会想到: 在 IBM 机器已经使用了网络字节顺序, 就没有必要去调用 htonl() 转换 IP 地址吧! 此刻你可能是对的, 但是当你移植你的程序到别的机器上的时候, 你的程序将失败. 可移植性! 这里是 linux 世界! 记住: 在你将数据放到网络上的时候, 确信它们是网络字节顺序的. 最后一点: 为什么在数据结构 struct sockaddr_in 中 sin_addr 和 sin_port 需要转换为网络字节顺序, 而 sin_family 需不需要呢? 答案是: sin_addr 和 sin_port 分别封装在包的 IP 和 UDP 层. 因此, 它们必须要是网络字节顺序. 但是 sin_family 没有发送到网络上, 它们可以是本机字节顺序. 最主要的是 sin_family 域只是被内核(kernel)使用来决定在数据结构中包含什么类型的地址, 所以它必须是本机字节顺序.
 
 **如何处理 IP 地址**
  
-    现在我们很幸运, 因为我们有很多的函数来方便地操作 IP 地址. 没有必要用手工计算它们, 
-    也没有必要用 "<<" 操作来储存成长整型. 首先, 假设你已经有了一个 sockaddr_in 结构体 
-    ina, 你有一个 IP 地址 "8.8.8.8" 要储存在其中, 你就要用到函数 inet_addr(), 将 
-    IP 地址从点数格式转换成无符号长整型. 使用方法如下：
-        ina.sin_addr.s_addr = inet_addr("8.8.8.8");
-    注意, inet_addr() 返回的地址已经是网络字节格式, 所以你无需再调用函数 htonl(). 我
-    们现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr()
-    发生错误时返回 -1. 记住这些二进制数字?(无符号数)-1 仅仅和 IP 地址 
-    255.255.255.255 相符合! 这可是广播地址! 这将会发生大错误! 记住要先进行错误检查. 
-    好了, 现在你可以将 IP 地址转换成长整型了. 有没有其相反的方法呢? 它可以将一个 
-    in_addr 结构体输出成点数格式? 这样的话, 你就要用到函数 inet_ntoa()("ntoa" 的含
-    义是 "network to ascii"), 就像这样:
-        printf("%s", inet_ntoa(ina.sin_addr));
-    它将输出 IP 地址. 需要注意的是 inet_ntoa() 将结构体 in_addr 作为一个参数, 不是
-    长整形. 同样需要注意的是它返回的是一个指向一个字符的指针. 它是一个由 inet_ntoa()    
-    控制的指向静态的固定内存的指针, 所以每次调用 inet_ntoa(), 它就将覆盖上次调用时所得
-    的 IP 地址. 例如:
-        char * a, * b;
-        a = inet_ntoa(ina.sin_addr);
-        b = inet_ntoa(inb.sin_addr);
-        printf("address a: %s/n", a);
-        printf("address b: %s/n", a);
-    输出如下:
-        address a: 8.8.8.8
-        address b: 8.8.8.8
-    这在学习阶段或者是单线程程序中是没有问题. 但在真实环境只推荐以下方式:
+现在我们很幸运, 因为我们有很多的函数来方便地操作 IP 地址. 没有必要用手工计算它们, 也没有必要用 "<<" 操作来储存成长整型. 首先, 假设你已经有了一个 sockaddr_in 结构体 ina, 你有一个 IP 地址 "8.8.8.8" 要储存在其中, 你就要用到函数 inet_addr(), 将 IP 地址从点数格式转换成无符号长整型. 使用方法如下：
+
+```C
+ina.sin_addr.s_addr = inet_addr("8.8.8.8");
+```
+
+注意, inet_addr() 返回的地址已经是网络字节格式, 所以你无需再调用函数 htonl(). 我们现在发现上面的代码片断不是十分完整, 因为它没有错误检查. 显而易见, 当 inet_addr() 发生错误时返回 -1. 记住这些二进制数字?(无符号数)-1 仅仅和 IP 地址 255.255.255.255 相符合! 这可是广播地址! 这将会发生大错误! 记住要先进行错误检查. 好了, 现在你可以将 IP 地址转换成长整型了. 有没有其相反的方法呢? 它可以将一个 in_addr 结构体输出成点数格式? 这样的话, 你就要用到函数 inet_ntoa()("ntoa" 的含义是 "network to ascii"), 就像这样:
+
+```C
+printf("%s", inet_ntoa(ina.sin_addr));
+```
+
+它将输出 IP 地址. 需要注意的是 inet_ntoa() 将结构体 in_addr 作为一个参数, 不是长整形. 同样需要注意的是它返回的是一个指向一个字符的指针. 它是一个由 inet_ntoa() 控制的指向静态的固定内存的指针, 所以每次调用 inet_ntoa(), 它就将覆盖上次调用时所得的 IP 地址. 例如:
+
+```C
+char * a, * b;
+a = inet_ntoa(ina.sin_addr);
+b = inet_ntoa(inb.sin_addr);
+printf("address a: %s/n", a);
+printf("address b: %s/n", a);
+```
+
+输出如下:
+
+```
+address a: 8.8.8.8
+address b: 8.8.8.8
+```
+
+这在学习阶段或者是单线程程序中是没有问题. 但在真实环境只推荐以下方式. 其中 family 可以设置为 AF_INET 处理 ipv4 or AF_INET6 处理 ipv6.
 
 ```C
 #include <arpa/inet.h>
@@ -1325,13 +1298,13 @@ const char * inet_ntop(int family,
                        char * strptr, size_t len);
 ```
 
-    好了, 这小节. socket 含义的介绍就这些, 随后逐步开展编程工作. 
+好了, 这小节. socket 含义的介绍就这些, 随后逐步开展编程工作. 
 
 ### 7.2.3 编程常见 API
 
 **socket() 函数**
 
-    我想我不能再不提这个了, 下面我将讨论一下 socket() 系统调用详细介绍.
+我想我不能再不提这个了, 下面我将讨论一下 socket() 系统调用详细介绍.
 
 ```C
 #include <sys/types.h>
@@ -1343,11 +1316,7 @@ const char * inet_ntop(int family,
 int socket(int domain, int type, int protocol);
 ```
 
-    那其中的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据结构 
-    struct sockaddr_in 中一样, 使用 IPv4 协议地址. 然后, 参数 type 告诉内核是
-    SOCK_STREAM 类型还是 SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意:
-    有很多种 domain, type, 不可能一一列出, 请尝试看 socket() 的 man 帮助. 当然, 
-    还有一个更好的方式去得到 protocol, 翻看其特定头文件找到协议定义.) 常用例子
+那其中的参数是什么? 首先, domain 应该设置成 "PF_INET", 就像上面的数据结构 struct sockaddr_in 中一样, 使用 IPv4 协议地址. 然后, 参数 type 告诉内核是 SOCK_STREAM 类型还是 SOCK_DGRAM 类型. 最后, 把 protocol 设置为 "0". (注意: 有很多种 domain, type, 不可能一一列出, 请尝试看 socket() 的 man 帮助. 当然, 还有一个更好的方式去得到 protocol, 翻看其特定头文件找到协议定义.) 常用例子
 
 ```C
 // 使用系统针对 IPv4 与字节流的默认的协议，一般为 TCP
@@ -1358,14 +1327,11 @@ int sockfd = socket(PF_INET, SOCK_STRAM, IPPROTO_SCTP);
 int sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 ```
 
-    socket() 只是返回在系统调用种可能用到的 socket 描述符, 错误的时候返回 -1. 全局变
-    量 errno 中将储存返回的错误值(请参考 perror() 的 man 帮助).
+socket() 只是返回在系统调用种可能用到的 socket 描述符, 错误的时候返回 -1. 全局变量 errno 中将储存返回的错误值(请参考 perror() 的 man 帮助).
 
 **bind() 函数**
 
-    一旦你有一个套接字, 你可能要将套接字同机器上的固定的端口关联起来. (如果你想用 
-    listen() 来侦听固定端口的数据, 这是必要一步. 如果你只想用 connect(), 那么这个步
-    骤将没有必要. 但是无论如何, 请继续读下去. 这里是系统调用 bind() 的大概:
+一旦你有一个套接字, 你可能要将套接字同机器上的固定的端口关联起来. (如果你想用 listen() 来侦听固定端口的数据, 这是必要一步. 如果你只想用 connect(), 那么这个步骤将没有必要. 但是无论如何, 请继续读下去. 这里是系统调用 bind() 的大概:
 
 ```C
 #include <sys/types.h>
@@ -1374,9 +1340,7 @@ int sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 int bind(int sockfd, struct sockaddr * ress, int addrlen);
 ```
 
-    sockfd 是调用 socket 返回的文件描述符. ress 是指向 struct sockaddr 数据结构
-    的指针, 它保存你的地址(即端口和 IP)信息. addrlen 设置为 
-    sizeof(struct sockaddr). 很简单不是吗? 再看看例子:
+sockfd 是调用 socket 返回的文件描述符. ress 是指向 struct sockaddr 数据结构的指针, 它保存你的地址(即端口和 IP)信息. addrlen 设置为 sizeof(struct sockaddr). 很简单不是吗? 再看看例子:
 
 ```C
 #include <string.h>
@@ -1398,34 +1362,27 @@ int main(void) {
 }
 ```
 
-    这里也有要注意的点. ress.sin_port 是网络字节顺序, ress.sin_addr.s_addr 也是的
-    , 其中 ress.sin_zero 需要置零防止脏数据污染, 其实是一种历史约束. 在 bind() 主题
-    中最后要说的话是, 如果自己不想绑定固定地址, 让操作系统自行分配. 可以用下面方式处理.
-        ress.sin_port = 0;                   // 自行分配绑定的端口
-        ress.sin_addr.s_addr = INADDR_ANY;   // 绑定所有网卡
-    通过将 0 赋给 ress.sin_port, 会告诉 bind() 自己选择合适的端口. 相似的服务器将
-    ress.sin_addr.s_addr 设置为 INADDR_ANY 后,
+这里也有要注意的点. ress.sin_port 是网络字节顺序, ress.sin_addr.s_addr 也是的, 其中 ress.sin_zero 需要置零防止脏数据污染, 其实是一种历史约束. 在 bind() 主题中最后要说的话是, 如果自己不想绑定固定地址, 让操作系统自行分配. 可以用下面方式处理.
+
+```C
+ress.sin_port = 0;                   // 自行分配绑定的端口
+ress.sin_addr.s_addr = INADDR_ANY;   // 绑定所有网卡
+```
+
+通过将 0 赋给 ress.sin_port, 会告诉 bind() 自己选择合适的端口. 相似的服务器将 ress.sin_addr.s_addr 设置为 INADDR_ANY 后,
 
 ```C
 /* Address to accept any incoming messages. */
 #define INADDR_ANY  ((in_addr_t) 0x00000000)
 ```
 
-    会告诉操作系统: "我需要在 prot 端口上侦听, 所有发送到服务器的这个端口, 不管是哪个网
-    卡/哪个 IP 地址接收到的数据, 都是我处理的." 
+会告诉操作系统: "我需要在 prot 端口上侦听, 所有发送到服务器的这个端口, 不管是哪个网卡/哪个 IP 地址接收到的数据, 都是我处理的." 
 
-    bind() 出错的时候依然是返回 -1, 并且设置全局错误变量 errno. 在你调用 bind() 的时
-    候, 你要小心的另一件事情是: 不要绑定小于 1024 和大于 49151 的端口号. 所有小于 
-    1024 的端口号都被系统保留! 更加详细的参照资料是系统端口号分为三大类, 一已知端口
-    [0, 1023], 二注册端口[1024, 49151], 三动态专用端口[49152, 65535]. 理论上我们
-    服务器业务程序只能绑定注册端口[1024, 49151]中尚未被别的程序使用的. 我们一直在说服
-    务器, 如果是客户端在和远端机器进行通讯. 你完全没有必要 bind() 操作, 只需要轻轻 
-    connect() 它一下就可以了啦.
+bind() 出错的时候依然是返回 -1, 并且设置全局错误变量 errno. 在你调用 bind() 的时候, 你要小心的另一件事情是: 不要绑定小于 1024 和大于 49151 的端口号. 所有小于 1024 的端口号都被系统保留! 更加详细的参照资料是系统端口号分为三大类, 一已知端口[0, 1023], 二注册端口[1024, 49151], 三动态专用端口[49152, 65535]. 理论上我们服务器业务程序只能绑定注册端口[1024, 49151]中尚未被别的程序使用的. 我们一直在说服务器, 如果是客户端在和远端机器进行通讯. 你完全没有必要 bind() 操作, 只需要轻轻 connect() 它一下就可以了啦.
 
 **connect() 函数**
 
-    你正在阅读的 connect() 能够帮我们连接到远程主机. 希望不会让你的用户失望. 
-    connect() 系统调用是这样的: 
+你正在阅读的 connect() 能够帮我们连接到远程主机. 希望不会让你的用户失望. connect() 系统调用是这样的: 
 
 ```C
 #include <sys/types.h>
@@ -1434,9 +1391,7 @@ int main(void) {
 int connect(int sockfd, struct sockaddr * serv_addr, int addrlen);
 ```
 
-    sockfd 是系统调用 socket() 返回的套接字文件描述符. serv_addr 是保存着目的地端口
-    和 IP 地址的数据结构 struct sockaddr. addrlen 设置为你采用的地址结构长度, 例如 
-    sizeof(struct sockaddr). 想知道得更多吗? 让我们来看个例子:
+sockfd 是系统调用 socket() 返回的套接字文件描述符. serv_addr 是保存着目的地端口和 IP 地址的数据结构 struct sockaddr. addrlen 设置为你采用的地址结构长度, 例如 sizeof(struct sockaddr). 想知道得更多吗? 让我们来看个例子:
 
 ```C
 #include <string.h>
@@ -1460,18 +1415,13 @@ int main(void) {
 }
 ```
 
-    再一次，你应该检查 connect() 的返回值 - 它在错误的时候返回 -1, 并设置全局错误变量
-    errno. 
+再一次，你应该检查 connect() 的返回值 - 它在错误的时候返回 -1, 并设置全局错误变量 errno. 
     
-    同时, 你可能看到, 我没有调用 bind(). 因为我不在乎本地的端口号. 我只关心我要去那. 
-    内核将为我选择一个合适的端口号, 而我们所连接的地方也自动地获得这些信息. 一切都不用担
-    心.
+同时, 你可能看到, 我没有调用 bind(). 因为我不在乎本地的端口号. 我只关心我要去那. 内核将为我选择一个合适的端口号, 而我们所连接的地方也自动地获得这些信息. 一切都不用担心.
 
 **listen() 函数**
 
-    是换换内容的时候了. 假如你不希望与远程的一个地址相连, 或者说, 想和多个一个地址相连, 
-    那你就需要等待接入请求并且用各种方法处理它们. 处理过程分两步: 首先, 你监听 
-    listen(), 然后, 你接收 accept(). 除了要些解释外, 系统调用 listen 也简单.
+是换换内容的时候了. 假如你不希望与远程的一个地址相连, 或者说, 想和多个一个地址相连, 那你就需要等待接入请求并且用各种方法处理它们. 处理过程分两步: 首先, 你监听 listen(), 然后, 你接收 accept(). 除了要些解释外, 系统调用 listen 也简单.
 
 ```C
 #include <sys/types.h>
@@ -1485,24 +1435,19 @@ int main(void) {
 extern int listen (int sockfd, int backlog);
 ```
 
-    sockfd 是调用 socket() 返回的套接字文件描述符. backlog 是在链接完成队列中允许的
-    连接数目. 什么意思呢? 进入的链接是在队列中一直等待直到你 accept() 接受链接. 它们
-    的数目限制于已经完成三次握手队列的允许. 你可以设置这个值, 但是最终用不用是系统决定.
-    和别的函数一样, 在发生错误的时候返回 -1, 并设置全局错误变量 errno. 你可能想象到了
-    , 在你调用 listen() 前你或者要调用 bind() 或者让内核选择一个自动端口. 如果你想
-    侦听进入的连接, 那么系统调用的顺序可能是这样的:
-        socket();
-        bind();
-        listen();
-    因为它相当的明了, 我在这里不给出例子了.
+sockfd 是调用 socket() 返回的套接字文件描述符. backlog 是在链接完成队列中允许的连接数目. 什么意思呢? 进入的链接是在队列中一直等待直到你 accept() 接受链接. 它们的数目限制于已经完成三次握手队列的允许. 你可以设置这个值, 但是最终用不用是系统决定. 和别的函数一样, 在发生错误的时候返回 -1, 并设置全局错误变量 errno. 你可能想象到了, 在你调用 listen() 前你或者要调用 bind() 或者让内核选择一个自动端口. 如果你想侦听进入的连接, 那么系统调用的顺序可能是这样的:
+
+```C
+socket();
+bind();
+listen();
+```
+
+因为它相当的明了, 我在这里不给出例子了.
 
 **accept() 函数**
 
-    准备好了, 系统调用 accept() 会有点古怪的地方的! 你可以想象发生这样的事情: 有人从很
-    远的地方通过一个你在 listen() 侦听的端口 connect() 连接到你的机器. 它的连接将加
-    入到等待接收 accept() 的队列中. 你调用 accept() 告诉它你有空闲的链接. 它将返回一
-    个新的套接字文件描述符! 这样你就多了个套接字了, 原来的一个还在侦听你的那个端口, 新的
-    在准备发送 send() 和接收 recv() 数据. 这就是进行的过程! 函数是这样定义的:
+准备好了, 系统调用 accept() 会有点古怪的地方的! 你可以想象发生这样的事情: 有人从很远的地方通过一个你在 listen() 侦听的端口 connect() 连接到你的机器. 它的连接将加入到等待接收 accept() 的队列中. 你调用 accept() 告诉它你有空闲的链接. 它将返回一个新的套接字文件描述符! 这样你就多了个套接字了, 原来的一个还在侦听你的那个端口, 新的在准备发送 send() 和接收 recv() 数据. 这就是进行的过程! 函数是这样定义的:
 
 ```C
 #include <sys/types.h>
@@ -1523,15 +1468,13 @@ extern int accept (int sockfd,
 		           socklen_t * restrict addr_len);
 ```
 
-    sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 可以是个指向局部的数据
-    结构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方. 在它的地址传递给 accept
-    之前, addr_len 是指向局部的整型变量, 且指向的变量值为 
-    sizeof(struct sockaddr_in) 在使用 IPv4 地址协议的时候. accept 将不会将多余的
-    字节给 addr. 如果你放入的少些, 那么它会通过改变 addr_len 的值反映出来. 需要注意的
-    是 addr_len 即是输入也是输出参数, 开始之前可以写成
-        int addrlen = sizeof(struct sockaddr_in); 
-    后面传入 &addrlen. 同样, 在错误时返回 -1, 并设置全局错误变量 errno. 现在要展示的
-    是你应该熟悉的代码片段.
+sockfd 相当简单, 是和 listen() 中一样的套接字描述符. addr 可以是个指向局部的数据结构 sockaddr_in 的指针. 这是要求接入的信息所要去的地方. 在它的地址传递给 accept 之前, addr_len 是指向局部的整型变量, 且指向的变量值为 sizeof(struct sockaddr_in) 在使用 IPv4 地址协议的时候. accept 将不会将多余的字节给 addr. 如果你放入的少些, 那么它会通过改变 addr_len 的值反映出来. 需要注意的是 addr_len 即是输入也是输出参数, 开始之前可以写成
+
+```C
+int addrlen = sizeof(struct sockaddr_in);
+```
+
+后面传入 &addrlen. 同样, 在错误时返回 -1, 并设置全局错误变量 errno. 现在要展示的是你应该熟悉的代码片段.
 
 ```C
 #include <string.h>
@@ -1559,13 +1502,11 @@ int main(void) {
 }
 ```
 
-    注意, 此后的系统中可以调用 send() 和 recv(). 如果你只想让一个连接进来, 那么你可
-    以使用 close() 去关闭原来的文件描述符 sockfd 来避免同一个端口更多的连接.
+注意, 此后的系统中可以调用 send() 和 recv(). 如果你只想让一个连接进来, 那么你可以使用 close() 去关闭原来的文件描述符 sockfd 来避免同一个端口更多的连接.
 
 **send() 和 recv() 函数**
 
-    这两个函数用于流式套接字或者数据报套接字的通讯. 如果你喜欢使用无连接的数据报套接字, 
-    你可以看一看下面关于 sendto() 和 recvfrom() 的章节. send() 是这样的:
+这两个函数用于流式套接字或者数据报套接字的通讯. 如果你喜欢使用无连接的数据报套接字, 你可以看一看下面关于 sendto() 和 recvfrom() 的章节. send() 是这样的:
 
 ```C
 #include <sys/types.h>
@@ -1578,9 +1519,7 @@ int main(void) {
 extern ssize_t send (int sockfd, const void * buf, size_t len, int flags);
 ```
 
-    sockfd 是你想发送数据的套接字描述符(或者是调用 socket() 或者是 accept()返回的) 
-    buf 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置为 0 就可以了. (
-    详细的资料请看 send() 的 man pages). 这里是相似的例子：
+sockfd 是你想发送数据的套接字描述符(或者是调用 socket() 或者是 accept()返回的) buf 是指向你想发送的数据的指针. len 是数据的长度. 把 flags 设置为 0 就可以了. (详细的资料请看 send() 的 man pages). 这里是相似的例子：
 
 ```C
 char * msg = "I am here!";
@@ -1588,11 +1527,7 @@ int len = (int)strlen(msg);
 int size = (int)send(sockfd, msg, len, 0);
 ```
 
-    send() 返回实际发送的数据的字节数 - 它可能小于你要求发送的数目! 注意, 有时候你告诉
-    它要发送一堆数据可是它不能处理成功. 它只是发送它可能发送的数据, 然后希望你能够发送其
-    它的数据. 记住, 如果 send() 返回的数据和 len 不匹配, 你就应该发送其它的数据. 但是
-    这里也有个好消息: 如果你要发送的包很小(小于大约 1K), 它可能处理数据让其一次发送完. 
-    最后要说得就是, 它在错误的时候返回 -1, 并设置 errno. recv() 函数很相似:
+send() 返回实际发送的数据的字节数 - 它可能小于你要求发送的数目! 注意, 有时候你告诉它要发送一堆数据可是它不能处理成功. 它只是发送它可能发送的数据, 然后希望你能够发送其它的数据. 记住, 如果 send() 返回的数据和 len 不匹配, 你就应该发送其它的数据. 但是这里也有个好消息: 如果你要发送的包很小(小于大约 1K), 它可能处理数据让其一次发送完. 最后要说得就是, 它在错误的时候返回 -1, 并设置 errno. recv() 函数很相似:
 
 ```C
 /* Read N bytes into BUF from socket FD.
@@ -1603,18 +1538,13 @@ int size = (int)send(sockfd, msg, len, 0);
 extern ssize_t recv (int sockfd, void * buf, size_t len, int flags);
 ```
 
-    sockfd 是要读的套接字描述符. buf 是要读的信息的缓冲. len 是缓冲的最大长度. flags 
-    可以设置为 0. (请参考 recv() 的 man pages) recv() 返回实际读入缓冲的数据的字节
-    数. 或者在错误的时候返回 -1, 同时设置 errno.
+sockfd 是要读的套接字描述符. buf 是要读的信息的缓冲. len 是缓冲的最大长度. flags 可以设置为 0. (请参考 recv() 的 man pages) recv() 返回实际读入缓冲的数据的字节数. 或者在错误的时候返回 -1, 同时设置 errno.
     
-    很简单，不是吗? 你现在可以在流式套接字上发送数据和接收数据了. 此刻你就是 linux 网络
-    程序员了! 恭喜 :)
+很简单，不是吗? 你现在可以在流式套接字上发送数据和接收数据了. 此刻你就是 linux 网络程序员了! 恭喜 :)
 
 **sendto() 和 recvfrom() 函数**
 
-    "这很不错啊", 你说, "但是你还没有讲无连接数据报套接字呢?" 没问题, 现在我们开始这个
-    内容. 既然数据报套接字不是连接到远程主机的, 那么在我们发送一个包之前需要什么信息呢?
-    不错, 是目标地址! 看看下面的:
+"这很不错啊", 你说, "但是你还没有讲无连接数据报套接字呢?" 没问题, 现在我们开始这个内容. 既然数据报套接字不是连接到远程主机的, 那么在我们发送一个包之前需要什么信息呢? 不错, 是目标地址! 看看下面的:
 
 ```C
 #include <sys/types.h>
@@ -1643,23 +1573,11 @@ extern ssize_t recvfrom (int sockfd, const void * restrict buf, size_t len,
                          socklen_t * restrict addr_len);
 ```
 
-    你已经看到了, 除了另外的两个信息外, 其余的和函数 send() 是一样的. addr 是个指向数
-    据结构 struct sockaddr 的指针, 它包含了目的地的 IP 地址和端口信息. addr_len 可
-    以简单地设置为 sizeof(struct sockaddr). 和函数 send() 类似, sendto() 返回实
-    际发送的字节数(它也可能小于你想要发送的字节数!), 或者在错误的时候返回 -1. 相似的还
-    有函数 recv() 和 recvfrom(). recvfrom() 的定义也在上面. 又一次, 除了两个增加的
-    参数外, 这个函数和 recv() 也是一样的. addr 也是个指向局部数据结构 
-    struct sockaddr 的指针, 它的内容是源机器的 IP 地址和端口信息. addr_len 是个 
-    socklen_t 型的局部指针, 它的初始值为 sizeof(struct sockaddr). 函数调用返回后,
-    addr_len 保存着实际储存在 addr 中的地址的长度. recvfrom() 返回收到的字节长度, 
-    或者在发生错误后返回 -1. 记住, 如果你用 connect() 连接一个数据报套接字, 你可以简
-    单的调用 send() 和 recv() 来满足你的要求. 这个时候依然是数据报套接字, 依然使用 
-    UDP, 系统套接字接口会为你自动加上了目标源的信息.
+你已经看到了, 除了另外的两个信息外, 其余的和函数 send() 是一样的. addr 是个指向数据结构 struct sockaddr 的指针, 它包含了目的地的 IP 地址和端口信息. addr_len 可以简单地设置为 sizeof(struct sockaddr). 和函数 send() 类似, sendto() 返回实际发送的字节数(它也可能小于你想要发送的字节数!), 或者在错误的时候返回 -1. 相似的还有函数 recv() 和 recvfrom(). recvfrom() 的定义也在上面. 又一次, 除了两个增加的参数外, 这个函数和 recv() 也是一样的. addr 也是个指向局部数据结构 struct sockaddr 的指针, 它的内容是源机器的 IP 地址和端口信息. addr_len 是个 socklen_t 型的局部指针, 它的初始值为 sizeof(struct sockaddr). 函数调用返回后, addr_len 保存着实际储存在 addr 中的地址的长度. recvfrom() 返回收到的字节长度, 或者在发生错误后返回 -1. 记住, 如果你用 connect() 连接一个数据报套接字, 你可以简单的调用 send() 和 recv() 来满足你的要求. 这个时候依然是数据报套接字, 依然使用 UDP, 系统套接字接口会为你自动加上了目标源的信息.
 
 **close() 和 shutdown() 函数**
 
-    你已经整天都在发送 send() 和接收 recv() 数据了, 现在你准备关闭你的套接字描述符吧. 
-    这很简单, 你可以使用一般的 linux 文件描述符的 close() 函数：
+你已经整天都在发送 send() 和接收 recv() 数据了, 现在你准备关闭你的套接字描述符吧. 这很简单, 你可以使用一般的 linux 文件描述符的 close() 函数：
 
 ```C
 #include <unistd.h>
@@ -1670,9 +1588,7 @@ extern ssize_t recvfrom (int sockfd, const void * restrict buf, size_t len,
 extern int close (int fd);
 ```
 
-    它将防止套接字上更多的数据的读写. 任何在另一端读写套接字的企图都将返回错误信息. 如果
-    你想在如何关闭套接字上有多一点的控制, 你可以使用函数 shutdown(). 它允许你将一定方
-    向上的通讯或者双向的通讯(就像 close() 一样)关闭, 你可以使用:
+它将防止套接字上更多的数据的读写. 任何在另一端读写套接字的企图都将返回错误信息. 如果你想在如何关闭套接字上有多一点的控制, 你可以使用函数 shutdown(). 它允许你将一定方向上的通讯或者双向的通讯(就像 close() 一样)关闭, 你可以使用:
 
 ```C
 #include <sys/types.h>
@@ -1687,7 +1603,7 @@ extern int close (int fd);
 extern int shutdown (int sockfd, int how);
 ```
 
-    sockfd 是你想要关闭的套接字文件描述复. how 的值是下面的其中之一:
+sockfd 是你想要关闭的套接字文件描述复. how 的值是下面的其中之一:
 
 ```C
 /* The following constants should be used for the second parameter of
@@ -1702,17 +1618,19 @@ enum
 #define SHUT_RDWR   SHUT_RDWR
 };
 ```
-    希望表述的含义如下:
-        0 - 不允许接受
-        1 - 不允许发送
-        2 - 不允许发送和接受 (内部资源会保留直到 close())        
-    shutdown() 成功时返回 0, 失败时返回 -1 (同时设置 errno) 如果在无连接的数据报套
-    接字中使用 shutdown(), 那么只不过是让 send() 和 recv() 不能使用哦.
+希望表述的含义如下:
+
+```C
+0 - 不允许接受
+1 - 不允许发送
+2 - 不允许发送和接受 (内部资源会保留直到 close())
+```
+
+shutdown() 成功时返回 0, 失败时返回 -1 (同时设置 errno) 如果在无连接的数据报套接字中使用 shutdown(), 那么只不过是让 send() 和 recv() 不能使用哦.
 
 **getpeername() and gethostname() 函数**
 
-    这个函数太简单了. 它太简单了, 以至我只想简单说说. 函数 getpeername() 告诉你在连接
-    的流式套接字上谁在另外一边. 函数是这样的:
+这个函数太简单了. 它太简单了, 以至我只想简单说说. 函数 getpeername() 告诉你在连接的流式套接字上谁在另外一边. 函数是这样的:
 
 ```C
 #include <sys/socket.h>
@@ -1724,12 +1642,7 @@ extern int getpeername (int sockfd,
                         socklen_t * restrict addr_len);
 ```
 
-    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
-    的的指针, 它保存着连接的另一边的信息. addr_len 是一个 int 型的指针, 它初始化值为 
-    sizeof(struct sockaddr). 函数在错误的时候返回 -1, 设置相应的 errno. 一旦你获
-    得它们的地址, 你就可以用 inet_ntop(), getnameinfo() 打印获取得更多信息 (多自行
-     Search, 别打作者 :). 此刻比 getpeername() 还简单的函数是 gethostname(). 它
-    返回你程序所运行的机器的主机名字. 
+sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局的的指针, 它保存着连接的另一边的信息. addr_len 是一个 int 型的指针, 它初始化值为 sizeof(struct sockaddr). 函数在错误的时候返回 -1, 设置相应的 errno. 一旦你获得它们的地址, 你就可以用 inet_ntop(), getnameinfo() 打印获取得更多信息 (多自行 Search, 别打作者 :). 此刻比 getpeername() 还简单的函数是 gethostname(). 它返回你程序所运行的机器的主机名字. 
 
 ```C
 #include <unistd.h>
@@ -1740,19 +1653,19 @@ extern int getpeername (int sockfd,
 extern int gethostname (char * name, size_t len);
 ```
 
-    参数很简单: name 是一个字符数组指针, 它将在函数返回时保存主机名. len 是 name 数组
-    的字节长度. 函数调用成功时返回 0, 失败时返回 -1, 并设置 errno.
+参数很简单: name 是一个字符数组指针, 它将在函数返回时保存主机名. len 是 name 数组的字节长度. 函数调用成功时返回 0, 失败时返回 -1, 并设置 errno.
 
 ### 7.2.4 编程操练,道阻且长
 
 **DNS 域名服务**
 
-    如果你不知道 DNS 的意思, 那么我告诉你, 它代表域名服务 (Domain Name Service). 它
-    主要的功能是: 你给它一个容易记忆的某站点的地址, 它给你 IP 地址(然后你就可以使用 
-    bind(), connect(), sendto() 或者其它函数). 当一个人输入:
-    $ telnet www.google.com
-    telnet 将为它将连接(connect()) 到 "31.13.74.1". 但是这是如何工作的呢? 你可以研
-    究 getaddrinfo() 这类函数, 先看演示吧.
+如果你不知道 DNS 的意思, 那么我告诉你, 它代表域名服务 (Domain Name Service). 它主要的功能是: 你给它一个容易记忆的某站点的地址, 它给你 IP 地址(然后你就可以使用 bind(), connect(), sendto() 或者其它函数). 当一个人输入:
+    
+```C
+$ telnet www.google.com
+```
+
+telnet 将为它将连接(connect()) 到 "31.13.74.1". 但是这是如何工作的呢? 你可以研究 getaddrinfo() 这类函数, 先看演示吧.
 
 ```C
 #include <sys/types.h>
@@ -1807,8 +1720,7 @@ int main(int argc, char * argv[]) {
 ![getip](./img/getip.png)
 
 
-    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
-    输出中可能对 flags, family, socktype, protocol 有些不明觉厉. 可以参看下面解释.
+sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局输出中可能对 flags, family, socktype, protocol 有些不明觉厉. 可以参看下面解释.
 
 ```C
 //
@@ -1852,20 +1764,14 @@ int main(int argc, char * argv[]) {
 
 **客户端和服务器通信**
 
-    sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局
-    客户端和服务端通信这个太普遍了, 例如我们上网通过浏览器客户端同对应的服务器交互. 举个
-     telnet 的例子. 当你用 telnet 客户端通过 23 号端口登陆到主机, 主机上运行的一个一
-    般叫 telnetd 程序被激活. 它处理这个连接, 进入交互流程. 注意, 客户端--服务器之间可
-    以使用 SOCK_STREAM, SOCK_DGRAM 或者其它协议(只要双方约定是相同的). 这里为大家搜
-    集一种简单编码流程图. 那我们开始编码吧.
+sockfd 是连接的流式套接字的描述符. addr 是一个指向结构 struct sockaddr 内存布局客户端和服务端通信这个太普遍了, 例如我们上网通过浏览器客户端同对应的服务器交互. 举个 telnet 的例子. 当你用 telnet 客户端通过 23 号端口登陆到主机, 主机上运行的一个一般叫 telnetd 程序被激活. 它处理这个连接, 进入交互流程. 注意, 客户端--服务器之间可以使用 SOCK_STREAM, SOCK_DGRAM 或者其它协议(只要双方约定是相同的). 这里为大家搜集一种简单编码流程图. 那我们开始编码吧.
 
 ![编程模式](./img/编程模式.png)
 
 
 先服务器
 
-    这个服务器所做的全部工作是在流式连接上发送字符串 "Hello, World!\n" 给客户端. 你要
-    测试这个程序的话, 可以使用 telnet [ip] [port] 来看最终结果.
+这个服务器所做的全部工作是在流式连接上发送字符串 "Hello, World!\n" 给客户端. 你要测试这个程序的话, 可以使用 telnet [ip] [port] 来看最终结果.
 
 ```C
 #include <stdio.h>
@@ -1935,15 +1841,13 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    我们通过编译, telnet 链接, 最终 Ctrl + C 发送 SIGINT 信号演示. 如果你很挑剔不妨
-    尝试将代码组织结构划分的更细点.
+我们通过编译, telnet 链接, 最终 Ctrl + C 发送 SIGINT 信号演示. 如果你很挑剔不妨尝试将代码组织结构划分的更细点.
 
 ![简易服务器](./img/hello_server.png)
 
 后客户端
 
-    客户端程序比服务器还简单. 这个程序的所有工作是通过 8088 端口连接到命令行中指定的主机
-    , 然后得到服务器发送过来的字符串.
+客户端程序比服务器还简单. 这个程序的所有工作是通过 8088 端口连接到命令行中指定的主机, 然后得到服务器发送过来的字符串.
 
 ```C
 #include <stdio.h>
@@ -1990,19 +1894,15 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-    同样先启动服务器, 然后编译客户端, 再启动客户端, 随后关闭服务器. 这样演示, 是不是都
-    好简单. 就是这种远古时代傻×的网络编程模式居然在 golang 中大杀四方. 诸神凝重 ~ 
+同样先启动服务器, 然后编译客户端, 再启动客户端, 随后关闭服务器. 这样演示, 是不是都好简单. 就是这种远古时代傻×的网络编程模式居然在 golang 中大杀四方. 诸神凝重 ~ 
 
- ![简易客户端](./img/hello_client.png)
+ ![简易客户端](./img/简易客户端.png)
 
 **数据包 UDP Socket**
 
-    不想讲更多了, 所以我给出代码 talker.c 和 listener.c. listener.exe 在机器上等
-    待来自端口 8088 的数据包. talker.exe 发送数据包到指定的机器端口上, 它包含用户在命
-    令行输入的内容. 对于 TCP 和 UDP 可以绑定相同端口, 主要原因是机器接收到 IP 包随后
-    通过其头部的协议值决定是向上给 TCP 栈或者还是给 UDP栈, 所以哪怕二者端口相同.
+不想讲更多了, 所以我给出代码 talker.c 和 listener.c. listener.exe 在机器上等待来自端口 8088 的数据包. talker.exe 发送数据包到指定的机器端口上, 它包含用户在命令行输入的内容. 对于 TCP 和 UDP 可以绑定相同端口, 主要原因是机器接收到 IP 包随后通过其头部的协议值决定是向上给 TCP 栈或者还是给 UDP栈, 所以哪怕二者端口相同.
 
-这里就是 listener.c
+这里就是 **listener.c**
 
 ```C
 #include <stdio.h>
@@ -2052,7 +1952,7 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-下面是 talker.c
+下面是 **talker.c**
 
 ```C
 #include <stdio.h>
@@ -2091,19 +1991,11 @@ int main(int argc, char * argv[]) {
 
 ![简易UDP](./img/简易UDP.png)
 
-    观察它们的通讯! 除了一些在上面提到的数据套接字连接的小细节外, 对于数据包套接字. 还得
-    说一点, 当 UDP 程序通过 connect() 函数绑定地址时候, 后续你使用 sendto(), 
-    recvfrom() 时可以不用附带地址 sockaddr 信息, 此刻完全可以用 send() 和 recv() 
-    代替. 原因在于 connnect() 函数帮助在内核记录下所需要的地址信息. 
+观察它们的通讯! 除了一些在上面提到的数据套接字连接的小细节外, 对于数据包套接字. 还得说一点, 当 UDP 程序通过 connect() 函数绑定地址时候, 后续你使用 sendto(), recvfrom() 时可以不用附带地址 sockaddr 信息, 此刻完全可以用 send() 和 recv() 代替. 原因在于 connnect() 函数帮助在内核记录下所需要的地址信息. 
 
 **阻塞**
 
-    阻塞, 你也许早就听说了. "阻塞"是 "sleep" 的科技行话. 你可能注意到前面运行的
-    listener.exe 程序, 它在 recvfrom() 时候等待数据包的到来. 如果没有数据就会一致等
-    待, 因此说  recvfrom() 是 "阻塞(block)" 的, 直到数据的到来. 很多函数都利用阻塞. 
-    accept() 阻塞, 所有的 recv*() 函数阻塞. 它们之所以能这样做是因为它们被允许这样做.
-    当你第一次调用 socket() 建立套接字描述符的时候, 内核就将它设置为阻塞. 如果你不想套
-    接字阻塞, 你就要调用函数 fcntl() 修改为非阻塞模式.
+阻塞, 你也许早就听说了. "阻塞"是 "sleep" 的科技行话. 你可能注意到前面运行的 listener.exe 程序, 它在 recvfrom() 时候等待数据包的到来. 如果没有数据就会一致等待, 因此说  recvfrom() 是 "阻塞(block)" 的, 直到数据的到来. 很多函数都利用阻塞. accept() 阻塞, 所有的 recv*() 函数阻塞. 它们之所以能这样做是因为它们被允许这样做. 当你第一次调用 socket() 建立套接字描述符的时候, 内核就将它设置为阻塞. 如果你不想套接字阻塞, 你就要调用函数 fcntl() 修改为非阻塞模式.
 
 ```C
 #include <fcntl.h>
@@ -2115,27 +2007,16 @@ int mode = fcntl(fd, F_GETFL, 0);
 return fcntl(fd, F_SETFL, mode | O_NONBLOCK);
 ```
 
-    通过设置套接字为非阻塞, 你能够有效地"询问"套接字以获得信息. 如果你尝试着从一个非阻塞
-    的套接字读信息并且没有任何数据, 它不允许阻塞. 它将返回 -1 并将 errno 设置为 
-    EAGAIN. 但是一般说来, 这种询问不是个好主意. 如果你让你的程序在忙等状态查询套接字的
-    数据, 你将浪费大量的 CPU 时间. 更好的解决之道是用下一章讲的 IO 复用机制, 被通知后
-    才去查询是否有数据要读进来. 到这基本上 TCP 和 UDP 通过 Linux socket 比划扫盲篇
-    宣告 OK, 后续的勤学苦练看福分深浅了 :)
+通过设置套接字为非阻塞, 你能够有效地"询问"套接字以获得信息. 如果你尝试着从一个非阻塞的套接字读信息并且没有任何数据, 它不允许阻塞. 它将返回 -1 并将 errno 设置为 EAGAIN. 但是一般说来, 这种询问不是个好主意. 如果你让你的程序在忙等状态查询套接字的数据, 你将浪费大量的 CPU 时间. 更好的解决之道是用下一章讲的 IO 复用机制, 被通知后才去查询是否有数据要读进来. 到这基本上 TCP 和 UDP 通过 Linux socket 比划扫盲篇宣告 OK, 后续的勤学苦练看福分深浅了 :)
 
 
 ### 7.2.5 编程拓展
 
-    说了那么多, 后续会逐渐进入状态, 更多还是回顾. 因为很多都是很老的东西. 
+说了那么多, 后续会逐渐进入状态, 更多还是回顾. 因为很多都是很老的东西. 
 
 **select()**
 
-    这个函数有点奇怪, 但是它很有用. 假设这样的情况: 你是个服务器, 你一边在不停地从连接上
-    读数据, 一边在侦听连接上的信息. 没问题, 你可能会说, 不就是一个 accept() 和一个 
-    recv() 吗? 这么容易吗, 朋友? 如果你在调用 accept() 的时候阻塞呢? 你怎么能够同时接
-    受 recv() 数据? "用非阻塞的套接字啊!" 不行! 你不想耗尽所有的 CPU 吧? 那么, 该如何
-    是好? select() 让你可以同时监视多个套接字. 如果你想知道的话, 那么它就会告诉你哪个套
-    接字准备读, 哪个又准备写, 哪个套接字又发生了意外 (exception). 闲话少说, 下面是 
-    select() 一种模拟演示:
+这个函数有点奇怪, 但是它很有用. 假设这样的情况: 你是个服务器, 你一边在不停地从连接上读数据, 一边在侦听连接上的信息. 没问题, 你可能会说, 不就是一个 accept() 和一个 recv() 吗? 这么容易吗, 朋友? 如果你在调用 accept() 的时候阻塞呢? 你怎么能够同时接受 recv() 数据? "用非阻塞的套接字啊!" 不行! 你不想耗尽所有的 CPU 吧? 那么, 该如何是好? select() 让你可以同时监视多个套接字. 如果你想知道的话, 那么它就会告诉你哪个套接字准备读, 哪个又准备写, 哪个套接字又发生了意外 (exception). 闲话少说, 下面是 select() 一种模拟演示:
 
 ```C
 /* According to POSIX.1-2001, POSIX.1-2008 */
@@ -2156,40 +2037,27 @@ int select(int nfds,
            struct timeval * timeout);
 ```
 
-    这个函数监视一系列文件描述符, 特别是 readfds writefds 和 exceptfds. 如果你想知
-    道你是否能够从标准输入和套接字描述符 sockfd 读入数据, 你只要将文件描述符 0 和 
-    sockfd 加入到集合 readfds 中. 参数 nfds 应该等于最高的文件描述符的值加 1. 在这个
-    例子中, 你应该设置该值为 sockfd + 1. 因为它一定大于标准输入的文件描述符 0. 当函数
-    select() 返回的时候, readfds 的值修改为反映你选择的哪个文件描述符可以读. 你可以用
-    FD_ISSET() 来测试. 在我们继续下去之前, 让我来讲讲如何对这些集合进行操作. 每个集合
-    类型都是 fd_set. 下面加一些注释来说明:
+**select** 函数监视一系列文件描述符, 特别是 readfds writefds 和 exceptfds. 如果你想知道你是否能够从标准输入和套接字描述符 sockfd 读入数据, 你只要将文件描述符 sockfd 加入到事先置空 FD_ZERO readfds 集合中. 参数 nfds 应该等于最高的文件描述符的值加 1. 在这个例子中, 你应该设置该值为 sockfd + 1. 当函数 select() 返回的时候, readfds 的值修改为反映你选择的哪个文件描述符可以读. 你可以用 FD_ISSET() 来测试. 在我们继续下去之前, 让我来讲讲如何对这些集合进行操作. 每个集合 类型都是 fd_set. 下面加一些注释来说明:
 
-        FD_ZERO(fd_set * set)           - 清除一个文件描述符集合
-        FD_SET(int fd, fd_set * set)    - 添加 fd 到集合
-        FD_CLR(int fd, fd_set * set)    - 从集合中移去 fd
-        FD_ISSET(int fd, fd_set * set)  - 测试 fd 是否在集合中
+```C
+FD_ZERO(fd_set * set)           - 置空一个文件描述符集合
+FD_SET(int fd, fd_set * set)    - 添加 fd 到集合
+FD_CLR(int fd, fd_set * set)    - 从集合中移去 fd
+FD_ISSET(int fd, fd_set * set)  - 测试 fd 是否在集合中
+```
 
-    最后, 是有点古怪的数据结构 struct timeval. 有时你可不想永远等待别人发送数据过来. 
-    也许什么事情都没有发生的时候你也想每隔 64 秒在终端上打印字符串 "对不起". 这个数据结
-    构允许你设定一个时间, 如果时间到了, 而 select() 还没有找到一个准备好的文件描述符, 
-    它将返回让你继续处理. 数据结构 struct timeval 是这样的:
+最后, 是有点古怪的数据结构 struct timeval. 有时你可不想永远等待别人发送数据过来. 也许什么事情都没有发生的时候你也想每隔 64 秒在终端上打印字符串 "对不起". 这个数据结构允许你设定一个时间, 如果时间到了, 而 select() 还没有找到一个准备好的文件描述符, 它将返回让你继续处理. 数据结构 struct timeval 是这样的:
 
-        struct timeval {
-            long    tv_sec;         /* seconds */
-            long    tv_usec;        /* microseconds */
-        };
+```C
+struct timeval {
+    long    tv_sec;         /* seconds */
+    long    tv_usec;        /* microseconds */
+};
+```
 
-    只要将 tv_sec 设置为你要等待的秒数, 将 tv_usec 设置为你要等待的微秒数就可以了. 是
-    的, 是微秒而不是毫秒. 1,000 微秒等于 1 毫秒，1,000 毫秒等于 1 秒. 也就是说, 1 
-    秒等于 1,000,000 微秒. 为什么用符号 "usec" 呢? 字母 "u" 很象希腊字母 Mu, 而 Mu
-    表示 "微" 的意思. 当然, 函数返回的时候 timeout 可能是剩余的时间, 之所以是可能, 是
-    因为它依赖于你的 linux 操作系统对于时间片的实现. 还有一些有趣的事情: 如果你设置数据
-    结构 struct timeval 中的数据为 0, select() 将立即超时, 这样就可以有效地轮询集合
-    中的所有的文件描述符. 如果你将参数 timeout 赋值为 NULL, 那么将永远不会发生超时, 
-    即一直等到有文件描述符就绪. 最后, 如果你不是很关心等待多长时间, 那么就把它赋为 NULL
-    吧. 下面的代码演示了在标准输入上等待 2.5 秒:
+只要将 tv_sec 设置为你要等待的秒数, 将 tv_usec 设置为你要等待的微秒数就可以了. 是的, 是微秒而不是毫秒. 1,000 微秒等于 1 毫秒，1,000 毫秒等于 1 秒. 也就是说, 1 秒等于 1,000,000 微秒. 为什么用符号 "usec" 呢? 字母 "u" 很象希腊字母 Mu, 而 Mu 表示 "微" 的意思. 当然, 函数返回的时候 timeout 可能是剩余的时间, 之所以是可能, 是因为它依赖于你的 linux 操作系统对于时间片的实现. 还有一些有趣的事情: 如果你设置数据结构 struct timeval 中的数据为 0, select() 将立即超时, 这样就可以有效地轮询集合中的所有的文件描述符. 如果你将参数 timeout 赋值为 NULL, 那么将永远不会发生超时, 即一直等到有文件描述符就绪. 最后, 如果你不是很关心等待多长时间, 那么就把它赋为 NULL 吧. 下面的代码演示了在标准输入上等待 2.5 秒:
 
-演示代码 select.c
+演示代码 **select.c**
 
 ```C
 #include <stdio.h>
@@ -2220,42 +2088,33 @@ int main(int argc, char * argv[]) {
 
 ![select操作](./img/select操作.png)
 
-    我这里对于 select 介绍是百不存一, 后续强烈推荐读者认真演技相关资料. 它如此与众不同. 
-    到这里本节应该结束了, 但是一念又想起高中老师的谆谆教导, 回赠个总的复习吧!
+我这里对于 select 介绍是百不存一, 后续强烈推荐读者认真演技相关资料. 它如此与众不同. 到这里本节应该结束了, 但是一念又想起高中老师的谆谆教导, 回赠个总的复习吧!
 
 **问: TCP 是否可以只进行两次握手建立链接?**
 
-    首先回顾下 TCP 通过三次握手建立安全连接的大致过程:
-        * 客户端向服务器发送一个 SYN, seq = x，尝试连接服务器
-        * 服务器向客户端响应一个 SYN, seq = y, 并对 seq = x 进行确认 ack x + 1,
-          表示服务器可用, 可以建立连接了
-        * 客户端再向服务器发一个确认 ack y + 1, 连接建立成功
-    更加详细的看下图.
+首先回顾下 TCP 通过三次握手建立安全连接的大致过程:
+
+* 客户端向服务器发送一个 SYN, seq = x，尝试连接服务器
+* 服务器向客户端响应一个 SYN, seq = y, 并对 seq = x 进行确认 ack x + 1, 表示服务器可用, 可以建立连接了
+* 客户端再向服务器发一个确认 ack y + 1, 连接建立成功
+
+更加详细的看下图.
 
 ![三次握手](./img/三次握手.png)
 
-    从这个过程我们就有了解答这个问题的素材了. 假如两次握手, 即没有 3 那条线. 这时候对于
-    Server 而言是无法知道其发送的序列号 y, 已经被 Client 知道了. 这就导致一个现象是
-    两次握手可以建立链接, 但无法确定这个链接是否有效. 因而对于 TCP 这种追求可靠链接的协
-    议两次握手建立链接方式是不可取的. 
+从这个过程我们就有了解答这个问题的素材了. 假如两次握手, 即没有 3 那条线. 这时候对于 Server 而言是无法知道其发送的序列号 y, 已经被 Client 知道了. 这就导致一个现象是两次握手可以建立链接, 但无法较确定这个链接是否有效. 因而对于 TCP 这种追求可靠链接的协议两次握手建立链接方式是不可取的. 
 
 **问: TCP 为什么 TIME_WAIT 默认等待 2MSL?**
 
-    首先还是得熟悉 TCP 四次挥手的过程.
+首先还是得熟悉 TCP 四次挥手的过程.
 
 ![四次挥手](./img/四次挥手.png)
     
-    单纯从图中可以看出 LAST_ACK 和 TIME_WAIT 都能凑出 2MSL 时间. 我们从理想情况分析
-    . Client 收到 FIN 会从 TIME_WAIT_2 变为 TIME_WAIT 开始回复 Server ACK. 这时
-    候临界情况回复了 MSL 长度的 ACK, Server 还是没有收到, 也经过了 MSL 又给 Client
-    发送最后一个 FIN. 此刻 Client 临界回复了 1 MSL ACK, 这次过后, 可以确定对方已经
-    消解在虚拟的网络中了. 二者一加, 这就是 2 个 MSL 的由来.
+单纯从图中可以看出 LAST_ACK 和 TIME_WAIT 都能凑出 2MSL 时间. 我们从理想情况分析. Client 收到 FIN 会从 TIME_WAIT_2 变为 TIME_WAIT 开始回复 Server ACK. 这时候临界情况回复了 MSL 长度的 ACK, Server 还是没有收到, 也经过了 MSL 又给 Client 发送最后一个 FIN. 此刻 Client 临界回复了 1 MSL ACK, 这次过后, 可以确定对方已经消解在虚拟的网络中了. 二者一加, 这就是 2 个 MSL 的由来.
 
 **IO 复用中结束本小节吧**
 
-    最好继续帮助加深理解吧. 其实网络编程内幕确实不少. 细节多技巧性强. 我也只是个菜鸡小哥
-    . 到这再带大家掌握一下 Linux 上运用 epoll IO 复用 api 管理文件描述符. 修行的就看
-    个人了, 演示 Demo 如下:
+TCP/IP 协议, 网络编程是一个传统行业知识点, 如同九阳神功, 主角张无忌也都练 5, 6 年才小成. 同样这些传统知识点很难啃, 未来怎么样看自己的兴趣和造化了. 好, 继续帮助加深理解. 网络编程内幕确实不少. 细节多技巧性强. 本人也只是个菜鸡小哥, 所以是菜鸟之旅. 到这再带大家掌握一下 Linux 上使用 epoll IO 复用 api 管理文件描述符. 修行的就看个人了, 演示 Demo 如下:
 
 ```C
 #include <time.h>
@@ -2497,18 +2356,11 @@ echo_recv(int efd, int fd) {
 }
 ```
 
-    如果你抄写完毕, 并编译执行, 通过 telnet 可以简单测试测试. 关于 C 基础 socket 开
-    发的回顾内容基本结束了. 此刻也带领了一些人踏入了 Linux socket 开发的大门吧. 错误
-    是难免的, 抄袭创新也只是拾人牙慧(贬义词). 毕竟一山还比一山高! 修行的大道上你会遇到
-    更清澈的风, 更飘逸的云. 哈哈, 祝我们好运!
+如果你抄写完毕, 并编译执行, 通过 telnet 可以简单测试测试. 关于 C 基础 socket 开发的回顾内容基本结束了. 此刻也带领了一些人踏入了 Linux socket 开发的大门吧. 错误是难免的, 抄袭创新也只是拾人牙慧(贬义词). 毕竟一山还比一山高! 修行的大道上你会遇到更清澈的风, 更飘逸的云. 哈哈, 祝我们好运!
 
-## 7.3 socket 轰击金丹
+## 7.3 socket 筑基
 
-        很高兴能到这里, 后面的这些封装可能让你在实战中势如破竹. 希望大段的文字让我们大体
-    回忆起 Linux socket 有哪些 api 用法. 那 winds 呢. 这也算是个问题对吧. 解决思路
-    会有很多, 我们这里介绍一种算加巧妙的方法, 就是在 winds 上面极大可能的模拟 linux
-    api 用法. 这样以后移植代码提供极大方面. 而需要模拟的无外乎 errno 机制, pipe 机制,
-    类型和部分接口细节上移植. 采用这个思路那我们开始堆砌吧.
+很高兴能到这里, 不能老和上面一样水了, 后面的这些封装可能让你在从学习状态切换到实战中并势如破竹. 希望大段的文字让我们大体回忆起 Linux socket 有哪些 api 用法. 那 window 呢. 这也算是个问题对吧. 解决思路会有很多, 我们这里介绍一种算加巧妙的方法, 就是在 window 上面极大可能的模拟 linux api 用法. 这样以后移植代码提供极大方面. 而需要模拟的无外乎 errno 机制, pipe 机制, 类型和部分接口细节上移植. 采用这个思路那我们开始堆砌吧.
 
 ### 7.3.1 errno 机制
 
