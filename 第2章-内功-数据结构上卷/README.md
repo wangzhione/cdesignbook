@@ -1,3 +1,23 @@
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [第2章-内功-数据结构上卷](#第2章-内功-数据结构上卷)
+  - [2.1 list](#21-list)
+    - [2.1.1 list interface](#211-list-interface)
+    - [2.1.2 list implements](#212-list-implements)
+  - [2.2 string](#22-string)
+    - [2.2.1 包装 string.h => strext.h](#221-包装-stringh-strexth)
+    - [2.2.2 tstr interface](#222-tstr-interface)
+    - [2.2.3 cstr implement](#223-cstr-implement)
+  - [2.3 array](#23-array)
+  - [2.4 两篇阅读理解](#24-两篇阅读理解)
+    - [2.4.1 stack 设计](#241-stack-设计)
+    - [2.4.2 id hash 设计](#242-id-hash-设计)
+  - [2.5 拓展阅读](#25-拓展阅读)
+  - [2.6 展望](#26-展望)
+
+<!-- /code_chunk_output -->
 # 第2章-内功-数据结构上卷
 
 对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其它语言好点, 标准或者框架中对结构算法有很好用(中庸)的支持. 重复说, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得实锤. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 上卷我们只讲简单一点 list, string, array, stack, hash 等类型的数据结构.
