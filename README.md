@@ -23,17 +23,21 @@
 
 ## 试炼场
 
-***
+**素材库**
 
->[基础素材 : https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+> [基本素材: https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+> [入门素材: cloudwu skynet](https://github.com/cloudwu/skynet)
+> [拓展素材: glibc](https://www.gnu.org/software/libc/)
+
+***
 
     1. 第1章讲解代码风格缘由
     1. 2-6章构建开发中常用基础库套路
-    2. 第7章简单讲解 socket 编程片段
+    2. 第7章 socket 网络编程简介部分
 
 ***
     
-菜鸟之旅核心在于**写**, Coding player ~
+菜鸟之旅核心在于 **写**, Coding player ~
     
 **Talk is cheap, show me the code.**
 

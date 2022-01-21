@@ -2636,7 +2636,8 @@ inline static void socket_init(void) {
     signal(SIGHUP , SIG_IGN);
 }
 
-inline static int socket_close(socket_t s) {
+// 谁傻逼谁有理, 兼容 window, socket_close 命名也不错
+inline static int closesocket(socket_t s) {
     return close(s);
 }
 
@@ -2689,11 +2690,6 @@ typedef int             socklen_t;
 inline void socket_init(void) {
     WSADATA version;
     IF(WSAStartup(WINSOCK_VERSION, &version));
-}
-
-// socket_close - 关闭上面创建后的句柄
-inline int socket_close(socket_t s) {
-    return closesocket(s);
 }
 
 // socket_set_block - 设置套接字是阻塞
@@ -3068,7 +3064,7 @@ socket_binds(const char * host, uint16_t port, uint8_t protocol, int * family) {
     return fd;
 
 err_close:
-    socket_close(fd);
+    closesocket(fd);
 err_free:
     freeaddrinfo(rsp);
     return INVALID_SOCKET;
@@ -3078,7 +3074,7 @@ socket_t
 socket_listen(const char * ip, uint16_t port, int backlog) {
     socket_t fd = socket_binds(ip, port, IPPROTO_TCP, NULL);
     if (INVALID_SOCKET != fd && listen(fd, backlog)) {
-        socket_close(fd);
+        closesocket(fd);
         return INVALID_SOCKET;
     }
     return fd;
@@ -3091,7 +3087,7 @@ goto 还是欲言又止, 好用, 代码更完整, 未尝不可 goto. 简单说�
 山中不知岁月, 心思最耐人. 本文很多套路都是参悟化神前辈云风残留剑意所得, 最终交叉在华山剑法中, 供后来者思索和演练. bind, listern 完了之后干什么呢, 自如等待客户端 connect 了.
 
 ```C
-// socket_connect_timeout_partial 带毫秒超时的 connect, 返回非阻塞 socket
+// socket_connect_timeout_partial 带毫秒超时的 connect, 并设置非阻塞 socket
 static int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms) {
     int n, r;
     struct timeval timeout;
@@ -3106,7 +3102,7 @@ static int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms
 
     // 尝试连接, connect 返回 -1 并且 errno == EINPROGRESS 表示正在建立链接
     r = connect(s, &a->s, a->len);
-    // connect 链接中, linux 是 EINPROGRESS，winds 是 WSAEWOULDBLOCK
+    // connect 链接中, linux 是 EINPROGRESS，window 是 WSAEWOULDBLOCK
     if (r >= 0 || errno != EINPROGRESS) return r;
 
     // 超时 timeout, 直接返回结果 -1 错误
@@ -3127,11 +3123,14 @@ static int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms
     // 当连接建立遇到错误时候, 描述符变为即可读又可写
     if (FD_ISSET(s, &eset) || n == 2) {
         // 只要最后没有 error 那就链接成功
-        if (!socket_get_error(s))
-            r = 0;
+        r = socket_get_error(s);
+        if (r == 0) {
+            return 0;
+        }
+        PERR("r = %d, ms = %d", r, ms);
     }
 
-    return r;
+    return -1;
 }
 
 socket_t 
@@ -3149,7 +3148,7 @@ socket_connect_timeout(const sockaddr_t a, int ms) {
         int port = socket_ntop(a, ip);
         PERR("ip = %s, port = %d, ms = %d", ip, port, ms);
 
-        socket_close(s);
+        closesocket(s);
     }
 
     return INVALID_SOCKET;
@@ -3168,7 +3167,7 @@ socket_connect(const sockaddr_t a) {
         int port = socket_ntop(a, ip);
         PERR("ip = %s, port = %d", ip, port);
 
-        socket_close(s);
+        closesocket(s);
     }
 
     return INVALID_SOCKET;
@@ -3337,12 +3336,12 @@ int pipe(socket_t pipefd[2]) {
     if (pipefd[1] == INVALID_SOCKET) 
         goto err_pipe;
 
-    socket_close(s);
+    closesocket(s);
     return 0;
 err_pipe:
-    socket_close(pipefd[0]);
+    closesocket(pipefd[0]);
 err_close:
-    socket_close(s);
+    closesocket(s);
     return -1;
 }
 
@@ -3735,7 +3734,7 @@ void spoll_test(void) {
     }
 
     spoll_delete(p);
-    socket_close(s);
+    closesocket(s);
 }
 
 ```
