@@ -2840,10 +2840,10 @@ extern int socket_recvn(socket_t s, void * buf, int sz);
 // socket_sendn - socket 发送 sz 个字节
 extern int socket_sendn(socket_t s, const void * buf, int sz);
 
+extern socket_t socket_connect(const sockaddr_t a);
+
 // socket_connect_timeout - 毫秒超时的 connect
 extern socket_t socket_connect_timeout(const sockaddr_t a, int ms);
-
-extern socket_t socket_connect(const sockaddr_t a);
 
 inline socket_t socket_accept(socket_t s, sockaddr_t a) {
     a->len = sizeof(struct sockaddr_in6);
@@ -3087,18 +3087,30 @@ goto 还是欲言又止, 好用, 代码更完整, 未尝不可 goto. 简单说�
 山中不知岁月, 心思最耐人. 本文很多套路都是参悟化神前辈云风残留剑意所得, 最终交叉在华山剑法中, 供后来者思索和演练. bind, listern 完了之后干什么呢, 自如等待客户端 connect 了.
 
 ```C
-// socket_connect_timeout_partial 带毫秒超时的 connect, 并设置非阻塞 socket
-static int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms) {
+socket_t 
+socket_connect(const sockaddr_t a) {
+    socket_t s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
+    if (s != INVALID_SOCKET) {
+        if (connect(s, &a->s, a->len) >= 0) {
+            return s;
+        }
+
+        // 构造 connect 失败日志
+        char ip[INET6_ADDRSTRLEN];
+        int port = socket_ntop(a, ip);
+        PERR("ip = %s, port = %d", ip, port);
+
+        closesocket(s);
+    }
+
+    return INVALID_SOCKET;
+}
+
+// socket_connect_timeout_partial 带毫秒超时的 connect, socket 必须是非阻塞的
+int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms) {
     int n, r;
     struct timeval timeout;
     fd_set rset, wset, eset;
-
-    // 还是阻塞的 connect
-    if (ms < 0) return connect(s, &a->s, a->len);
-
-    // 非阻塞登录, 先设置非阻塞模式
-    r = socket_set_nonblock(s);
-    if (r < 0) return r;
 
     // 尝试连接, connect 返回 -1 并且 errno == EINPROGRESS 表示正在建立链接
     r = connect(s, &a->s, a->len);
@@ -3135,41 +3147,36 @@ static int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms
 
 socket_t 
 socket_connect_timeout(const sockaddr_t a, int ms) {
+    // 健壮性代码
+    if (ms < 0) {
+        return socket_connect(a);
+    }
+
     // 获取 tcp socket 尝试 parse connect
     socket_t s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (s != INVALID_SOCKET) {
-        if (socket_connect_timeout_partial(s, a, ms) >= 0) {
-            if (socket_set_block(s) >= 0)
-                return s;
-        } 
-
-        // 构造 connect 失败日志
-        char ip[INET6_ADDRSTRLEN];
-        int port = socket_ntop(a, ip);
-        PERR("ip = %s, port = %d, ms = %d", ip, port, ms);
-
-        closesocket(s);
+    if (s == INVALID_SOCKET) {
+        PERR("socket %d SOCK_STREAM error", a->s.sa_family);
+        return INVALID_SOCKET;
     }
 
-    return INVALID_SOCKET;
-}
+    // 非阻塞登录, 先设置非阻塞模式
+    if (socket_set_nonblock(s) < 0) {
+        goto ret_invalid;
+    }
 
-socket_t 
-socket_connect(const sockaddr_t a) {
-    socket_t s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (s != INVALID_SOCKET) {
-        if (connect(s, &a->s, a->len) >= 0) {
+    if (socket_connect_timeout_partial(s, a, ms) >= 0) {
+        // 返回非阻塞 socket fd
+        if (socket_set_block(s) >= 0)
             return s;
-        }
-
-        // 构造 connect 失败日志
-        char ip[INET6_ADDRSTRLEN];
-        int port = socket_ntop(a, ip);
-        PERR("ip = %s, port = %d", ip, port);
-
-        closesocket(s);
     }
 
+ret_invalid:
+    // 构造 connect 失败日志
+    char ip[INET6_ADDRSTRLEN];
+    int port = socket_ntop(a, ip);
+    PERR("ip = %s, port = %d, ms = %d", ip, port, ms);
+
+    closesocket(s);
     return INVALID_SOCKET;
 }
 
