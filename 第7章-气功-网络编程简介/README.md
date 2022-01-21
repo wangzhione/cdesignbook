@@ -3170,12 +3170,11 @@ socket_connect_timeout(const sockaddr_t a, int ms) {
             return s;
     }
 
-ret_invalid:
     // 构造 connect 失败日志
     char ip[INET6_ADDRSTRLEN];
     int port = socket_ntop(a, ip);
     PERR("ip = %s, port = %d, ms = %d", ip, port, ms);
-
+ret_invalid:
     closesocket(s);
     return INVALID_SOCKET;
 }
