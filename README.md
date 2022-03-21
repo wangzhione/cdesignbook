@@ -1,8 +1,8 @@
 # C 菜鸟之旅
 
-    很久以前想写本关于 C 的华山剑法 § 无趣胜在苦练 ~
+    很久以前想写本关于 C 入门的华山剑法 § 无趣胜在苦练 ~
 
-    之后经年修炼感悟, 为华山剑法, 迎来纯粹和简单 ~
+    随着对代码持续感觉, 将为华山剑法, 补上简单和灵动 ~
 
     微笑有清风 :) 
 
@@ -24,9 +24,9 @@
 
 ## 试炼场
 
-**素材库**
+**持续升级 - 素材库**
 
-> [基本素材: https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
+> [基础素材: https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
 
 > [入门素材: cloudwu skynet](https://github.com/cloudwu/skynet)
 
@@ -34,9 +34,9 @@
 
 ***
 
-    1. 第1章讲解代码风格缘由
-    1. 2-6章构建开发中常用基础库套路
-    2. 第7章 socket 网络编程简介部分
+    1. 第1章 代码风味大致缘由
+    1. 2-6章 构建和练习常见的套路
+    2. 第7章 socket 网络编程简介
 
 ***
     
