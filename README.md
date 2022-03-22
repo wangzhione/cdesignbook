@@ -40,7 +40,7 @@
 
 ***
     
-菜鸟之旅核心在于 **写**, Coding player ~
+菜鸟之旅核心在于 **写**, Coding player ~ 同样想写本书介绍华山剑法时候, 所以写了 structc
     
 **Talk is cheap, show me the code.**
 

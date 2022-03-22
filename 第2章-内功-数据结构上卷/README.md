@@ -14,13 +14,13 @@
   - [2.4 两篇阅读理解](#24-两篇阅读理解)
     - [2.4.1 stack 设计](#241-stack-设计)
     - [2.4.2 id hash 设计](#242-id-hash-设计)
-  - [2.5 拓展阅读](#25-拓展阅读)
+  - [2.5 拓展阅读 strlen 工程样例](#25-拓展阅读-strlen-工程样例)
   - [2.6 展望](#26-展望)
 
 <!-- /code_chunk_output -->
 # 第2章-内功-数据结构上卷
 
-对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其他语言好点, 标准或者框架中对结构算法有很好用(中庸)的支持. 重复说, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得实锤. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 上卷我们只讲简单一点 list, string, array, stack, hash 等类型的数据结构.
+对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其他语言好一点, 标准或者框架中对结构算法有很好用(中庸)的支持. 重复说, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得实锤. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 上卷我们只讲简单一点 list, string, array, stack, hash 等类型的数据结构.
 
 ## 2.1 list
 
@@ -110,7 +110,7 @@ extern void * list_pop(void * pist, void * fget, const void * left);
 #define CMP_F
 
 //
-// cmp_f - 比较行为 > 0 or = 0  or < 0
+// cmp_f - left now node 比较 right input node 行为 > 0 or = 0  or < 0
 // : int add_cmp(const void * now, const void * node)
 //
 typedef int (* cmp_f)();
@@ -129,7 +129,7 @@ typedef void (* node_f)();
 #endif//NODE_F
 ```
 
-对于 **struct $list { struct $list * next; };** 链式结构的设计方式, 可以稍微思考一下, 等同于内存级别的继承. $ 符号希望标识当前结构是私有的, 使用要谨慎, 需要知道其内存的全貌. 下我们用上面 list 提供的接口原型, 构建 people list 演示例子
+对于 **struct $list { struct $list * next; };** 链式结构的设计方式, 可以稍微思考一下, 等同于内存级别的继承. $ 符号希望标识当前结构是私有的, 不推荐使用, 或者使用要谨慎, 需要知道其内存的全貌. 下面用以上 list 提供的接口原型, 构建 people list 演示例子
 
 ```C
 struct people {
@@ -398,7 +398,40 @@ list_each(void * list, void * feach, void * arg) {
 }
 ```
 
-list_get 和 list_each 代码是质朴中的质朴啊. 其中 list_each 注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 不好意思到这 list 设计套路解释完了. 喜欢的朋友可以多写几遍代码去体会其中思路然后再分享运用 ~ 
+list_get 和 list_each 代码是质朴中的质朴啊. 其中 list_each 注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 不好意思到这 list 设计套路解释完了. 喜欢的朋友可以多写几遍代码去反复体会其中思路然后再分享运用 ~
+
+实战时候更多直接用原始链表结构, 或者 empty head list 结构, 读者可以查阅资料和反复练习增删改查体会其中巧妙.
+
+```C
+//
+// file_f - 文件更新行为
+//
+typedef void (* file_f)(FILE * c, void * arg);
+
+struct file {
+    file_f func;     // 执行行为, NULL 标识删除
+    void * arg;      // 行为参数
+    char * path;     // 文件路径
+    unsigned hash;   // path hash
+    time_t lasttime; // 文件最后修改时间点
+    struct file * next;
+};
+
+struct files {
+    atomic_flag data_lock;
+    // 用于 update 数据 empty head
+    struct file data;
+
+    atomic_flag backup_lock;
+    // 在 update 兜底备份数据 empty head
+    struct file backup;
+};
+
+static struct files F = {
+    .data_lock = ATOMIC_FLAG_INIT,
+    .backup_lock = ATOMIC_FLAG_INIT,
+};
+```
 
 ## 2.2 string
 
@@ -433,30 +466,13 @@ strext.h 是基于 string.h 扩展而来, 先引入 strext.h 目的是方便后�
 extern unsigned BKDHash(const char * str);
 
 //
-// str_cpyn - tar 复制内容到 src 中
+// str_cpyn - tar 复制内容到 src 中, 相比 strncpy 安全一点, 推荐 memcpy or memncpy
 // src      : 返回保存内容
 // tar      : 目标内容
 // n        : 最大容量
 // return   : 返回字符串长度
 //
 extern int str_cpyn(char * src, const char * tar, size_t n);
-
-//
-// str_cmpi - 字符串不区分大小写比较函数
-// ls       : 左串
-// rs       : 右串
-// return   : ls > rs 返回 > 0; ... < 0; ... =0
-//
-extern int str_cmpi(const char * ls, const char * rs);
-
-//
-// str_cmpin - 字符串不区分小写的限定字符比较函数
-// ls       : 左串
-// rs       : 右串
-// n        : 长度
-// return   : ls > rs 返回 > 0; ... < 0; ... =0
-//
-extern int str_cmpin(const char * ls, const char * rs, size_t n);
 
 //
 // str_trim - 去除字符数组前后控制字符
@@ -514,7 +530,7 @@ unsigned BKDHash(const char * str) {
 }
 ```
 
-BKDHash 延续了 C 语言之父展示一种极其简便快速 hash 算法实现. 哈希(hash)映射相当于定义数学上一个函数, f (char *) 映射为 unsigned 数值. 意图通过数值一定程度上反向确定这个字符串. 思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解决碰撞也好搞. 套路不少有桶式 hash, 链式 hash, 混合 hash(后面会看见相关例子). 回到问题, 即如果发生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子. 一种思路是当池子中海藻挤在一起(碰撞)了, 就加大池子, 让海藻分开, 原理是池子越大碰撞机会越小. 另一种思路当池子中海藻挤在一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的海藻全引流到小水沟中, 思路是碰撞的单独放一起. 而对于 hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性在数据查找时能够快速刷掉一批! 推荐也多查查其他资料, 把 hash 设计和编码仔细分析明白!!
+BKDHash 延续了 C 语言之父展示一种极其简便快速 hash 算法实现. 哈希(hash)映射相当于定义数学上一个函数, f (char *) 映射为 unsigned 数值. 意图通过数值一定程度上反向确定这个字符串. 思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解决碰撞也好搞. 套路不少有桶式 hash, 链式 hash, 混合 hash(后面会看见相关例子). 回到问题, 即如果发生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子, 需要面对棘手问题是当池子中海藻挤在一起(碰撞)了, 怎么办? 除了扩大池子, 降低海藻碰撞几率直接办法. 常见的一种思路碰撞了是吧, 挨个找位置放置这些碰撞的. 另一种思路当池子中海藻挤在一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的海藻全引流到小水沟中, 思路是碰撞的单独放一起. 实际场景更多更加有趣推荐阅读更专业数据结构书籍和资料, 把 hash 设计和编码仔细分析明白!. 而对于 hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性在数据查找时能够快速刷掉一批! 这也是这种数据结构迷人地方.
 
 ```C
 //
@@ -534,7 +550,11 @@ str_cpyn(char * src, const char * tar, size_t n) {
     if (i == n) *src = '\0';
     return (int)i - 1;
 }
+```
 
+函数写的很普通. 完全算不上"高效"(没采用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常参数处理, 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 类似练习还可以有
+
+```C
 //
 // str_cmpi - 字符串不区分大小写比较函数
 // ls       : 左串
@@ -575,7 +595,7 @@ str_cmpin(const char * ls, const char * rs, size_t n) {
 }
 ```
 
-函数写的很普通. 完全算不上"高效"(没采用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常参数处理, 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 再展示 trim 函数.
+实战中我们推荐 strcasecmp 和 stricasecmp POSIX 标准中 api. 再看看 trim 函数.
 
 ```C
 //
@@ -667,30 +687,26 @@ str_sprintf(const char * fmt, ...) {
 char * 
 str_freads(const char * path) {
     int64_t size = fsize(path);
-    if (size < 0)
-        return NULL;
-    if (size == 0) 
-        return calloc(1, sizeof (char));
+    if (size <  0) return NULL;
+    if (size == 0) return calloc(1, sizeof (char));
 
     // 尝试打开文件读取处理
     FILE * txt = fopen(path, "rb");
-    if (!txt) 
-        return NULL;
+    if (txt == NULL) return NULL;
 
     // 构建最终内存
     char * str = malloc(size + 1);
-    str[size] = '\0';
 
     size_t n = fread(str, sizeof(char), size, txt);
-    assert(n == (size_t)size);
+    assert(n == (size_t)size); UNUSED(n);
     if (ferror(txt)) {
         free(str);
         fclose(txt);
         return NULL;
     }
-
     fclose(txt);
 
+    str[size] = '\0';
     return str;
 }
 
@@ -795,11 +811,11 @@ inline void cstr_free(cstr_t cs) {
 通过 struct cstr 就能猜出作者思路, str 存放内容, len 记录当前字符长度, cap 表示字符池容量. 声明字符串类型 cstr_t 用于堆上声明. 如果想在栈上声明, 可以用提供的 **cstr_declare** 操作宏. 其实很多编译器支持运行期结束自动析构操作, 通过编译器的语法糖, 内嵌析构操作. 类比下面套路(编译器协助开发者插入 free or delete 代码), 模拟自动退栈销毁栈上字符串 var 变量
 
 ```C
-#define CSTR_USING(var, code)           \
+#define cstr_using(var, code)           \
 do {                                    \
-    TSTR_CREATE(var);                   \
+    cstr_declare(var);                  \
     code                                \
-    TSTR_DELETE(var);                   \
+    cstr_free(var);                     \
 } while(0)
 ```
 
@@ -946,6 +962,16 @@ cstr_expand(cstr_t cs, size_t len) {
 
 ```C
 // pow2gt - 2 ^ n >= x , 返回 [2 ^ n]
+// M = 0 ~ 0 1 X X X X X X X X X X X X X X X X ~ X
+// M = M | (M >>  1)
+// M = 0 ~ 0 1 1 X X X X X X X X X X X X X X X ~ X
+// M = M | (M >>  2)
+// M = 0 ~ 0 1 1 1 1 X X X X X X X X X X X X X ~ X
+// M = M | (M >>  4)
+// M = 0 ~ 0 1 1 1 1 1 1 1 1 X X X X X X X X X ~ X
+// M = M | (M >>  8)
+// M = 0 ~ 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 X ~ X
+// ...
 static inline int pow2gt(int x) {
     --x;
     x |= x >>  1;
@@ -957,7 +983,7 @@ static inline int pow2gt(int x) {
 }
 ```
 
-综合而言这里内存分配策略也属于直接拍脑门, 合理的还需要很多数据支撑以及特定工程使用情况还包括相关的研究论文.
+综合而言这里内存分配策略也属于直接拍脑门, 合理的还需要**很多数据支撑以及特定工程使用情况还包括相关的研究论文**.
 
 ```C
 //
@@ -1275,9 +1301,7 @@ array_each(array_t a, each_f func, void * arg) {
 
 当然了, 越是经过筛选的好东西, 理应很顺很清晰. 
 
-
-顺带补充点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 谎言需要另一个谎言来弥补. 并且多用标准中推出的解决方案. 例如标准提供的 stdint.h 和 stddef.h 定义全平
-台类型. 不妨传大家我这么多年习得的无上秘法, 开 血之限界 -> 血轮眼 -> 不懂装懂, 抄抄抄. 一切如梦如幻! 回到正题. 再带大家写个很傻的单元测试, 供参考. 有篇幅的话会带大家写个简单的单元测试功能设计.
+顺带补充点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 谎言需要另一个谎言来弥补. 并且多用标准中推出的解决方案. 例如标准提供的 stdint.h 和 stddef.h 定义全平台类型. 不妨传大家我这么多年习得的无上秘法, 开 血之限界 -> 血轮眼 -> 不懂装懂, 抄抄抄. 一切如梦如幻! 回到正题. 再带大家写个很傻的单元测试, 供参考. 有篇幅的话会带大家写个简单的单元测试功能设计.
 
 ```C
 #include <array.h>
@@ -1555,7 +1579,7 @@ static inline int hashid_full(struct hashid * hi) {
 
 有了这些阅读理解会容易点. 上面构建的 hash id api, 完成的工作就是方便 int id 的映射工作. 查找急速, 实现上采用的是桶算法. 映射到固定空间上索引. 写一遍想一遍就能感受到那些游动于指尖的美好 ~
 
-## 2.5 拓展阅读
+## 2.5 拓展阅读 strlen 工程样例
 
 在 **2.2.1 包装 string.h => strext.h** 小节中我们采用直白思路去实现相关功能. 这节带有兴趣同学拓展下视野, 看看标准库级别实现, 挑选了大家都常见 **strlen**. 编程可不是儿戏.
 
