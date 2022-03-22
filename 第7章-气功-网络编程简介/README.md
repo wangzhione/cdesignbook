@@ -17,7 +17,7 @@
     - [7.3.1 errno 机制](#731-errno-机制)
     - [7.3.2 socket 工程库接口设计](#732-socket-工程库接口设计)
     - [7.3.3 socket 库接口实现](#733-socket-库接口实现)
-  - [7.4 阅读理解](#74-阅读理解)
+  - [7.4 阅读理解 pipe](#74-阅读理解-pipe)
   - [7.5 socket poll 一股至纯气息](#75-socket-poll-一股至纯气息)
     - [7.5.1 socket poll select 拔剑](#751-socket-poll-select-拔剑)
     - [7.5.2 socket poll epoll 入鞘](#752-socket-poll-epoll-入鞘)
@@ -3221,7 +3221,7 @@ socket_sendn(socket_t s, const void * buf, int sz) {
 
 ![藤原佐为](./img/藤原佐为.jpg)
 
-## 7.4 阅读理解
+## 7.4 阅读理解 pipe
 
 基于跨平台的 socket 封装, 这里带大家学习个 pipe 的封装, 权当阅读理解.
 

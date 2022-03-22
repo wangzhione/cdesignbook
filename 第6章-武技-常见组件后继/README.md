@@ -8,7 +8,7 @@
     - [6.1.2 线程池实现](#612-线程池实现)
   - [6.2 消息轮序器](#62-消息轮序器)
   - [6.3 阅读理解](#63-阅读理解)
-  - [6.4 展望](#64-展望)
+  - [6.4 展望 pthread_mutex_lock](#64-展望-pthread_mutex_lock)
 
 <!-- /code_chunk_output -->
 # 第6章-武技-常见组件后继
@@ -560,8 +560,7 @@ loop_create(void * frun, void * fdie) {
 ```
 
 对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些, 那就爽了. 整体思路是乒乓交换, 亮点在于 sem_wait. 分析会, 假如是多线程环境 loop_push 多次并发操作, 并触发相应的 sem_post 会执行多次 P 操作. 但 loop_run 是单线程轮询处理的, 只会触发对应次的 sem_wait V 操作. 所以 push 的 sem_post 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是高效的保证. 武技修炼中, loop 库是继 clog 库之后, 基于最小意外的实现 ~ 感悟至今, 进出妖魔战场更加频繁, 修炼也越发坚深, 然而心境中域外天魔也逐渐在另一个次元逼近而来. 他会拷问你的内心, 你为何修炼编程? 随之进入弥天幻境, 太多太多人在幻境的路中间 ~ 不曾解脱 ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
-
-## 6.3 阅读理解
+## 6.3 阅读理解 pthread_mutex_lock
 
 本文阅读理解抽自 glibc 库中 pt-mutext-lock.c 部分. 非常清晰讲述互斥锁大致原理. 首先要知道互斥锁提供那些功能, PT_MTX_NORMAL, PT_MTX_RECURSIVE, PT_MTX_ERRORCHECK, PTHREAD_MUTEX_ROBUST 业务语义. 然后是 lll_lock, lll_robust_lock 借助 atomic 和 syscall __NR_futex 等标准和系统能力. 经过之前几章训练感兴趣同学, 完全有能力看懂这些用户线程级别代码. 系统开发宝藏就是**最新的 glibc 库, 然后是 man 手册**. 有一说一这些成名库, 起的变量名确实**言简意赅, 一看就懂**. 
 

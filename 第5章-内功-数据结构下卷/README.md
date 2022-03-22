@@ -12,7 +12,7 @@
     - [5.3.1 简单版本队列](#531-简单版本队列)
     - [5.3.2 线程安全版本](#532-线程安全版本)
     - [5.3.3 队列拓展小练习](#533-队列拓展小练习)
-  - [5.4 阅读理解](#54-阅读理解)
+  - [5.4 阅读理解 struct heap](#54-阅读理解-struct-heap)
 
 <!-- /code_chunk_output -->
 # 第5章-内功-数据结构下卷
@@ -21,7 +21,7 @@
 
 ## 5.1 红黑树, 一道坎
 
-红黑树的理论, 推荐搜索多方资料恶补. 他解决的问题是, 防止查找二叉搜索树退化为有序的双向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只是站在自己框架用到的, 实现角度出发. 带大家去感受, 那些瞎逼调整的二叉树结点 ~ 是如何张狂的出现在编程的世界里 ~ 啊哈 ~ 首先瞄一下总设计野路子 **rtree.h**
+红黑树的理论, 推荐搜索多方资料恶补. 他解决的问题是, 防止查找二叉搜索树退化为有序的双向链表. 相似替代有跳跃表, hash 桶. 但具体使用什么, 因个人喜好. 作者只是站在框架练习角度出发, 带大家去感受, 那些瞎逼调整的二叉树结点. 是如何张狂的出现在编程的世界里 ~ 啊哈 ~ 首先瞄一下总设计野路子 **rtree.h**
 
 ```C
 #pragma once
@@ -737,6 +737,9 @@ ret_out:
 //
 typedef struct dict * dict_t;
 
+extern unsigned dict_size(dict_t d);
+extern unsigned dict_used(dict_t d);
+
 //
 // dict_delete - 字典删除
 // d        : dict_create 创建的字典对象
@@ -767,6 +770,7 @@ extern void * dict_get(dict_t d, const char * k);
 // return   : void
 //
 extern void dict_set(dict_t d, const char * k, void * v);
+
 ```
 
 内功练到后面是不是有种势如破竹的感觉, 清晰易懂, 简单明了. (前提是自己手熟) 那开始实现意图剖析, 来看 dict 内功的气海结构.
@@ -807,6 +811,14 @@ struct dict {
     unsigned size;              // 结点容量
     struct keypair ** table;    // 集合
 };
+
+unsigned dict_size(dict_t d) {
+    return d ? d->size : 0u;
+}
+
+unsigned dict_used(dict_t d) {
+    return d ? d->used : 0u;
+}
 ```
 
 dict::table 就是我们的 keypair 池子, 存放所有 struct keypair 结构. 如果冲突了, 那就向 keypair::next 链式结构中接着插入. 如果池子满了, 那就重新挖一个大点的池子, 重新调整所有关系. 这就是核心思想! 不妨详细看看池子漫了的时候的策略.
@@ -1043,28 +1055,30 @@ dict_set(dict_t d, const char * k, void * v) {
 
 #include "struct.h"
 
-//
+ // q simple ringlike queue
 // pop empty <=> tail == -1 ( head == 0 )
 // push full <=> head == (tail + 1) % cap && tail >= 0
 //
 typedef struct q {
-    int     head;       // 头结点
-    int     tail;       // 尾结点
+    int     head;       // 头结点索引
+    int     tail;       // 尾结点索引
     int      cap;       // 队列容量
     void ** data;       // 队列实体
 } q_t[1];
+
+// Q_INT  - 队列初始大小, 必须是 2 的幂
+#ifndef Q_INT
+#define Q_INT     (1<< 6)
+#endif
 
 //
 // q_init - 初始化
 // q      : 队列对象
 // return : void
-// Q_INT  - 队列初始大小, 必须是 2 的幂
-#define Q_INT     (1<< 6)
 inline void q_init(q_t q) {
-    q->data = malloc(sizeof(void *) * Q_INT);
+    q->data = malloc(sizeof(void *)*Q_INT);
     q->cap = Q_INT;
-    q->head =  0;
-    q->tail = -1;
+    q->tail = -1; q->head =  0;
 }
 
 inline void q_free(q_t q) {
@@ -1072,11 +1086,17 @@ inline void q_free(q_t q) {
 }
 
 inline bool q_empty(q_t q) {
-    return q->tail < 0;
+    return q->tail <  0;
 }
 
 inline bool q_exist(q_t q) {
     return q->tail >= 0;
+}
+
+static inline int q_len(q_t q) {
+    return q->tail < 0 ? 0 :( 
+     q->tail < q->head ? q->cap+q->tail-q->head+1 : q->tail-q->head+1
+    );
 }
 
 //
@@ -1086,10 +1106,7 @@ inline bool q_exist(q_t q) {
 // return : void
 //
 inline void q_swap(q_t r, q_t w) {
-    q_t q;
-    q[0] = r[0];
-    r[0] = w[0];
-    w[0] = q[0];
+    q_t q; q[0] = r[0]; r[0] = w[0]; w[0] = q[0];
 }
 
 //
@@ -1117,7 +1134,7 @@ extern void q_delete(q_t q, node_f fdie);
 
 ```
 
-我写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满, q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_delete 实现.
+上面写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满, q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_delete 实现.
 
 ```C
 #include "q.h"
@@ -1154,17 +1171,17 @@ q->head == q->tail 是查找结束条件. 整个删除销毁操作, 等同于 ar
 //
 void * 
 q_pop(q_t q) {
-    void * m = NULL;
     if (q_exist(q)) {
-        m = q->data[q->head];
+        void * m = q->data[q->head];
         if (q->tail != q->head)
-            q->head = (q->head + 1) & (q->cap - 1);
+            q->head = (q->head+1) & (q->cap-1);
         else {
-            q->head =  0; // empty 情况, 重置 tail 和 head
-            q->tail = -1;
+            // empty 情况, 重置 tail 和 head
+            q->tail = -1; q->head =  0;
         }
+        return m;
     }
-    return m;
+    return NULL;
 }
 ```
 
@@ -1174,16 +1191,16 @@ q_push 操作包含了 q_expand 内存扩充操作, 用于内存重建, 同前�
 // q_expand - expand memory by twice
 static void q_expand(q_t q) {
     int i, cap = q->cap << 1;
-    void ** p = malloc(sizeof(void *) * cap);
+    void ** p = malloc(sizeof(void *)*cap);
     for (i = 0; i < q->cap; ++i)
-        p[i] = q->data[(q->head + i) & (q->cap - 1)];
+        p[i] = q->data[(q->head+i) & (q->cap-1)];
     free(q->data);
 
     // 重新构造内存关系
+    q->head = 0;
     q->tail = q->cap;
     q->cap = cap;
     q->data = p;
-    q->head = 0;
 }
 
 //
@@ -1194,9 +1211,9 @@ static void q_expand(q_t q) {
 // 
 void 
 q_push(q_t q, void * m) {
-    int tail = (q->tail + 1) & (q->cap - 1);
+    int tail = (q->tail+1) & (q->cap-1);
     // 队列 full 直接扩容
-    if (tail == q->head && q->tail >= 0)
+    if (q->tail >= 0 && tail == q->head)
         q_expand(q);
     else
         q->tail = tail;
@@ -1292,8 +1309,7 @@ extern inline int mq_len(mq_t q) {
 
 ```
 
-不知道有没有同学好奇 **mq_delete** 为什么不是线程安全的? 这个是这样的, mq_delete 一旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~    
-
+不知道有没有同学好奇 **mq_delete** 为什么不是线程安全的? 这个是这样的, mq_delete 一旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~ 这倔强的 q.
 ### 5.3.3 队列拓展小练习
 
 本章已经轻微剧透了些筑基功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的解决方案 TLV. 首先定义消息结构.
@@ -1622,7 +1638,7 @@ int msg_buf_pop(msg_buf_t q, msg_t * p) {
 
 武侠小说中杜撰过一句话, 内功决定能否成为宗师, 武技决定能否成为侠客 ~ 
 
-## 5.4 阅读理解
+## 5.4 阅读理解 struct heap
 
 我们在内功修炼中写了不少实战中操练的数据结构, 不妨来个简单的阅读理解来调味. 构建一种通用的堆结构库. 让你嗨嗨嗨 :0 认真修炼, 精纯内功 ~
 
