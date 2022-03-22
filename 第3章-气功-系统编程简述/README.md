@@ -11,9 +11,9 @@
     - [3.2.1 pthread 练手](#321-pthread-练手)
   - [3.3 读写锁](#33-读写锁)
     - [3.3.1 读写锁练习](#331-读写锁练习)
-  - [3.4 阅读理解](#34-阅读理解)
-  - [3.6 拓展练习](#36-拓展练习)
-  - [3.7 展望](#37-展望)
+  - [3.4 阅读理解 time.h 二次封装](#36-阅读理解-time.h-二次封装)
+  - [3.5 拓展练习 链表定时器](#36-拓展练习-链表定时器)
+  - [3.6 展望](#37-展望)
 
 <!-- /code_chunk_output -->
 # 第3章-气功-系统编程简述
@@ -409,7 +409,7 @@ pthread_async(void * frun, void * arg) {
 
 ```
 
-    为保护所爱的人去战斗 <*-*>  
+为保护所爱的人去战斗 <*-*>  
 
 ### 3.2.1 pthread 练手
 
@@ -613,9 +613,9 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 
 通过 rwlock.c 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 wlock 两个字段就是直接表现, 本质通过两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 互相打配合 ~
 
-看到这 ~ 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为他很容易被更高效的设计所替代 ~ 
+看到这, 关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为他很容易被更高效的设计所替代 ~ 
 
-## 3.4 阅读理解
+## 3.4 阅读理解 time.h 二次封装
 
 独自在野外游历, 狭路遇大妖, 为保命不计后果决绝吃下小药丸, 疾飞而撤. 
 
@@ -641,6 +641,14 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 // ~ 力求最小时间业务单元 ~ 
 // 1s 秒 = 1000ms 毫秒 = 1000000us 微秒 = 1000000000ns 纳秒
 //
+// const (
+//     Nanosecond  time_t   = 1
+//     Microsecond          = 1000 * Nanosecond
+//     Millisecond          = 1000 * Microsecond
+//     Second               = 1000 * Millisecond
+//     Minute               = 60 * Second
+//     Hour                 = 60 * Minute
+// )
 
 #if defined(_WIN32) && defined(_MSC_VER)
 
@@ -667,11 +675,15 @@ inline void msleep(int ms) {
     Sleep(ms);
 }
 
-// timezone 协调世界时与当地时间之间的秒数差. 默认值为 28,800
-inline long timezone_get(void) { return _timezone; }
+// timezone 协调世界时 UTC 与当地时间 LOC 之间的秒数差. 例如 中国 UTC - CST 默认值为 -28,800
+#define timezone _timezone
 
 // 如果 TZ 在操作系统中指定或确定了夏令时(DST)区域, 则为 1; 否则为 0.
-inline long daylight_get(void) { return _daylight; }
+#define daylight _daylight
+
+// tzname 的值由 TZ 环境变量的值确定. 如果您未显式设置 TZ 的值, 
+// 则 tzname[0] 和 tzname[1] 将分别包含"PST"和"PDT"(太平洋夏令时)的默认设置
+#define tzname _tzname
 
 //
 // usleep - 微秒级别等待函数
@@ -689,7 +701,7 @@ extern int usleep(unsigned usec);
 extern int gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz);
 
 //
-// localtime_r - 获取当前时间, 线程安全
+// localtime_r - 获取当前时间线程加锁版本, 推荐使用 localtime_get
 // timep    : 输入的时间戳指针
 // result   : 返回输出时间结构
 // return   : 失败 NULL, 正常返回 result
@@ -707,9 +719,6 @@ inline void msleep(int ms) {
     usleep(ms * 1000); 
 }
 
-inline long timezone_get(void) { return timezone; }
-inline long daylight_get(void) { return daylight; }
-
 #endif
 
 /* A year not divisible by 4 is not leap.
@@ -717,9 +726,7 @@ inline long daylight_get(void) { return daylight; }
  * If div by 100 *and* not by 400 is not leap.
  * If div by 100 and 400 is leap. */
 inline _Bool is_leap_year(time_t year) {
-    if (year % 4  ) return 0;
-    if (year % 100) return 1;
-    return !(year % 400);
+    return ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0));
 }
 
 /* We use a private localtime implementation which is fork-safe. The logging
@@ -733,11 +740,11 @@ typedef char times_t[INT_TIMES];
 //
 // times_get - 解析时间串, 返回时间戳
 // ns       : 时间串内容 
-// ot       : 返回得到的时间戳
-// om       : 返回得到的时间结构体
+// out      : 返回得到的时间戳
+// outm     : 返回得到的时间结构体
 // return   : 返回 true 表示构造成功
 //
-extern bool times_get(times_t ns, time_t * ot, struct tm * om);
+extern bool times_get(times_t ns, time_t * out, struct tm * outm);
 
 //
 // time_get - 解析时间串, 返回时间戳
@@ -747,36 +754,36 @@ extern bool times_get(times_t ns, time_t * ot, struct tm * om);
 extern time_t time_get(times_t ns);
 
 //
-// time_day - 判断时间戳是否是同一天
+// time_day_equal - 判断时间戳是否是同一天
 // n        : 第一个时间戳
 // t        : 第二个时间戳
 // return   : true 表示同一天
 //
-extern bool time_day(time_t n, time_t t);
+extern bool time_day_equal(time_t n, time_t t);
 
 //
-// time_week - 判断时间戳是否是同一周
+// time_week_equal - 判断时间戳是否是同一周
 // n        : 第一个时间戳
 // t        : 第二个时间戳
 // return   : true 表示同一周
 //
-extern bool time_week(time_t n, time_t t);
+extern bool time_week_equal(time_t n, time_t t);
 
 //
-// times_day - 判断时间串是否是同一天
+// times_day_equal - 判断时间串是否是同一天
 // ns       : 第一个时间串
 // ts       : 第二个时间串
 // return   : true 表示同一天
 //
-extern bool times_day(times_t ns, times_t ts);
+extern bool times_day_equal(times_t ns, times_t ts);
 
 //
-// times_week - 判断时间串是否是同一周
+// times_week_equal - 判断时间串是否是同一周
 // ns       : 第一个时间串
 // ts       : 第二个时间串
 // return   : true 表示同一周
 //
-extern bool times_week(times_t ns, times_t ts);
+extern bool times_week_equal(times_t ns, times_t ts);
 
 // TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
 #define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
@@ -815,14 +822,32 @@ inline char * times_str(times_t ns) {
 
 ```C
 // times_tm - 从时间串中提取出来年月日时分秒
-bool times_tm(times_t ns, struct tm * om) {
-    int c, num, * es, * py;
-    if ((!ns) || !(c = *ns) || c < '0' || c > '9')
-        return false;
+bool times_tm(times_t ns, struct tm * outm) {
+    if (ns == NULL) return false;
 
-    num = 0;
-    es = &om->tm_sec;
-    py = &om->tm_year;
+    int c = *ns;
+    if (c == 0 || c < '0' || c > '9') return false;
+
+    int num = 0;
+
+    // https://en.cppreference.com/w/c/chrono/tm#cite_note-leapsecond-1
+    // /* ISO C `broken-down time' structure.  */
+    // struct tm
+    // {
+    //   int tm_sec;			/* Seconds.	[0-60] (1 leap second) */
+    //   int tm_min;			/* Minutes.	[0-59] */
+    //   int tm_hour;			/* Hours.	[0-23] */
+    //   int tm_mday;			/* Day.		[1-31] */
+    //   int tm_mon;			/* Month.	[0-11] */
+    //   int tm_year;			/* Year	- 1900.  */
+    //   int tm_wday;			/* Day of week.	[0-6] */
+    //   int tm_yday;			/* Days in year.[0-365]	*/
+    //   int tm_isdst;			/* DST.		[-1/0/1]*/
+    // };
+    // 实现深度绑定 tm 结构结构, 构建最小可用实体.
+    // 有些字段没有过度处理, 例如 tm_wday, tm_yday 和 tm_isdst 
+    int * es = &outm->tm_sec;
+    int * py = &outm->tm_year;
     do {
         if (c >= '0' && c <= '9') {
             num = 10 * num + c - '0';
@@ -836,32 +861,35 @@ bool times_tm(times_t ns, struct tm * om) {
 
         // 去掉特殊字符, 重新开始
         for (;;) {
-            if ((c = *++ns) == '\0')
+            if ((c = *++ns) == 0)
                 return false;
             if (c >= '0' && c <= '9')
                 break;
         }
         num = 0;
-    } while (c);
+    } while (c != 0);
 
-    // true : py < es || c == '\0' && py == es
-    if (py < es) return true;
+    // 内存没有从 tm_year 解析到 tm_sec
+    if (py > es) return false;
+
     if (py == es) {
+        // 补上最后一个缺口
         *es = num;
-        return true;
     }
-    return false;
+    outm->tm_mon -= 1;
+    outm->tm_year -= 1900;
+    return true;
 }
 
 //
 // times_get - 解析时间串, 返回时间戳
 // ns       : 时间串内容 
-// ot       : 返回得到的时间戳
-// om       : 返回得到的时间结构体
+// out      : 返回得到的时间戳
+// outm     : 返回得到的时间结构体
 // return   : 返回 true 表示构造成功
 //
 bool
-times_get(times_t ns, time_t * ot, struct tm * om) {
+times_get(times_t ns, time_t * out, struct tm * outm) {
     time_t t;
     struct tm m;
 
@@ -869,15 +897,13 @@ times_get(times_t ns, time_t * ot, struct tm * om) {
     if (!times_tm(ns, &m))
         return false;
 
-    // 得到时间戳, 失败返回false
-    m.tm_mon -= 1;
-    m.tm_year -= 1900;
+    // 得到时间戳, 失败返回 false
     if ((t = mktime(&m)) < 0)
         return false;
 
     // 返回最终结果
-    if (ot) *ot = t;
-    if (om) *om = m;
+    if (out) *out = t;
+    if (outm) *outm = m;
     return true;
 }
 
@@ -892,9 +918,7 @@ time_get(times_t ns) {
     // 先高效解析出年月日时分秒
     if (!times_tm(ns, &m))
         return -1;
-    // 得到时间戳, 失败返回false
-    m.tm_mon -= 1;
-    m.tm_year -= 1900;
+    // 得到时间戳, < 0 标识失败
     return mktime(&m);
 }
 ```
@@ -903,50 +927,54 @@ time_get(times_t ns) {
 
 ```C
 //
-// time_day - 判断时间戳是否是同一天
-// n        : 第一个时间戳
-// t        : 第二个时间戳
+// time_day_equal - 判断时间戳是否是同一天
+// n        : 第一个时间戳 UTC
+// t        : 第二个时间戳 UTC
 // return   : true 表示同一天
 //
 inline bool
-time_day(time_t n, time_t t) {
-    // China local 适用, 得到当前天数
-    // GMT [World] + 8 * 3600 = CST [China]
-    n = (n + 8UL * 3600) / (24 * 3600);
-    t = (t + 8UL * 3600) / (24 * 3600);
+time_day_equal(time_t n, time_t t) {
+    // UTC(世界协调时间)
+    // 世界协调时间(UTC)与世界协调时间(UTC)没有时差.
+    // CST(中国标准时间)
+    // 中国标准时间(CST)比世界协调时间(UTC)早08:00小时. 该时区为标准时区时间, 主要用于 亚洲
+    // UTC [World] + 8 * 3600 = CST [China] | UTC [World] = CST [China] - timezone (8 * 3600)
+    // 其他地区也类似 UTC 和 CST 关系, 存在 timezone = UTC - LOC -> LOC = UTC - timezone
+    n = (n - timezone) / (24 * 3600);
+    t = (t - timezone) / (24 * 3600);
     return n == t;
 }
 
 //
-// time_week - 判断时间戳是否是同一周
+// time_week_equal - 判断时间戳是否是同一周
 // n        : 第一个时间戳
 // t        : 第二个时间戳
 // return   : true 表示同一周
 //
 bool
-time_week(time_t n, time_t t) {
+time_week_equal(time_t n, time_t t) {
     time_t p;
     struct tm m;
-    // 获取最大时间存在 n 中
+    // n = max(n, t), t = min(n, t)
     if (n < t) {
         p = n; n = t; t = p;
     }
 
     // 得到 n 表示的当前时间
-    localtime_r(&n, &m);
+    localtime_get(&m, n);
     // 得到当前时间到周一起点的时间差
-    m.tm_wday = m.tm_wday ? m.tm_wday - 1 : 6;
-    p = (time_t)m.tm_wday * 24 * 3600 
+    p = (time_t)(m.tm_wday ? m.tm_wday - 1 : 6) * 24 * 3600 
       + (time_t)m.tm_hour * 3600 
       + (time_t)m.tm_min * 60 
       + m.tm_sec;
 
-    // [min, n], n = max(n, t) 表示在同一周内
+    // [week start, n], n = max(n, t), , week start = n - p
+    // t = min(n, t) >= week start 表示在同一周内
     return t >= n - p;
 }
 ```
 
-8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说道时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范. 对于 gettimeofday 还有 usleep linux 上常用函数, 我们在 window 实现如下.
+8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说到时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范. 对于 gettimeofday 还有 usleep linux 上常用函数, 我们在 window 实现如下.
 
 ```C
 #include "times.h"
@@ -1011,51 +1039,47 @@ gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz) {
 #endif
 ```
 
-扩展一点, 假如有个策划需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写.
+扩展一点, 假如有个策划奇葩需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写.
 
 ```C
-#define DAYNEWSTART_INT	( 5UL * 3600 + 0 * 60 + 0)
+#define DAYNEWSTART_INT	(timezone + 5UL * 3600 + 0 * 60 + 0)
 
 inline bool time_isday(time_t n, time_t t) {
-    // China local 适用, 得到当前天数
-    // GMT [World] + 8 * 3600 = CST [China]
-    n = (n + 8UL * 3600 - DAYNEWSTART_INT) / (24 * 3600);
-    t = (t + 8UL * 3600 - DAYNEWSTART_INT) / (24 * 3600);
+    n = (n - DAYNEWSTART_INT) / (24 * 3600);
+    t = (t - DAYNEWSTART_INT) / (24 * 3600);
     return n == t;
 }
 ```
 
-可以用于游戏服务器的底层库中. 同样对于如果判断是否是同一周什么鬼, 也是减去上面偏移量. 大家多写多用, 将吸星大法练习精深. 本书很多素材最初来自于写游戏服务器业务时感悟. 扯一点题外话, 游戏相比其他互联网项目而言, 开宝箱的几率很高. 技术上多数吃老本, 新技术落后. 业务上面增删改查不多. 整个行业偏重客户端和策划玩法. 
+同样的对于如果判断是否是同一周什么鬼, 也是减去上面偏移量. 当然这样需求最好拒绝! 大家多写多用, 将吸星大法练习精深. 本书很多素材最初来自于写游戏服务器业务时感悟. 扯一点题外话, 游戏相比其他互联网项目而言, 开宝箱的几率很高. 技术上多数吃老本, 新技术落后. 业务上面增删改查不多. 整个行业偏重客户端和策划玩法. 那把剩下关于 times_t 操作补全.
 
 ```C
 //
-// times_day - 判断时间串是否是同一天
+// times_day_equal - 判断时间串是否是同一天
 // ns       : 第一个时间串
 // ts       : 第二个时间串
 // return   : true 表示同一天
 //
 bool
-times_day(times_t ns, times_t ts) {
-    time_t t, n = time_get(ns);
-    // 解析失败直接返回结果
-    if ((n < 0) || ((t = time_get(ts)) < 0))
-        return false;
-    return time_day(n, t);
+times_day_equal(times_t ns, times_t ts) {
+    time_t n = time_get(ns);
+    if (n < 0) return false;
+    time_t t = time_get(ts);
+    return t < 0 ? false : time_day_equal(n, t);
 }
 
 //
-// times_week - 判断时间串是否是同一周
+// times_week_equal - 判断时间串是否是同一周
 // ns       : 第一个时间串
 // ts       : 第二个时间串
 // return   : true 表示同一周
 //
 bool
-times_week(times_t ns, times_t ts) {
-    time_t t, n = time_get(ns);
-    // 解析失败直接返回结果
-    if ((n < 0) || ((t = time_get(ts)) < 0))
-        return false;
-    return time_week(n, t);
+times_week_equal(times_t ns, times_t ts) {
+    time_t n = time_get(ns);
+    if (n < 0) return false;
+    time_t t = time_get(ts);
+    return t < 0 ? false : time_week_equal(n, t);
 }
 
 //
@@ -1105,12 +1129,12 @@ times_fmt(const char * fmt, char out[], size_t sz) {
  * logging of the dates, it's not really a complete implementation. */
 void 
 localtime_get(struct tm * restrict p, time_t t) {
-    t -= timezone_get();                /* Adjust for timezone. */
-    t += 3600 * daylight_get();         /* Adjust for daylight time. */
+    t -= timezone;                      /* Adjust for timezone. */
+    t += 3600 * daylight;               /* Adjust for daylight time. */
     time_t days = t / (3600 * 24);      /* Days passed since epoch. */
     time_t seconds = t % (3600 * 24);   /* Remaining seconds. */
 
-    p->tm_isdst = daylight_get();
+    p->tm_isdst = daylight;
     p->tm_hour = seconds / 3600;
     p->tm_min = (seconds % 3600) / 60;
     p->tm_sec = (seconds % 3600) % 60;
@@ -1148,9 +1172,16 @@ localtime_get(struct tm * restrict p, time_t t) {
 }
 ```
 
-时间核心业务就带大家操练到这. 还有什么搞不定, 如果需要, 基于这些基础和思路再细细琢磨推敲 ~ 必然事半功倍.
+大致意思说系统自带 localtime 甚至是 localtime_r 在 Redis 有些场景下也不安全, 会导致死锁. 例如: 父进程中同时有两个线程运行, 如果线程 1 调用 localtime_r 过程中, 线程 2 fork 一个子进程, 并且该子进程(例如打日志)也调用 localtime_r, 那么子进程会死锁. 因为进程地址空间重合(子进程继承父进程锁信息), 这个锁永远不会释放. 
 
-## 3.6 拓展练习
+时间核心业务就带大家操练到这. 还有什么搞不定, 如果需要, 基于这些基础和思路再细细琢磨推敲 ~ 必然事半功倍. 最后提醒使用这个库需要事先 tzset 初始化时区, 夏令时等等信息.
+
+```C
+    // Now 'timezome' global is populated. Obtain timezone and daylight info. 
+    tzset();
+```
+
+## 3.5 拓展练习 链表定时器
 
 我们讲解了数据结构 list, 原子操作 atomic, 多线程 pthread, 时间 time 等数据结构和系统的相关能力. 我们尝试基于这些能力带大家做个小练习, 写一个很傻定时器小练习. Let's go
 
@@ -1361,8 +1392,8 @@ static inline int timer_list_id() {
 以上 timer.c 模块实现思路, 核心是利用 list 构建了一个升序链表, 通过额外异步分离线程 loop 获取链表结点去执行. **timer_list_id** 中 **atomic_fetch_add** 和 **atomic_fetch_and** 设计非常有意思, 前者保证原子自增, 后者保证 **>= 0**. 
 
 ```C
-拓展举例, int 4 字节 32 位二进制(补码), 最终值计算公式如下, 多细品
-______________(2)
+拓展举例, int 4 字节 32 位二进制(补码), 最终转成10进制值计算公式如下, 多细品
+_________________(2)
 x1 x2 ... x31 x32 = -x1*2^(32-1) + x2*2^(32-2) + ... + x31*2^(32-31) + x32*2^(32-32)
 ```
 
@@ -1412,7 +1443,7 @@ static void start(struct skills * kill) {
 
 对于定时器常见的实现有三类套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆顶, 最先执行. 还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条刻度上的链表. 总的而言定时器的套路取舍得看应用的场景. 这篇 timer 阅读理解是基于有序链表. 可以说起缘 list, 终于 list. 希望这篇拓展练习能加深你对当前所学知识点的掌握和运用. 多想想多实操.
 
-## 3.7 展望
+## 3.6 展望
 
 这章目的是为了大家对系统编程有一点点感受. 先给大家抛砖引玉, 试图解开开发中基础操作奥秘. 学会一种方法, 应对不同平台的封装策略. 也是为以后步入筑基期, 漫天空气炮和偏地是坑铺展一个好的开始 ~ 同样在心里希望, 多陪陪爱我们的人和我们爱的人, 房子票子那种法宝有最好, 没有也不影响**你所求的道** *-*
 
