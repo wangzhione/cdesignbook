@@ -26,6 +26,8 @@
 
 **持续升级 - 素材库**
 
+因为想写本书介绍华山剑法, 所以写了 structc
+
 > [基础素材: https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
 
 > [入门素材: cloudwu skynet](https://github.com/cloudwu/skynet)
@@ -40,7 +42,7 @@
 
 ***
     
-菜鸟之旅核心在于 **写**, Coding player ~ 同样想写本书介绍华山剑法时候, 所以写了 structc
+菜鸟之旅核心在于 **写**, Coding player ~ 
     
 **Talk is cheap, show me the code.**
 
