@@ -545,7 +545,7 @@ do {                                                                    \
   int $id = atomic_fetch_add(&id, 1);                                   \
   printf("\n[test %d]. "STR(ftest)" run start ...\n\n", $id);           \
   clock_t $s = clock();                                                 \
-  extern void ftest (); ftest ( __VA_ARGS__);                           \
+  extern void ftest (); ftest (__VA_ARGS__);                            \
   double $e = (double)clock();                                          \
   printf("\n[test %d]. "STR(ftest)" run end time difference %lfms\n\n", \
          $id, ($e - $s) / (CLOCKS_PER_SEC / 1000));                     \
