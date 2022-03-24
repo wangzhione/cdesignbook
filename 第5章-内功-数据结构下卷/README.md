@@ -1086,17 +1086,20 @@ inline void q_free(q_t q) {
 }
 
 inline bool q_empty(q_t q) {
-    return q->tail <  0;
+    return q->tail < 0;
 }
 
 inline bool q_exist(q_t q) {
-    return q->tail >= 0;
+    return q->tail >=0;
 }
 
-static inline int q_len(q_t q) {
-    return q->tail < 0 ? 0 :( 
-     q->tail < q->head ? q->cap+q->tail-q->head+1 : q->tail-q->head+1
-    );
+inline int q_len(q_t q) {
+    // return q->tail < 0 ? 0 :( 
+    //  q->tail < q->head ? q->cap+q->tail-q->head+1 : q->tail-q->head+1
+    // );
+    // q->tail >= 0       ? 1 : 0
+    // q->tail < q-> head ? 1 : 0
+    return (q->tail>=0)*((q->tail<q->head)*q->cap + q->tail-q->head+1);
 }
 
 //
@@ -1148,17 +1151,18 @@ extern void q_delete(q_t q, node_f fdie);
 void 
 q_delete(q_t q, node_f fdie) {
     // 销毁所有对象
-    if (fdie && q_exist(q)) {
+    if (fdie != NULL && q_exist(q)) {
         for (;;) {
             fdie(q->data[q->head]);
             if (q->head == q->tail)
                 break;
-            q->head = (q->head + 1) & (q->cap - 1);
+            q->head = (q->head+1) & (q->cap-1);
         }
     }
 
     q_free(q);
 }
+
 ```
 
 q->head == q->tail 是查找结束条件. 整个删除销毁操作, 等同于 array range. 重点在于 q->head = (q->head + 1) & (q->size - 1); 找到数组下一个位置的索引. 那再看看 q_pop 在队列中弹出元素.
@@ -1291,25 +1295,16 @@ inline void mq_push(mq_t q, void * m) {
 // return   : 返回消息队列长度
 //
 extern inline int mq_len(mq_t q) {
-    int cap, head, tail;
     atomic_flag_lock(&q->lock);
-    if ((tail = q->q->tail) == -1) {
+    int len = q_len(q);
     atomic_flag_unlock(&q->lock);
-        return 0;
-    }
-
-    cap = q->q->cap;
-    head = q->q->head;
-    atomic_flag_unlock(&q->lock);
-
-    // 计算当前时间中内存队列的大小
-    tail -= head - 1;
-    return tail > 0 ? tail : tail+cap;
+    return len;
 }
 
 ```
 
 不知道有没有同学好奇 **mq_delete** 为什么不是线程安全的? 这个是这样的, mq_delete 一旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~ 这倔强的 q.
+
 ### 5.3.3 队列拓展小练习
 
 本章已经轻微剧透了些筑基功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的解决方案 TLV. 首先定义消息结构.
@@ -1322,7 +1317,7 @@ extern inline int mq_len(mq_t q) {
 
 //
 // msg_t 网络传输协议结构
-// sz -> type + len 本地小端字节序 -> data
+// sz -> type + len 本地大端字节序 -> data
 //
 typedef struct {
     // uint8_t type + uint24_t len + data[]
@@ -1339,16 +1334,14 @@ typedef struct {
 #define MSG_LEN( sz)  ((uint32_t)(sz)&0xFFFFFF)
 #define MSG_SZ(t, n)  (((uint32_t)(uint8_t)(t)<<24)|(uint32_t)(n))
 
-// small - 转本地字节序(小端)
-inline uint32_t small(uint32_t x) {
+inline uint32_t big(uint32_t x) {
 # ifdef ISBIG
-    uint8_t t;
-    uint8_t * p = (uint8_t *)&x;
-
-    t = p[0]; p[0] = p[3]; p[3] = t;
-    t = p[1]; p[1] = p[2]; p[2] = t;
-# endif
     return x;
+# endif
+    return (((x & 0xFF000000u) >> 24)
+           |((x & 0x00FF0000u) >> 8 )
+           |((x & 0x0000FF00u) << 8 )
+           |((x & 0x000000FFu) << 24));
 }
 
 //
@@ -1357,7 +1350,7 @@ inline uint32_t small(uint32_t x) {
 // len      : data 的长度
 // return   : 创建好的 msg_t 消息体
 //
-inline static msg_t msg_create(const void * data, uint32_t len) {
+static inline msg_t msg_create(const void * data, uint32_t len) {
     DCODE({
         if(!data || len <= 0 || len > 0xFFFFFF)
             EXIT("error data = %p, len = %u.\n", data, len);
@@ -1367,9 +1360,10 @@ inline static msg_t msg_create(const void * data, uint32_t len) {
     msg_t msg = malloc(sizeof(*msg) + sz);
     msg->sz = sz;
     
-    // sz -> type + len 本地小端字节序 -> data
+    // sz -> type + len 本地网络大端字节序 -> data
     sz = MSG_SZ(0, len);
-    sz = small(sz);
+    // TCP/IP 协议 RFC1700 规定使用大端(big endian)字节序为网络字节序
+    sz = big(sz);
 
     // 开始内存填充
     memcpy(msg->data, &sz, sizeof(uint32_t));
@@ -1383,8 +1377,8 @@ inline static msg_t msg_create(const void * data, uint32_t len) {
 // msg      : msg_t 消息体
 // return   : void
 //
-inline static void msg_delete(msg_t msg) {
-    if (msg) free(msg);
+inline void msg_delete(msg_t msg) {
+    free(msg);
 }
 
 ```
@@ -1395,6 +1389,10 @@ small 用于本地字节序转为小端字节序. 用于此消息一律走小端
 #pragma once
 
 #include "msg.h"
+
+#define MSG_BUF_OK      ( 0)
+#define MSG_BUF_PARSE   (-7)    // 协议解析错误
+#define MSG_BUF_SMALL   (-9)    // 内容过少, 协议还需要内容
 
 //
 // buffer recv send msg
@@ -1420,7 +1418,7 @@ extern void msg_buf_delete(msg_buf_t q);
 // p        : return msg
 // data     : 内存数据
 // sz       : 内存数据 size
-// return   : EParse 协议解析错误, ESmall 协议不完整
+// return   : MSG_BUF_PARSE 协议解析错误, MSG_BUF_SMALL 协议不完整
 //
 extern int msg_buf_append(msg_buf_t q,
                           const void * data, uint32_t sz,
@@ -1433,7 +1431,7 @@ extern int msg_buf_append(msg_buf_t q,
 ```C
 #include "buf.h"
 
-#define BUF_INT         (128)
+#define MSG_BUF_INT         (128)
 
 //
 // msg buffer manager
@@ -1458,6 +1456,7 @@ static void msg_buf_expand(struct msg_buf * q, int sz) {
     assert(q->data != NULL);
     q->cap = cap;
 }
+
 ```
 
 这样的结构对我们而言是不是太熟悉了. 随后阅读 create 和 delete 简单系列.
@@ -1471,7 +1470,7 @@ inline msg_buf_t
 msg_buf_create(void) {
     struct msg_buf * q = malloc(sizeof(struct msg_buf));
     q->sz = 0;
-    q->data = malloc(q->cap = BUF_INT);
+    q->data = malloc(q->cap = MSG_BUF_INT);
     q->len = 0;
     return q;
 }
@@ -1488,6 +1487,7 @@ msg_buf_delete(msg_buf_t q) {
         free(q);
     }
 }
+
 ```
 
 而对于 msg_buf_append 将会复杂一点. 我们将其分为两个环节, 如果传入的 data 内存够, 我们直接从中尝试解析出 msg_t 消息体. 否则进入第二环节, 等待填充候, 再尝试解析. 代码整体认识如下.
@@ -1499,7 +1499,7 @@ msg_buf_delete(msg_buf_t q) {
 // data     : 内存数据
 // sz       : 内存数据 size
 // p        : return msg
-// return   : EParse 协议解析错误, ESmall 协议不完整
+// return   : MSG_BUF_PARSE 协议解析错误, MSG_BUF_SMALL 协议不完整
 //
 int 
 msg_buf_append(msg_buf_t q,
@@ -1514,16 +1514,17 @@ msg_buf_append(msg_buf_t q,
         }
     });
 
-    // data, sz 刚好可以解析出 msg 情况处理
-    if (q->sz <= 0 && sz > BUF_INT) {
+    // data, sz 足够, 尝试直接解析出 msg 情况处理
+    if (q->sz <= 0 && sz > MSG_BUF_INT) {
         *p = msg_buf_data_pop(q, data, sz);
         if (*p)
-            return SBase;
+            return MSG_BUF_OK;
     }
 
     msg_buf_push(q, data, sz);
     return msg_buf_pop(q,p);
 }
+
 ```
 
 而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create 着看. 注释很用心, 欢迎阅读 ~ 
@@ -1535,7 +1536,7 @@ static msg_t msg_buf_data_pop(msg_buf_t q,
     // step 1 : 报文长度 buffer q->sz init
     uint32_t sz;
     memcpy(&sz, data, sizeof sz);
-    sz = small(sz);
+    sz = big(sz);
 
     // step 2 : check data len is true
     uint32_t len = MSG_LEN(q->sz);
@@ -1584,30 +1585,31 @@ inline void msg_buf_pop_data(msg_buf_t q,
 // msg_buf_pop_sz - q pop sz
 inline void msg_buf_pop_sz(msg_buf_t q) {
     msg_buf_pop_data(q, &q->sz, sizeof(uint32_t));
-    q->sz = small(q->sz);
+    // 网络 big endian 二次转换就是本地
+    q->sz = big(q->sz);
 }
 
 //
 // msg_buf_pop - msg buffer pop
 // q        : msg buffer 
 // p        : return msg
-// return   : EParse 协议解析错误, ESmall 协议不完整
+// return   : MSG_BUF_PARSE 协议解析错误, MSG_BUF_SMALL 协议不完整
 //
 int msg_buf_pop(msg_buf_t q, msg_t * p) {
     // step 1 : 报文长度 buffer q->sz check
-    if (q->sz <= 0 && q->len >= sizeof(uint32_t))
+    if (q->sz <= 0 && q->len >= (int) sizeof(uint32_t))
         msg_buf_pop_sz(q);
     // step 2 : check data parse is true
     int len = MSG_LEN(q->sz);
     if (len <= 0 && q->sz > 0) {
         *p = NULL;
-        return EParse;
+        return MSG_BUF_PARSE;
     }
 
     // step 3 : q->sz > 0 继续看是否有需要的报文内容
     if (len <= 0 || len > q->len) {
         *p = NULL;
-        return ESmall;
+        return MSG_BUF_SMALL;
     }
 
     // step 4: 索要的报文长度存在, 开始构建返回
@@ -1617,7 +1619,7 @@ int msg_buf_pop(msg_buf_t q, msg_t * p) {
     q->sz = 0;
 
     *p = msg;
-    return SBase;
+    return MSG_BUF_OK;
 }
 ```
 
