@@ -411,18 +411,59 @@ typedef int (* each_f)(void * node, void * arg);
 #  endif//NDEBUG
 #endif//DCODE
 
+//
+// STR - 添加双引号的宏 
+// v        : 变量标识
+//
+#ifndef STR
+#define STR_(v) #v
+#define STR(v)  STR_(v)
+#endif
+
+#ifndef CONCAT
+#define CONCAT_(X, Y) X ## Y
+#define CONCAT(X, Y) CONCAT_(X, Y)
+#endif//CONCAT
+
+#ifndef LEN
+//
+// LEN - 计算获取数组长度
+// a        : 数组变量
+//
+#define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
+#endif
+
+//
+// EXTERN_RUN - 函数包装宏, 声明并立即使用
+// frun     : 需要执行的函数名称
+// ...      : 可变参数, 保留
+//
+#define EXTERN_RUN(frun, ...)                                           \
+do {                                                                    \
+    extern void frun();                                                 \
+    frun (__VA_ARGS__);                                                 \
+} while(0)
+
+// PRINT fprintf 包装操作宏. time_t x64 8字节 window %lld, linux %ld
+#define PRINT(stream, error, fmt, ...)                                  \
+fprintf(stream, "[%"PRId64"]["#stream"][%s:%s:%d][%d:%s]"fmt"\n",       \
+    time(NULL),                                                         \
+    __FILE__, __func__, __LINE__, error, strerror(error), ##__VA_ARGS__)
+
 #define POUT(fmt, ...)                                                  \
-fprintf(stdout, "[%ld][stdout][%s:%s:%d][%d:%s]"fmt"\n", time(NULL),    \
-    __FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
+PRINT(stdout, errno, fmt, ##__VA_ARGS__)
+
+#define PERROR(error, fmt, ...)                                         \
+PRINT(stderr, error, fmt, ##__VA_ARGS__)
 
 //
 // PERR - 打印错误信息
 // EXIT - 打印错误信息, 并 exit
 // IF   - 条件判断异常退出的辅助宏
 //
+
 #define PERR(fmt, ...)                                                  \
-fprintf(stderr, "[%ld][stderr][%s:%s:%d][%d:%s]"fmt"\n", time(NULL),    \
-    __FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
+PRINT(stderr, errno, fmt, ##__VA_ARGS__)
 
 #define EXIT(fmt, ...)                                                  \
 do {                                                                    \
@@ -453,6 +494,7 @@ RETURN(NIL , fmt, ##__VA_ARGS__)
 #define RETNUL(fmt, ...)                                                \
 RETURN(NULL, fmt, ##__VA_ARGS__)
 
+// -1 是系统开发中最常见也算默认 error value 标识
 #define RETERR(fmt, ...)                                                \
 RETURN(-1  , fmt, ##__VA_ARGS__)
 
