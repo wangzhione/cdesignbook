@@ -114,7 +114,8 @@ static FILE * txt;
 // log_init - 单例, 日志库初始化
 void log_init(const char * path) {
     if ((txt = fopen(path, "ab")) == NULL) {
-        fprintf(stderr, "fopen ab error time = %ld, path = %s\n", time(NULL), path);
+        // log 初始化失败, 程序默认启动失败.
+        fprintf(stderr, "fopen ab error %"PRId64", %s\n", time(NULL), path);
         exit(EXIT_FAILURE);
     }
 }
@@ -208,7 +209,7 @@ clean :
 	-rm -rf simplec.log simplec.log-*
 
 simplec.exe : simplec.c
-	gcc -g -Wall -O2 -o $@ $^
+	gcc -O2 -g -Wall -Wextra -Werror -o $@ $^
 ```
 
 通过 make 得到 simplec.exe 运行起来, 就开始持续在日志文件中输出. 有关试炼场的环境已经搭建完成. 那么是时候主角 **logrotate** 出场了. 很久前在 centos 测试构建过看图:
@@ -461,138 +462,80 @@ int main(int argc, char* argv[]) {
 ```C
 #pragma once
 
-#include <fcntl.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+/*
+    继承 : string.h
+    功能 : 扩展 string.h 中部分功能, 方便业务层调用
+ */
 
-#include "alloc.h"
-#include "system.h"
+#include <errno.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <assert.h>
+#include <stdarg.h>
+#include <string.h>
 
-// 这个库对于 目录 相关操作, 并没有很好屏蔽平台相关差异性. 依赖使用者求同存异.
-// 例如 怎么看待目录: logs/heoos/gghh\\gggs/g/
-// window 文件分隔符为 \ , 并且也兼容 /. 所以他看见的是 logs heoos gghh gggs g
-// linux 文件分隔符为 /, 所以他看见的目录是 logs heoos gghh\gggs g
-// 这些差别会影响 remove 和 mkdir 行为, 依赖使用者去怎么用对
-// 
-
-#if defined(__linux__) && defined(__GNUC__)
-
-#include <unistd.h>
-#include <termios.h>
-
-//
-// mkdir - 单层目录创建函数宏, 类比 mkdir path
-// path     : 目录路径
-// return   : 0 表示成功, -1 表示失败, errno 存原因
-// 
-#undef  mkdir
-#define mkdir(path)                                 \
-mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
-
-// getch - 立即得到用户输入的一个字符
-inline int getch(void) {
-    struct termios now, old;
-    // 得到当前终端标准输入的设置
-    if (tcgetattr(STDIN_FILENO, &old))
-        return EOF;
-    now = old;
-
-    // 设置终端为 Raw 原始模式，让输入数据全以字节单位被处理
-    cfmakeraw(&now);
-    // 设置上更改之后的设置
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &now))
-        return EOF;
-
-    int c = getchar();
-
-    // 设置还原成老的模式
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &old))
-        return EOF;
-    return c;
-}
-
-// cls - 屏幕清除, 依赖系统脚本
-inline void cls(void) { printf("\ec"); }
-
-#endif
+#include "stdext.h"
 
 #if defined(_WIN32) && defined(_MSC_VER)
 
-#include <io.h>
-#include <conio.h>
-#include <direct.h>
-#include <windows.h>
-
-// int access(const char * path, int mode /* 四个检测宏 */);
-#ifndef     F_OK
-#  define   F_OK    (0)
-#endif
-#ifndef     X_OK
-#  define   X_OK    (1)
-#endif       
-#ifndef     W_OK
-#  define   W_OK    (2)
-#endif       
-#ifndef     R_OK
-#  define   R_OK    (4)
-#endif
-
-// cls - 屏幕清除, 依赖系统脚本
-inline void cls(void) { system("cls"); }
+#define strcasecmp  _stricmp
+#define strncasecmp _strnicmp
 
 #endif
 
 //
-// fmtime - 得到文件最后修改时间
+// BKDHash - Brian Kernighan 与 Dennis Ritchie hash 算法
+// str      : 字符串内容
+// return   : 返回计算后的 hash 值
+//
+extern unsigned BKDHash(const char * str);
+
+//
+// str_cpyn - tar 复制内容到 src 中, 相比 strncpy 安全一点, 推荐 memcpy or memncpy
+// src      : 返回保存内容
+// tar      : 目标内容
+// n        : 最大容量
+// return   : 返回字符串长度
+//
+extern int str_cpyn(char * src, const char * tar, size_t n);
+
+//
+// str_trim - 去除字符数组前后控制字符
+// str      : 待操作的字符数组 \0 结尾
+// return   : 返回构建好字符数组首地址
+//
+extern char * str_trim(char str[]);
+
+//
+// str_sprintf - 格化式字符串构建
+// fmt      : 构建格式参照 printf
+// ...      : 参数集
+// return   : char * 堆上内存
+//
+extern char * str_sprintf(const char * fmt, ...) __attribute__((format(printf, 1, 2)));
+
+//
+// str_freads - 读取整个文件内容返回, 需要事后 free
 // path     : 文件路径
-// return   : 返回时间戳, -1 表示失败
+// return   : 文件内容字符串, NULL 表示读取失败
 //
-inline time_t fmtime(const char * path) {
-    struct stat st;
-    // 数据最后的修改时间
-    return stat(path, &st) ? -1 : st.st_mtime;
-}
+extern char * str_freads(const char * path);
 
 //
-// fsize - 得到文件内容内存大小
+// str_fwrites - 将 C 串 str 覆盖写到 path 文件中
 // path     : 文件路径
-// return   : 返回文件内存
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
 //
-inline int64_t fsize(const char * path) {
-    struct stat st;
-    // 数据最后的修改时间
-    return stat(path, &st) ? -1 : st.st_size;
-}
+extern int str_fwrites(const char * path, const char * str);
 
 //
-// removes - 删除非空目录 or 文件
+// str_fappends - 将 C 串 str 追加写到 path 文件末尾
 // path     : 文件路径
-// return   : not 0 is error, equal 0 is success
+// str      : C 串内容
+// return   : >=0 is success, < 0 is error
 //
-extern int removes(const char * path);
-
-//
-// mkdirs - 创建多级目录
-// path     : 目录路径
-// return   : < 0 is error, 0 is success
-//
-extern int mkdirs(const char * path);
-
-//
-// fmkdir - 通过文件路径创建目录
-// path     : 文件路径
-// return   : < 0 is error, 0 is success
-//
-extern int fmkdir(const char * path);
-
-//
-// getawd - 得到程序运行目录, \\ or / 结尾
-// buf      : 存储地址
-// size     : 存储大小
-// return   : 返回长度, -1 or >= size is unusual 
-//
-extern int getawd(char * buf, size_t size);
+extern int str_fappends(const char * path, const char * str);
 
 ```
 
@@ -932,11 +875,12 @@ file_set(const char * path, file_f func, void * arg) {
 
 ```C
 struct file {
-    file_f func;     // 执行行为, NULL 标识删除
-    void * arg;      // 行为参数
-    char * path;     // 文件路径
-    unsigned hash;   // path hash
-    time_t lasttime; // 文件最后修改时间点
+    file_f func;        // 执行行为, NULL 标识删除
+    void * arg;         // 行为参数
+    char * path;        // 文件路径
+    unsigned hash;      // path hash
+    time_t lasttime;    // 文件最后修改时间点
+
     struct file * next;
 };
 
@@ -1951,37 +1895,10 @@ bool conf_init(const char * path) {
 #include "thread.h"
 #include "strext.h"
 
-//
-// STR - 添加双引号的宏 
-// v        : 变量标识
-//
-#ifndef STR
-#define STR(v)  S_R(v)
-#define S_R(v)  #v
-#endif
-
-#ifndef LEN
-//
-// LEN - 计算获取数组长度
-// a        : 数组变量
-//
-#define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
-#endif
-
-//
-// EXTERN_RUN - 函数包装宏, 声明并立即使用
-// frun     : 需要执行的函数名称
-// ...      : 可变参数, 保留
-//
-#define EXTERN_RUN(frun, ...)                          \
-do {                                                   \
-    extern void frun();                                \
-    frun (__VA_ARGS__);                                \
-} while(0)
 
 ```
 
-base.h 相关内容比较很简单, 汇总常用头文件. 其中 check.h 可以放入一些参数校验的函数. 可以随着自身对业务修炼的理解, 自主添加. 目前这里只是加了个 email 校验操作.
+base.h 相关内容比较很简单, 就是汇总常用头文件. **思想就是让业务使用者不再如数家珍去记忆常用头文件**. 其中 check.h 可以放入一些参数校验的函数. 可以随着自身对业务修炼的理解, 自主添加. 目前这里只是加了个 email 校验操作.
 
 ```C
 #include "check.h"
