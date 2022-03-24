@@ -29,7 +29,7 @@
 
 华山派除开人人可练的华山剑法, 还曾有一本被遗忘的秘籍, 紫霞神功. 也许正是靠他, 当年气宗整体压过剑宗. 后期随着气宗修习紫霞神功要求的资格越来越高, 导致气宗衰败. 紫霞神功也逐渐在江湖中遗失. 同样编程中也有个遗失的学习领域, 网络开发. 学习成本陡峭, 开发成本高, 核心组件非常成熟, 阻挡了一批又一批深入了解服务器网络开发的生源. 好在江湖中有不少巅峰的网络库吼住了互联网的基石. 让重新搭建网络轮子可操作性以及必要性变低. 但如果想打好基础, 或许 ~ 此刻不妨随我翻开远古大能们遗留(抄袭)的书章, 感受下那些年可以吹的 NB. 友情提示, 本书写到这, 可以发现非常注重实战练习, 忽略缘由. 因为授之以鱼渔, 你还要有欲望, 才能驱动. 
 
-文末我们会简单讲解网络库要处理那些业务他的来由. 全章流程迂回递进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不传的隐秘就是, 有了持续时间精进和反思感悟就会拥有自己的全世界. 例如 <<无尽剑装>> 小说主角结局无不是靠寿元兑换大道 ~ 不妨补充一下以前修炼的经验, 当初刚做开发时候. 公司朴实的前辈说, 搞个 TCP 估计 1 年就过去了. 后来想想还真是, 虽然到现在还是水经验. 但有一点可以确定, 编程, 修炼并不是一个青春饭. 很需要底蕴和积累. 投机倒把不能干成一件需要长时间心力体力投入的事情. 大佬赠我越努力越幸运. 也有个小确幸送给修真路上的道友们. 当有一天, 打游戏了累了, 刚好没目标. 那就打开笔记本, 秀出你的神之一技吧 ~ 山中不知岁月, 一切才刚刚开始 ~
+文末我们会简单讲解网络库要处理那些业务他的来由. 全章流程迂回递进, 需要反复回溯, 必有豁然开朗醍醐灌顶. 修真, 修炼, 一个不传的隐秘就是, 有了持续时间精进和反思感悟就会拥有自己的全世界. 例如 <<无尽剑装>> 小说主角结局无不是靠寿元兑换大道 $ 不妨补充一下以前修炼的经验, 当初刚做开发时候. 公司朴实的前辈说, 搞个 TCP 估计 1 年就过去了. 后来想想还真是, 虽然到现在还是水经验. 但有一点可以确定, 编程, 修炼并不是一个青春饭. 很需要底蕴和积累. 投机倒把不能干成一件需要长时间心力体力投入的事情. 大佬赠我越努力越幸运. 也有个小确幸送给修真路上的道友们. 当有一天, 打游戏了累了, 刚好没目标. 那就打开笔记本, 秀出你的神之一技吧 ❤ 山中不知岁月, 一切才刚刚开始 ~
 
 ## 7.1 回忆哈 C, 入门前那些年
 
@@ -1139,7 +1139,6 @@ pthread_key_create 创建私有变量, 需要注册销毁行为. 随后是删除
 ![真正男子汉](./img/心痛.jpg)
 
 ***
-
 ## 7.2 C 语言 SOCKET 编程指南
 
 有了 C 基础语法支持, 随后一举巩固练气, 拿下常见 socket api 基本操作. socket 编程也被狭义的称为网络编程, 其基础知识是成为高级大头兵一个卡. 很久以前整理过一个学习手册, 抄袭的年代久远. 这里借花献佛随我温故那些必备 socket 相关知识. 协助同道气成丹田, 安身立命 ~ 
@@ -1380,16 +1379,16 @@ int main(void) {
     int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     struct sockaddr_in ress;
+    memset(&ress, 0, sizeof(ress));
     ress.sin_family = AF_INET;
     ress.sin_port = htons(PORT_SHORT);
     ress.sin_addr.s_addr = inet_addr("8.8.8.8");
-    memset(&ress.sin_zero, 0, sizeof(ress.sin_zero));
     bind(sockfd, (struct sockaddr *)&ress, sizeof(struct sockaddr_in));
     ... .. .
 }
 ```
 
-这里也有要注意的点. ress.sin_port 是网络字节顺序, ress.sin_addr.s_addr 也是的, 其中 ress.sin_zero 需要置零防止脏数据污染, 其实是一种历史约束. 在 bind() 主题中最后要说的话是, 如果自己不想绑定固定地址, 让操作系统自行分配. 可以用下面方式处理.
+这里也有要注意的点. ress.sin_port 是网络字节顺序, ress.sin_addr.s_addr 也是的, 其中 **memset ress.sin zero** 置零防止脏数据污染, 其实是一种约束传承潜规则. 在 bind() 主题中最后要说的话是, 如果自己不想绑定固定地址, 让操作系统自行分配. 可以用下面方式处理.
 
 ```C
 ress.sin_port = 0;                   // 自行分配绑定的端口
@@ -1432,10 +1431,10 @@ int main(void) {
     int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(PORT_SHORT);
     addr.sin_addr.s_addr = inet_addr(IP_STR);
-    memset(&addr.sin_zero, 0, sizeof(addr.sin_zero));
 
     connect(sockfd, (struct sockaddr *)&addr, sizeof addr);
     ... ...
@@ -1516,10 +1515,10 @@ int main(void) {
 
     int sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
+    memset(&sddr, 0, sizeof(sddr));
     sddr.sin_family = AF_INET;
     sddr.sin_port = htons(PORT_SHORT);
     sddr.sin_addr.s_addr = INADDR_ANY;
-    memset(&sddr.sin_zero, 0, sizeof(sddr.sin_zero));
 
     bind(sockfd, (struct sockaddr *)&sddr, sen);
     listen(sockfd, SOMAXCONN);
@@ -1719,7 +1718,6 @@ static void test(const char * restrict name) {
         else
             addr = &((struct sockaddr_in6 *)(u->ai_addr))->sin6_addr;
         
-
         if (!inet_ntop(u->ai_family, addr, ip, sizeof ip)) {
             fprintf(stderr, "%s family = %d\n", name, u->ai_family);
             freeaddrinfo(a);
@@ -2035,7 +2033,6 @@ return fcntl(fd, F_SETFL, mode | O_NONBLOCK);
 ```
 
 通过设置套接字为非阻塞, 你能够有效地"询问"套接字以获得信息. 如果你尝试着从一个非阻塞的套接字读信息并且没有任何数据, 他不允许阻塞. 他将返回 -1 并将 errno 设置为 EAGAIN. 但是一般说来, 这种询问不是个好主意. 如果你让你的程序在忙等状态查询套接字的数据, 你将浪费大量的 CPU 时间. 更好的解决之道是用下一章讲的 IO 复用机制, 被通知后才去查询是否有数据要读进来. 到这基本上 TCP 和 UDP 通过 Linux socket 比划扫盲篇宣告 OK, 后续的勤学苦练看福分深浅了 :)
-
 
 ### 7.2.5 编程拓展
 
@@ -2623,7 +2620,7 @@ libc_hidden_def (__strerror_l)
 // On now linux EAGAIN and EWOULDBLOCK may be the same value 
 // connect 链接中, linux 是 EINPROGRESS，winds 是 WSAEWOULDBLOCK
 //
-typedef int             socket_t;
+typedef int             SOCKET;
 
 #define INVALID_SOCKET  (~0)
 #define SOCKET_ERROR    (-1)
@@ -2637,12 +2634,12 @@ inline static void socket_init(void) {
 }
 
 // 谁傻逼谁有理, 兼容 window, socket_close 命名也不错
-inline static int closesocket(socket_t s) {
+inline static int closesocket(SOCKET s) {
     return close(s);
 }
 
 // socket_set_block - 设置套接字是阻塞
-inline static int socket_set_block(socket_t s) {
+inline static int socket_set_block(SOCKET s) {
     int mode = fcntl(s, F_GETFL);
     if (mode == SOCKET_ERROR) {
         return SOCKET_ERROR;
@@ -2651,7 +2648,7 @@ inline static int socket_set_block(socket_t s) {
 }
 
 // socket_set_nonblock - 设置套接字是非阻塞
-inline static int socket_set_nonblock(socket_t s) {
+inline static int socket_set_nonblock(SOCKET s) {
     int mode = fcntl(s, F_GETFL);
     if (mode == SOCKET_ERROR) {
         return SOCKET_ERROR;
@@ -2661,10 +2658,9 @@ inline static int socket_set_nonblock(socket_t s) {
 
 #elif defined(_WIN32) && defined(_MSC_VER)
 
+#include <winsock2.h>
+#include <ws2ipdef.h>
 #include <ws2tcpip.h>
-
-typedef SOCKET          socket_t;
-typedef int             socklen_t;
 
 #undef  errno
 #define errno           WSAGetLastError()
@@ -2693,48 +2689,47 @@ inline void socket_init(void) {
 }
 
 // socket_set_block - 设置套接字是阻塞
-inline int socket_set_block(socket_t s) {
+inline int socket_set_block(SOCKET s) {
     u_long ov = 0;
     return ioctlsocket(s, FIONBIO, &ov);
 }
 
 // socket_set_nonblock - 设置套接字是非阻塞
-inline int socket_set_nonblock(socket_t s) {
+inline int socket_set_nonblock(SOCKET s) {
     u_long ov = 1;
     return ioctlsocket(s, FIONBIO, &ov);
 }
 
 #endif
 
-// socket_recv - 读取数据
-inline int socket_recv(socket_t s, void * buf, int sz) {
-    if (likely(sz > 0)) {
-        return (int)recv(s, buf, sz, 0);
-    }
-    return 0;
+// socket_recv recv data
+// sz == 0 && s is block socket -> Always blocked
+// sz == 0 && s is nonblock socket -> return 0, errno = EAGAIN 
+inline int socket_recv(SOCKET s, void * buf, int sz) {
+    return (int)recv(s, buf, sz, 0);
 }
 
 // socket_send - 写入数据
-inline int socket_send(socket_t s, const void * buf, int sz) {
+inline int socket_send(SOCKET s, const void * buf, int sz) {
     return (int)send(s, buf, sz, 0);
 }
 
-inline int socket_set_enable(socket_t s, int optname) {
+inline int socket_set_enable(SOCKET s, int optname) {
     int ov = 1;
     return setsockopt(s, SOL_SOCKET, optname, (void *)&ov, sizeof ov);
 }
 
 // socket_set_reuse - 开启端口和地址复用
-inline int socket_set_reuse(socket_t s) {
+inline int socket_set_reuse(SOCKET s) {
     return socket_set_enable(s, SO_REUSEPORT);
 }
 
 // socket_set_keepalive - 开启心跳包检测, 默认 5 次/2h
-inline int socket_set_keepalive(socket_t s) {
+inline int socket_set_keepalive(SOCKET s) {
     return socket_set_enable(s, SO_KEEPALIVE);
 }
 
-inline int socket_set_time(socket_t s, int ms, int optname) {
+inline int socket_set_time(SOCKET s, int ms, int optname) {
     struct timeval ov = { 0,0 };
     if (ms > 0) {
         ov.tv_sec = ms / 1000;
@@ -2744,17 +2739,17 @@ inline int socket_set_time(socket_t s, int ms, int optname) {
 }
 
 // socket_set_rcvtimeo - 设置接收数据毫秒超时时间
-inline int socket_set_rcvtimeo(socket_t s, int ms) {
+inline int socket_set_rcvtimeo(SOCKET s, int ms) {
     return socket_set_time(s, ms, SO_RCVTIMEO);
 }
 
 // socket_set_sndtimeo - 设置发送数据毫秒超时时间
-inline int socket_set_sndtimeo(socket_t s, int ms) {
+inline int socket_set_sndtimeo(SOCKET s, int ms) {
     return socket_set_time(s, ms, SO_SNDTIMEO);
 }
 
-// socket_get_error - 获取 socket error 值, 0 正确, 其他都是 error
-inline int socket_get_error(socket_t s) {
+// socket_get_error - 获取 socket error 值, 0 正确, 其它都是 error
+inline int socket_get_error(SOCKET s) {
     int err, no = errno;
     socklen_t len = sizeof(err);
     return getsockopt(s, SOL_SOCKET, SO_ERROR, (void *)&err, &len) ? no : err;
@@ -2780,7 +2775,7 @@ typedef struct {
 
 //
 // socket create 
-// socket_t s; 
+// SOCKET s; 
 //
 // socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP)
 // socket(AF_INET6, SOCK_DGRAM , IPPROTO_UDP)
@@ -2788,31 +2783,27 @@ typedef struct {
 // socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP)
 // 
 
-extern socket_t socket_sockaddr_stream(sockaddr_t a, int family);
+extern SOCKET socket_sockaddr_stream(sockaddr_t a, int family);
 
 extern int socket_sockaddr(sockaddr_t a, const char * host, uint16_t port, int family);
 
-// socket_getsockname - 获取 socket 的本地地址
-inline int socket_getsockname(socket_t s, sockaddr_t name) {
-    return getsockname(s, &name->s, &name->len);
-}
-
-// socket_getpeername - 获取 client socket 的地址
-inline int socket_getpeername(socket_t s, sockaddr_t name) {
-    return getpeername(s, &name->s, &name->len);
-}
+// 
+// getsockname 获取 socket 的本地地址
+// getpeername 获取 client socket 的地址
+//
 
 // socket_ntop - sin_addr or sin6_addr -> ip 串, return -1 error or port
 extern int socket_ntop(const sockaddr_t a, char ip[INET6_ADDRSTRLEN]);
 
 // socket_bind - 返回绑定好端口的 socket fd, family return AF_INET AF_INET6
-extern socket_t socket_binds(const char * host, uint16_t port, uint8_t protocol, int * family);
+extern SOCKET socket_binds(const char * host, uint16_t port, uint8_t protocol, int * family);
 
 // socket_listen - 返回监听好的 socket fd
-extern socket_t socket_listen(const char * ip, uint16_t port, int backlog);
+extern SOCKET socket_listen(const char * ip, uint16_t port, int backlog);
 
 // socket_recvfrom  - recvfrom 接受函数
-inline int socket_recvfrom(socket_t s, void * buf, int sz, sockaddr_t in) {
+inline int socket_recvfrom(SOCKET s, void * restrict buf, int sz, 
+                           void * restrict addr, socklen_t * restrict len) {
     // ssize_t recvfrom(int sockfd, void * buf, size_t len, int flags,
     //                  struct sockaddr * src_addr, socklen_t * addrlen);
     //
@@ -2825,27 +2816,27 @@ inline int socket_recvfrom(socket_t s, void * buf, int sz, sockaddr_t in) {
     // address.   The  returned  address is truncated if the buffer provided is too
     // small; in this case, addrlen will return a value greater than  was  supplied
     // to the call.
-    in->len = sizeof(in->s6);
-    return (int)recvfrom(s, buf, sz, 0, &in->s, &in->len);
+    return (int)recvfrom(s, buf, sz, 0, addr, len);
 }
 
 // socket_sendto    - sendto 发送函数
-inline int socket_sendto(socket_t s, const void * buf, int sz, const sockaddr_t to) {
-    return (int)sendto(s, buf, sz, 0, &to->s, to->len);
+inline int socket_sendto(SOCKET s, const void * buf, int sz, 
+                         void * addr, socklen_t len) {
+    return (int)sendto(s, buf, sz, 0, addr, len);
 }
 
 // socket_recvn - socket 接受 sz 个字节
-extern int socket_recvn(socket_t s, void * buf, int sz);
+extern int socket_recvn(SOCKET s, void * buf, int sz);
 
 // socket_sendn - socket 发送 sz 个字节
-extern int socket_sendn(socket_t s, const void * buf, int sz);
+extern int socket_sendn(SOCKET s, const void * buf, int sz);
 
-extern socket_t socket_connect(const sockaddr_t a);
+extern SOCKET socket_connect(const sockaddr_t a);
 
 // socket_connect_timeout - 毫秒超时的 connect
-extern socket_t socket_connect_timeout(const sockaddr_t a, int ms);
+extern SOCKET socket_connect_timeout(const sockaddr_t a, int ms);
 
-inline socket_t socket_accept(socket_t s, sockaddr_t a) {
+inline SOCKET socket_accept(SOCKET s, sockaddr_t a) {
     a->len = sizeof(struct sockaddr_in6);
     return accept(s, &a->s, &a->len);
 }
@@ -2959,8 +2950,9 @@ int socket_pton(sockaddr_t a, int family, char ip[INET6_ADDRSTRLEN], uint16_t po
     return -1;
 }
 
-socket_t socket_sockaddr_stream(sockaddr_t a, int family) {
-    socket_t s;
+// result socket fd and init sockaddr by family
+SOCKET socket_sockaddr_stream(sockaddr_t a, int family) {
+    SOCKET s;
     assert(family == AF_INET || family == 0 || family == AF_INET6 || family == AF_UNSPEC);
     
     if (family == AF_INET) {
@@ -3012,7 +3004,9 @@ int socket_sockaddr(sockaddr_t a, const char * host, uint16_t port, int family) 
         .ai_protocol = IPPROTO_TCP,
     };
 
-    if (getaddrinfo(host, ports, &req, &rsp)) {
+    res = getaddrinfo(host, ports, &req, &rsp);
+    if (res) {
+        PERR("getaddrinfo code=%d, error=%s", res, gai_strerror(res));
         return -1;
     }
 
@@ -3024,14 +3018,15 @@ int socket_sockaddr(sockaddr_t a, const char * host, uint16_t port, int family) 
 
     return 0;
 }
+
 ```
 
 看看熟悉熟悉, 相信你会学的很快. 主要原因是我们从剑宗实践出发, 快速战斗, 但缺少底蕴. 用的急, 忘记也快, 真真的大贯通, 多数是气宗剑宗归一. 在无我无他中寻求大圆满. 再来补充一下 listen 和 bind 辅助操作.
 
 ```C
-socket_t 
+SOCKET 
 socket_binds(const char * host, uint16_t port, uint8_t protocol, int * family) {
-    socket_t fd;
+    SOCKET fd;
     char ports[sizeof "65535"];
     // 构建 getaddrinfo 请求参数, ipv6 兼容 ipv4
     struct addrinfo * rsp, req = {
@@ -3070,9 +3065,9 @@ err_free:
     return INVALID_SOCKET;
 }
 
-socket_t 
+SOCKET 
 socket_listen(const char * ip, uint16_t port, int backlog) {
-    socket_t fd = socket_binds(ip, port, IPPROTO_TCP, NULL);
+    SOCKET fd = socket_binds(ip, port, IPPROTO_TCP, NULL);
     if (INVALID_SOCKET != fd && listen(fd, backlog)) {
         closesocket(fd);
         return INVALID_SOCKET;
@@ -3087,18 +3082,19 @@ goto 还是欲言又止, 好用, 代码更完整, 未尝不可 goto. 简单说�
 山中不知岁月, 心思最耐人. 本文很多套路都是参悟化神前辈云风残留剑意所得, 最终交叉在华山剑法中, 供后来者思索和演练. bind, listern 完了之后干什么呢, 自如等待客户端 connect 了.
 
 ```C
-socket_t 
+SOCKET 
 socket_connect(const sockaddr_t a) {
-    socket_t s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
+    SOCKET s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
     if (s != INVALID_SOCKET) {
         if (connect(s, &a->s, a->len) >= 0) {
             return s;
         }
 
         // 构造 connect 失败日志
+        int error = errno;
         char ip[INET6_ADDRSTRLEN];
         int port = socket_ntop(a, ip);
-        PERR("ip = %s, port = %d", ip, port);
+        PERROR(error, "ip = %s, port = %d", ip, port);
 
         closesocket(s);
     }
@@ -3107,7 +3103,7 @@ socket_connect(const sockaddr_t a) {
 }
 
 // socket_connect_timeout_partial 带毫秒超时的 connect, socket 必须是非阻塞的
-int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms) {
+int socket_connect_timeout_partial(SOCKET s, const sockaddr_t a, int ms) {
     int n, r;
     struct timeval timeout;
     fd_set rset, wset, eset;
@@ -3145,7 +3141,7 @@ int socket_connect_timeout_partial(socket_t s, const sockaddr_t a, int ms) {
     return -1;
 }
 
-socket_t 
+SOCKET 
 socket_connect_timeout(const sockaddr_t a, int ms) {
     // 健壮性代码
     if (ms < 0) {
@@ -3153,7 +3149,7 @@ socket_connect_timeout(const sockaddr_t a, int ms) {
     }
 
     // 获取 tcp socket 尝试 parse connect
-    socket_t s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
+    SOCKET s = socket(a->s.sa_family, SOCK_STREAM, IPPROTO_TCP);
     if (s == INVALID_SOCKET) {
         PERR("socket %d SOCK_STREAM error", a->s.sa_family);
         return INVALID_SOCKET;
@@ -3171,9 +3167,10 @@ socket_connect_timeout(const sockaddr_t a, int ms) {
     }
 
     // 构造 connect 失败日志
+    int error = errno;
     char ip[INET6_ADDRSTRLEN];
     int port = socket_ntop(a, ip);
-    PERR("ip = %s, port = %d, ms = %d", ip, port, ms);
+    PERROR(error, "ip = %s, port = %d, ms = %d", ip, port, ms);
 ret_invalid:
     closesocket(s);
     return INVALID_SOCKET;
@@ -3186,7 +3183,7 @@ ret_invalid:
 ```C
 // socket_recvn - socket 接受 sz 个字节
 int 
-socket_recvn(socket_t s, void * buf, int sz) {
+socket_recvn(SOCKET s, void * buf, int sz) {
     int r, n = sz;
     while (n > 0 && (r = recv(s, buf, n, 0)) != 0 ) {
         if (r == SOCKET_ERROR) {
@@ -3202,7 +3199,7 @@ socket_recvn(socket_t s, void * buf, int sz) {
 
 // socket_sendn - socket 发送 sz 个字节
 int 
-socket_sendn(socket_t s, const void * buf, int sz) {
+socket_sendn(SOCKET s, const void * buf, int sz) {
     int r, n = sz;
     while (n > 0 && (r = send(s, buf, n, 0)) != 0) {
         if (r == SOCKET_ERROR) {
@@ -3245,7 +3242,7 @@ typedef int pass_t;
 // pipefd   : 索引 0 表示 recv fd, 1 是 send fd
 // return   : 0 is success -1 is error returned
 //
-extern int pipe(socket_t pipefd[2]);
+extern int pipe(SOCKET pipefd[2]);
 
 // pass_t - 单通道类型
 // pass_close - 单通道类型
@@ -3313,40 +3310,63 @@ pipe_send(pipe_t ch, const void * buf, int sz) {
 // pipefd   : 索引 0 表示 recv fd, 1 是 send fd
 // return   : 0 is success -1 is error returned
 //
-int pipe(socket_t pipefd[2]) {
-    sockaddr_t name;
-    socket_t s = socket_sockaddr_stream(name, AF_INET6);
-    if (s == INVALID_SOCKET)
+int pipe(SOCKET pipefd[2]) {
+    struct sockaddr_in6 name;
+    socklen_t len = sizeof(struct sockaddr_in6);
+
+    SOCKET s = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) {
+        PERR("soccket AF_INET6 SOCK_STREAM error");
         return -1;
+    }
 
+    memset(&name, 0, sizeof(struct sockaddr_in6));
+    name.sin6_family = AF_INET6;
     // 绑定默认网卡, 多平台上更容易 connect success
-    name->s6.sin6_addr = in6addr_loopback;
+    name.sin6_addr = in6addr_loopback;
+    if (bind(s, (struct sockaddr *)&name, len)) {
+        PERR("bind in6addr_loopback error");
+        goto fail_socket;
+    }
 
-    if (bind(s, &name->s, name->len)) 
-        goto err_close;
+    // 开始监听
+    if (listen(s, 1)) {
+        PERR("listen backlog = 1 error");
+        goto fail_socket;
+    }
 
-    if (listen(s, 1))
-        goto err_close;
+    // 得到 server socket 绑定端口和本地地址
+    if (getsockname(s, (struct sockaddr *)&name, &len)) {
+        PERR("getsockname sockaddr error");
+        goto fail_socket;
+    }
 
-    // 得到绑定端口和本地地址
-    if (socket_getsockname(s, name))
-        goto err_close;
+    // 开始尝试构建 client socket connect server socket
+    pipefd[0] = socket(name.sin6_family, SOCK_STREAM, IPPROTO_TCP);
+    if (pipefd[0] == INVALID_SOCKET) {
+        PERR("socket client error");
+        goto fail_socket;
+    }
+    if (connect(pipefd[0], (struct sockaddr *)&name, len)) {
+        PERR("connect error");
+        goto fail_pipe;
+    }
+    // 准备 accept 建立链接
+    pipefd[1] = accept(s, (struct sockaddr *)&name, &len);
+    if (pipefd[1] == INVALID_SOCKET) {
+        PERR("accept error");
+        goto fail_pipe;
+    }
 
-    // 开始构建互相通信的 socket
-    pipefd[0] = socket_connect(name);
-    if (pipefd[0] == INVALID_SOCKET)
-        goto err_close;
-
-    // 通过 accept 通信避免一些意外
-    pipefd[1] = socket_accept(s, name);
-    if (pipefd[1] == INVALID_SOCKET) 
-        goto err_pipe;
+    // pipefd[0] recv fd, pipefd[1] send fd
+    shutdown(pipefd[0], SHUT_WR);
+    shutdown(pipefd[1], SHUT_RD);
 
     closesocket(s);
     return 0;
-err_pipe:
+fail_pipe:
     closesocket(pipefd[0]);
-err_close:
+fail_socket:
     closesocket(s);
     return -1;
 }
@@ -3405,7 +3425,7 @@ pipe_send(pipe_t ch, const void * buf, int sz) {
 
 很久以前幻想着能和那些元婴大佬, 化神真君一样御剑飞行, 一步千里. (儿时英雄梦) 随着年限增加发现那些没有必要, 追求自己的道, 学会接纳自己, 和心中自己相处. 偶幸得到一部筑基的功法, 分享参悟, 说不定修炼的生涯中你曾经尝试过 ~ 基础最后一招. 
 
-sokcet fd 太多了, 我们需要一个通用的 io 复用模块用于统一管理. 用 select 可以吗, 可以, 学习用途未尝不可. 工程中当 fd 数量过大时候, 因为 select 大量在内核态和用户态交互内存, 存在性能瓶颈. 我们这里 Linux 上面借助 epoll 能力, 协助 socket fd 万物归一. 先看接口设计 **spool.h**.
+sokcet fd 太多了, 我们需要一个通用的 io 复用模块用于统一管理. 用 select 可以吗, 可以, 学习用途未尝不可. 工程中当 fd 数量过大时候, 因为 select 大量在内核态和用户态交互内存, 存在性能瓶颈. 我们这里 Linux 上面借助 epoll 能力, 协助 socket fd 万物归一. 先看接口设计 **spoll.h**.
 
 ```C
 #pragma once
@@ -3446,9 +3466,9 @@ extern void spoll_delete(spoll_t p);
 // spoll_add     - 添加监测的 socket fd, 并设置读模式, 失败返回 true
 // spoll_mod     - 修改监测的 socket fd, 通过 true 和 false 设置读写
 //
-extern void spoll_del(spoll_t p, socket_t s);
-extern bool spoll_add(spoll_t p, socket_t s, void * u);
-extern int spoll_mod(spoll_t p, socket_t s, void * u, bool read, bool write);
+extern void spoll_del(spoll_t p, SOCKET s);
+extern bool spoll_add(spoll_t p, SOCKET s, void * u);
+extern int spoll_mod(spoll_t p, SOCKET s, void * u, bool read, bool write);
 
 //
 // spoll_wait    - wait 函数, 守株待兔
@@ -3475,7 +3495,7 @@ extern int spoll_wait(spoll_t p, spoll_event_t e);
 struct fds {
     void * u;
     bool write;
-    socket_t fd;
+    SOCKET fd;
 };
 
 struct spoll {
@@ -3498,7 +3518,7 @@ inline void spoll_delete(spoll_t p) {
     free(p);
 }
 
-void spoll_del(spoll_t p, socket_t s) {
+void spoll_del(spoll_t p, SOCKET s) {
     struct fds * begin = p->s, * end = p->s + p->len;
     while (begin < end) {
         if (begin->fd == s) {
@@ -3513,7 +3533,7 @@ void spoll_del(spoll_t p, socket_t s) {
     }
 }
 
-bool spoll_add(spoll_t p, socket_t s, void * u) {
+bool spoll_add(spoll_t p, SOCKET s, void * u) {
     struct fds * begin, * end;
     if (p->len >= FD_SETSIZE)
         return true;
@@ -3535,7 +3555,7 @@ bool spoll_add(spoll_t p, socket_t s, void * u) {
     return false;
 }
 
-void spoll_write(spoll_t p, socket_t s, void * u, bool enable) {
+void spoll_write(spoll_t p, SOCKET s, void * u, bool enable) {
     struct fds * begin = p->s, * end = p->s + p->len;
     while (begin < end) {
         if (begin->fd == s) {
@@ -3548,7 +3568,7 @@ void spoll_write(spoll_t p, socket_t s, void * u, bool enable) {
 }
 
 int spoll_wait(spoll_t p, spoll_event_t e) {
-    socket_t fd;
+    SOCKET fd;
     struct fds * s;
     int c, r, i, n, len = p->len;
 
@@ -3602,8 +3622,8 @@ int spoll_wait(spoll_t p, spoll_event_t e) {
 对于 select 模型, 有些场景可以尝试. 其最大优势在于跨平台代价最小. 合理场景也能饭否. 对于 socket_get_error 函数再带大家重复熟悉一遍. 
 
 ```C
-// socket_get_error - 获取 socket error 值, 0 正确, 其他都是 error
-inline int socket_get_error(socket_t s) {
+// socket_get_error - 获取 socket error 值, 0 正确, 其它都是 error
+inline int socket_get_error(SOCKET s) {
     int err, no = errno;
     socklen_t len = sizeof(err);
     return getsockopt(s, SOL_SOCKET, SO_ERROR, (void *)&err, &len) ? no : err;
@@ -3637,11 +3657,12 @@ inline void spoll_delete(spoll_t p) {
     close(p);
 }
 
-inline void spoll_del(spoll_t p, socket_t s) {
+inline void spoll_del(spoll_t p, SOCKET s) {
     epoll_ctl(p, EPOLL_CTL_DEL, s, NULL);
 }
 
-inline bool spoll_add(spoll_t p, socket_t s, void * u) {
+// spoll_add 添加监测的 socket fd, 并设置读模式, 失败返回 true
+inline bool spoll_add(spoll_t p, SOCKET s, void * u) {
     struct epoll_event event = {
         .events = EPOLLIN,
         .data = {
@@ -3651,7 +3672,7 @@ inline bool spoll_add(spoll_t p, socket_t s, void * u) {
     return epoll_ctl(p, EPOLL_CTL_ADD, s, &event);
 }
 
-inline int spoll_mod(spoll_t p, socket_t s, void * u, bool read, bool write) {
+inline int spoll_mod(spoll_t p, SOCKET s, void * u, bool read, bool write) {
     struct epoll_event event = {
         .events = (read ? EPOLLIN : 0) | (write ? EPOLLOUT : 0),
         .data = {
@@ -3706,7 +3727,7 @@ spoll_wait -> epoll_wait 后, 开始 read, write, error 判断. 其中对于 EPO
 #include <spoll.h>
 
 struct userdata {
-    socket_t fd;
+    SOCKET fd;
 };
 
 //
@@ -3717,7 +3738,7 @@ void spoll_test(void) {
     uint16_t port = 8964;
 
     // 开始构建一个 socket
-    socket_t s = socket_listen(host, port, SOMAXCONN);
+    SOCKET s = socket_listen(host, port, SOMAXCONN);
     if (INVALID_SOCKET == s)
         RETNIL("socket_listen is error!");
 
