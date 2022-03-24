@@ -121,16 +121,16 @@ inline bool atomic_flag_trylock(volatile atomic_flag * lock) {
 代码已经表述了一切好的坏的有得没得, 模仿字帖多抄写 ~ 这些代码很短, 使用起来也很容易. 例如在上一章写了个 cstr 字符串. 他不是线程安全的. 可以利用原子自旋锁, 简单改成线程安全版本: 
 
 ```C
-#include <cstr.h>
+#include <chars.h>
 #include <spinlock.h>
 
-struct astr {
-    atomic_flag lock;
-    struct cstr str[1];
+struct cstr {
+        struct chars str;
+        atomic_flag lock;
 };
 
 // 初始化
-struct astr a = { ATOMIC_FLAG_INIT };
+struct cstr a = { ATOMIC_FLAG_INIT };
 
 // 加锁
 atomic_flag_lock(&a.lock);
@@ -138,18 +138,20 @@ atomic_flag_lock(&a.lock);
 // 使用
 // 各种对于 astr.str 操作都是线程安全的
 // ...
-cstr_appends(a.str, "100");
+chars_appends(&a.str, "100");
 
-printf("str = %s, cap = %zu, len = %zu\n", cstr_get(a.str), a.str->cap, a.str->len);
+printf("str = %s, cap = %zu, len = %zu\n", chars_get(&a.str), a.str.cap, a.str.len);
 
 // 释放锁
 atomic_flag_unlock(&a.lock);
 
+printf("a = 0x%p, a.str = 0x%p, a.str.str = 0x%p\n", &a, &a.str, a.str.str);
+
 // 销毁
-cstr_free(a.str);
+free(a.str.str);
 ```
 
-以上就是原子自旋锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 普通开发要求下编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美, 否则基本无望元婴. 当然金丹大圆满也都能够胜任主程了, 以此定型一生. 上面原子锁仍然可以优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化, 具体可以研究 pthread mutex 做的拓展了解二者使用场景. 总而言之在解决资源竞争问题上, 消耗最小是真无锁编程. 通过业务优化避免锁的产生. 我们在做开发时候, 如果没想明白场景是不是用原子锁更好, 那直接用互斥锁也许更好.
+以上就是原子自旋锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 普通开发要求下编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美, 否则基本无望元婴. 当然金丹大圆满也都能够胜任主程了, 以此定型一生. 上面原子锁仍然可以优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化, 具体可以研究 pthread mutex 做的拓展了解二者使用场景. 总而言之在解决资源竞争问题上, 消耗最小不一定是无锁编程, 很爽往往是通过业务优化避免锁的产生. 我们在做开发时候, 如果没想明白场景要不要用原子锁的时候, 那请直接用互斥锁, 别犹豫.
 
 ### 3.1.3 原子库封装
 
@@ -636,6 +638,7 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 #include <time.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 //
 // ~ 力求最小时间业务单元 ~ 
@@ -654,17 +657,32 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 
 #include <winsock2.h>
 
-// Set time conversion information from the TZ environment variable.
-// If TZ is not defined, a locale-dependent default is used.
-#undef  tzset
-#define tzset _tzset
-
 // Structure crudely representing a timezone.
 // This is obsolete and should never be used.
 struct timezone {
     int tz_minuteswest; // Minutes west of GMT.
     int tz_dsttime;     // Nonzero if DST is ever in effect.
 };
+
+//
+// gettimeofday - 实现 Linux sys/time.h 得到微秒时间
+// tv       : 返回秒数和微秒数
+// tz       : 返回时区结构
+// return   : success is 0
+//
+extern int gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz);
+
+// Set time conversion information from the TZ environment variable.
+// If TZ is not defined, a locale-dependent default is used.
+#undef  tzset
+#define tzset _tzset
+
+// 如果 TZ 在操作系统中指定或确定了夏令时(DST)区域, 则为 1; 否则为 0.
+#define daylight _daylight
+
+// tzname 的值由 TZ 环境变量的值确定. 如果您未显式设置 TZ 的值, 
+// 则 tzname[0] 和 tzname[1] 将分别包含"PST"和"PDT"(太平洋夏令时)的默认设置
+#define tzname _tzname
 
 //
 // msleep - 睡眠函数, 颗粒度是毫秒.
@@ -675,30 +693,12 @@ inline void msleep(int ms) {
     Sleep(ms);
 }
 
-// timezone 协调世界时 UTC 与当地时间 LOC 之间的秒数差. 例如 中国 UTC - CST 默认值为 -28,800
-#define timezone _timezone
-
-// 如果 TZ 在操作系统中指定或确定了夏令时(DST)区域, 则为 1; 否则为 0.
-#define daylight _daylight
-
-// tzname 的值由 TZ 环境变量的值确定. 如果您未显式设置 TZ 的值, 
-// 则 tzname[0] 和 tzname[1] 将分别包含"PST"和"PDT"(太平洋夏令时)的默认设置
-#define tzname _tzname
-
 //
 // usleep - 微秒级别等待函数
 // usec     : 等待的微秒
 // return   : 0 on success.  On error, -1 is returned.
 //
 extern int usleep(unsigned usec);
-
-//
-// gettimeofday - 实现 Linux sys/time.h 得到微秒时间
-// tv       : 返回秒数和微秒数
-// tz       : 返回时区结构
-// return   : success is 0
-//
-extern int gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz);
 
 //
 // localtime_r - 获取当前时间线程加锁版本, 推荐使用 localtime_get
@@ -714,6 +714,9 @@ inline struct tm * localtime_r(const time_t * timep, struct tm * result) {
 
 #include <unistd.h>
 #include <sys/time.h>
+
+// timezone 协调世界时 UTC 与当地时间 LOC 之间的秒数差. 例如 中国 UTC - CST 默认值为 -28,800
+#define _timezone timezone
 
 inline void msleep(int ms) { 
     usleep(ms * 1000); 
@@ -940,8 +943,8 @@ time_day_equal(time_t n, time_t t) {
     // 中国标准时间(CST)比世界协调时间(UTC)早08:00小时. 该时区为标准时区时间, 主要用于 亚洲
     // UTC [World] + 8 * 3600 = CST [China] | UTC [World] = CST [China] - timezone (8 * 3600)
     // 其他地区也类似 UTC 和 CST 关系, 存在 timezone = UTC - LOC -> LOC = UTC - timezone
-    n = (n - timezone) / (24 * 3600);
-    t = (t - timezone) / (24 * 3600);
+    n = (n - _timezone) / (24 * 3600);
+    t = (t - _timezone) / (24 * 3600);
     return n == t;
 }
 
@@ -977,8 +980,6 @@ time_week_equal(time_t n, time_t t) {
 8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说到时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范. 对于 gettimeofday 还有 usleep linux 上常用函数, 我们在 window 实现如下.
 
 ```C
-#include "times.h"
-
 #if defined(_WIN32) && defined(_MSC_VER)
 
 //
@@ -1007,14 +1008,15 @@ usleep(unsigned usec) {
 
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
 
+#undef  timezone
+
 //
 // gettimeofday - 实现 Linux sys/time.h 得到微秒时间
 // tv       : 返回秒数和微秒数
 // tz       : 返回时区结构
 // return   : success is 0
 //
-int 
-gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz) {
+int gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz) {
     if (tv) {
         FILETIME t;
         GetSystemTimeAsFileTime(&t);
@@ -1023,7 +1025,7 @@ gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz) {
         // convert into microseconds, converting file time to unix epoch
         m = m / 10 - DELTA_EPOCH_IN_MICROSECS;
 
-        tv->tv_sec  = (long)(m / 1000000UL);
+        tv->tv_sec = (long)(m / 1000000UL);
         tv->tv_usec = (long)(m % 1000000UL);
     }
 
@@ -1042,7 +1044,7 @@ gettimeofday(struct timeval * restrict tv, struct timezone * restrict tz) {
 扩展一点, 假如有个策划奇葩需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写.
 
 ```C
-#define DAYNEWSTART_INT	(timezone + 5UL * 3600 + 0 * 60 + 0)
+#define DAYNEWSTART_INT	(_timezone + 5UL * 3600 + 0 * 60 + 0)
 
 inline bool time_isday(time_t n, time_t t) {
     n = (n - DAYNEWSTART_INT) / (24 * 3600);
@@ -1107,6 +1109,8 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 对于比较的问题, 用草纸画画涂涂就明白了. 其中使用的 **localtime_get** 从 redis 中扒下来, 阅读起来非常不错.
 
 ```C
+#include "times.h"
+
 /* This is a safe version of localtime() which contains no locks and is
  * fork() friendly. Even the _r version of localtime() cannot be used safely
  * in Redis. Another thread may be calling localtime() while the main thread
@@ -1129,7 +1133,7 @@ times_fmt(const char * fmt, char out[], size_t sz) {
  * logging of the dates, it's not really a complete implementation. */
 void 
 localtime_get(struct tm * restrict p, time_t t) {
-    t -= timezone;                      /* Adjust for timezone. */
+    t -= _timezone;                     /* Adjust for timezone. */
     t += 3600 * daylight;               /* Adjust for daylight time. */
     time_t days = t / (3600 * 24);      /* Days passed since epoch. */
     time_t seconds = t % (3600 * 24);   /* Remaining seconds. */
@@ -1177,6 +1181,7 @@ localtime_get(struct tm * restrict p, time_t t) {
 时间核心业务就带大家操练到这. 还有什么搞不定, 如果需要, 基于这些基础和思路再细细琢磨推敲 ~ 必然事半功倍. 最后提醒使用这个库需要事先 tzset 初始化时区, 夏令时等等信息.
 
 ```C
+main init
     // Now 'timezome' global is populated. Obtain timezone and daylight info. 
     tzset();
 ```
