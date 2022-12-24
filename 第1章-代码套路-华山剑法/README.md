@@ -1,22 +1,8 @@
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+# 第1章-代码套路-华山剑法
 
-<!-- code_chunk_output -->
+代码风格形成风味 OR 套路后也被称呼为代码规范或者代码范式. 开发界流传至今范式很多, 其中以 Window 操作系统风格'武当'流派, GNU Linux 极客风格昆仑流派最具代表性. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发. 本书是在昆仑流派基础上衍生, 也会尝试逐一分析其中范式缘由.
 
-- [第1章-代码风味-华山剑法](#第1章-代码风味-华山剑法)
-  - [1.1 缘起 main](#11-缘起-main)
-  - [1.2 括号布局](#12-括号布局)
-  - [1.3 C 中三大战神 - 函数 § 帝释天](#13-c-中三大战神-函数-帝释天)
-  - [1.4 C 中三大战神 - 指针 - 达姿·奥利哈刚](#14-c-中三大战神-指针-达姿奥利哈刚)
-  - [1.5 C 中三大战神 - 宏 - 封神记·天](#15-c-中三大战神-宏-封神记天)
-  - [1.6 绝世好剑](#16-绝世好剑)
-  - [1.7 夜太黑练剑好时光](#17-夜太黑练剑好时光)
-
-<!-- /code_chunk_output -->
-# 第1章-代码风味-华山剑法
-
-代码风味形成套路后也被称呼为代码规范或者代码范式. 开发界流传至今范式很多, 其中以 Window 操作系统风格'武当'流派, GNU Linux 极客风格昆仑流派代表性最强. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发. 本书是在昆仑流派基础上衍生, 并尝试逐一分析其中范式所以然.
-
-在如今这个互联网末法年代, 一招鲜吃遍天, 充满荆棘和挑战也缺乏趣味. 而我们在成长中也会时常遇到不熟悉领域, 一种有意思方式是, 忘记以前了解的, 立即训练需要现在知道的. 先进去学后深究. 如果此刻你正好 C 第一本书刚学完, 这里将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行思索**求简求美** ~  
+在如今这个互联网末法年代, 想一招鲜吃遍天, 市充满荆棘和挑战, 更多需要更加系统训练培养自己专业力和自我兴趣或追求. 而在成长中也会时常遇到不熟悉领域, 一种有点意思方式是, 忘记以前了解的, 立即训练需要现在知道的, 先进去学后深究. 如果此刻你正好 C 第一本语法书, 数据结构书籍刚学完, 这里将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行思索**求简求美** ~  
 
 希望这本小册子带大家进入代码**写手**的世界. 尝试在自己动手中感受其中思路和设计! 
 
@@ -36,9 +22,9 @@ main 是起点, 也是一切美好或梦魇的诞生点. C 学习历程可以从
 
 > 编译器'老母亲'纵容了我们的"错误".
 > 而 main() {} 最初出现在 K&R C 年代中, 那时候函数缺省定义(默认返回 int)不报警告. 
-> 当前 warning 甩过来的时候, 编译器老母亲醇厚的提醒应该重视和立即纠错. 
+> 当前 warning 甩过来的时候, 编译器老母亲醇厚的提醒应该重视和给予尊重. 
 
-**希望下面代码会是个好的开头 -_- Good luckly**
+**一切才刚刚开始 -_- Good luckly**
 
 ```C
 #include <stdio.h>
@@ -95,8 +81,8 @@ else               }
 第一种写法是 Window 推崇的起手. 第三种是 Linux 上面常见写法. 第二种是两者的一种过渡. 对于上面三种范式, 都写过好久. 思索基于 C 精简特性, 这里推荐第三种. 更加紧凑飘逸! C 本身就是个精简的语言, 强调最小意外原则. 第一种直接 pass, 啰嗦的闸门一旦打开, 就难关上了. 第二种还是有点不极致. 同样对于 switch 语法推荐下面写法
 
 ```C
-switch (type) {
-case SBase:
+switch (errno) {
+case EINTR:
     ...
     break;
 ...
@@ -105,11 +91,11 @@ default:
 }
 ```
 
-switch 类比 C 中的标签都放在作用域最左边. switch brack 和 case 中语句对齐.
+switch 类比 C 中的标签都贴近作用域左边. switch brack 和 case 中语句对齐.
 
 ## 1.3 C 中三大战神 - 函数 § 帝释天
 
-面向过程编程两个主旋律是内存(数据)结构和函数封装. C 函数开头一个 extern 关键词也能搞晕不少同学. C 函数分为声明和定义两部分. 华山剑法将其细化为 3 部分. 函数声明: 确定函数地址; 函数定义: 确定函数地址和实现; 函数声明加定义: 确定函数地址和实现, 尝试限制作用域.
+面向过程编程两个主旋律是内存(数据)结构和函数封装. C 函数开头一个 extern 关键词可能会搞晕不少同学. C 函数分为声明和定义两部分. 华山剑法中有 3 种套路写法. 函数声明: 确定函数地址; 函数定义: 确定函数地址和实现; 函数声明加定义: 确定函数地址和实现, 尝试限制作用域.
 
 ```C
 // 1' 函数声明
@@ -128,7 +114,7 @@ hoge(void) {
 
 ```
 
-2' 中函数返回值另起一行为了突出函数(返回值)定义. 在同一行表示声明加定义. 隐含的一个细节是 hoge(void), 因为在 C 中函数声明 void hoge(); 表示的意思是函数 hoge 参数不确定(由 __cdecl 从右向左入栈方式决定). 加上 void 会在语法层面约束函数参数为空! 当我们写库头文件的时候, 下面两个函数声明, 表达出的意思就不一样. 华山剑法为其添加的一种新语义.
+2' 中函数返回值另起一行为了突出函数(返回值)定义. 在同一行表示声明加定义. 隐含的一个细节是 hoge(void), 因为在 C 中函数声明 void hoge(); 表示的意思是函数 hoge 参数不确定(由 __cdecl 从右向左入栈方式决定). 加上 void 会在语法层面约束函数参数为空! 当我们写库头文件的时候, 下面两个函数声明, 表达出的意思就不一样. 华山剑法中为其添加的一种新假想语义.
 
 ```C
 // 函数声明 显示声明加上 extern
@@ -151,14 +137,10 @@ static void heoo(int a[static 64]) {
 
 局部代码中包含的 static 套路和潜规则剖析如下:
 
-a) 第1个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数定义行以下范围.
-
-b) 第2个 static 是 C99 出现的语法, 告诉编译器这个"数组"至少有 64 个数据单元, 您可以放心优化.
-
-c) 第3个 static 表示声明一个私有静态变量 count, 作用域属于 heoo 函数域. 
-
-d) 另一个细节是 count 生命周期同未初始化全局的变量. 默认内存都是以 0 填充的. 即这
-   里 count = 0 是缺省的.
++ 第1个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数定义行以下范围.
++ 第2个 static 是 C99 出现的语法, 告诉编译器这个"数组"至少有 64 个数据单元, 您可以放心优化.
++ 第3个 static 表示声明一个私有静态变量 count, 作用域属于 heoo 函数域. 
++ 另一个细节是 count 生命周期同未初始化全局的变量. 默认内存都是以 0 填充的. 即这里 count = 0 是缺省的.
 
 ***
 
@@ -223,7 +205,7 @@ int test(void) {
 // $ ./test.exe
 ```
 
-> 程序启动后, 退出时多数会崩溃. 因为基础库准备的善后操作执行异常. 这时将 return 替换为 exit 就可以解决! 因为直接退出会走编译器为 exit 开通的善后流程. 为了安全起见有时候直接 exit 粗暴高效.
+> 程序启动后, 退出时多数会崩溃. 因为基础库准备的善后操作执行异常. 这时将 return 替换为 exit 就可以解决! 因为直接退出会走编译器为 exit 开通的善后流程. 为了安全起见有时候直接 exit 粗暴高效. C 很多依赖平台特性, 不保证每个平台都一致, 推荐熟悉一个主平台保持深挖和开放思维模式.
 
 > **2' 编译器没有警告原因, 先看截取部分源码**
 
@@ -246,15 +228,13 @@ _Noreturn void suicide(void) {
 
 此刻再次为函数声明定个弱基调 :)
 
-a) 给其他模块用的函数, 推荐 extern 声明, 然后定义其实体
-
-b) 给自己模块用的函数, 推荐 static 静态(私有) 声明加定义
-
-c) inline 和各种缺省函数声明和定义, 理性使用
++ 给其他模块用的函数, 推荐 extern 声明, 然后定义其实体
++ 给自己模块用的函数, 推荐 static 静态(私有) 声明加定义
++ inline 和各种缺省函数声明和定义, 理性使用
 
 ## 1.4 C 中三大战神 - 指针 - 达姿·奥利哈刚
 
-C 中一个有争议的命题是一切皆内存. 而指针就是指向内存的魔法杖. C is free and unsafe. 至高奥义就是
+C 中一个有争议的命题是一切皆内存. 而指针就是指向内存的魔法杖. C is free and unsafe. 至高奥义可能是
 
 **程序员是万能的**
 
@@ -279,7 +259,7 @@ free(void* block) {
 }
 ```
 
-微发现上面两种写法不太自然和统一. 由于 C 本身存在缺陷, 上面两种写法都不完美. 第1种, 函数定义的时候 * 号就不知道该放在那里了. 这种用法比较广, 但也不是最好的选择. 第2种写法, 多数是有过面向对象的编程经验, 想重温写哈 C. 这种写法在定义多个变量指针的时候基本就废了. 而且本身是变量指针声明, 却被"幻想"成指针类型. 第2种写法强烈不推荐. 这里采用下面写法, 在追求自然和美过程中, 脚步不要停歇!
+微弱发现上面两种写法不太自然和统一. 由于 C 本身存在缺陷, 上面两种写法都不完美. 第1种, 函数定义的时候 * 号就不知道该放在那里了. 这种用法比较广, 但也不是最好的选择. 第2种写法, 多数是有过面向对象的编程经验, 想重温写哈 C. 这种写法在定义多个变量指针的时候基本就废了. 而且本身是变量指针声明, 却被"幻想"成指针类型. 第2种写法强烈不推荐. 这里采用下面写法, 在追求自然和美过程中, 脚步不要停歇!
 
 ```C
 // 第3种: 变量声明, * 全部放中间
@@ -295,7 +275,7 @@ int ** arrs = NULL;
 typedef void (* signal_f)(int sig);
 ```
 
-关于指针范式基调主要如上, 简单补充关于 C 变量声明. C 目前共有 44 个关键字, 推荐命名要短小**精悍**. 强烈不推荐驼峰规则, 因为在远古时期 C 是不区分大小写所以很多库形成了小写传统. 而且 C 代码本身不容易读懂, 要懂的人会懂. 推荐遵从内核源码古法. 命名语义区分用 _ 分隔. C 也许不能让工资飞高, 但是可以让你在面对大佬论道的时候看见希望 ~
+关于指针范式基调主要如上, 简单补充关于 C 变量声明. C 目前共有 44 个关键字, 推荐命名要短小**精悍**. 强烈不推荐驼峰规则, 因为在远古时期 C 是不区分大小写所以很多库形成了小写传统. 而且 C 代码本身不容易读懂, 要懂的人会懂. 推荐遵从内核源码古法. 命名语义区分用 _ 分隔. C 也许不能让工资飞高, 但是可以让你在面对复杂问题的时候容易有细节思路 ~
 
 小节最后不妨借花献佛. 引述<<C 语言问题>>书中让人豁然开朗, 关于 C 命名经典问题.
 
@@ -326,7 +306,7 @@ typedef void (* signal_f)(int sig);
        域的标识符", 但规则4没有包含标识符只剩下类型定义和标签名称了.)
 ```
 
-以上关于标识符问答推荐 write and read 一遍 :)
+以上关于标识符问答推荐 write and read or 背一遍 :)
 
 ## 1.5 C 中三大战神 - 宏 - 封神记·天
 
@@ -500,7 +480,7 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 
 ```
 
-这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式风味! 基调是**推荐不强求**, 求美求简 ❤ 就好.
+这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式风味! 基调是**推荐不强求**, 求美求简 ❤ 就好. 上面 **struct.h** 封装一些函数指针类型主要为了后面写演示代码方便, 实战封装跟着具体的库走.
 
 **克制使用, 推荐用最清晰版本**
 
@@ -511,7 +491,7 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 #define Q_INT           (1<<6)
 #define ZERO_FLOAT      (0.000001f)
 
-// 也可以不过宏名中的信息量没有上面全
+// 也能用, 不过宏名中的信息量没有上面全
 #define N               (16)
 ```
 
@@ -652,7 +632,7 @@ inline void cstr_free(cstr_t cs) {
 
 ## 1.6 绝世好剑
 
-万般皆自然, 一通都顺, 魔鬼在勤勉踏实的大道上ヾ(๑╹◡╹)ﾉ" 需要时间才会出现. 这里的绝世好剑指的是你的编程环境. 硬件方面要是可以的话买最快, 最美, 最便宜的套装. 软件方面, 我们只简单介绍昆仑流派.
+万般皆自然, 一通都顺, 魔鬼在勤勉踏实的大道上ヾ(๑╹◡╹)ﾉ" 需要时间培养兴趣. 这里的绝世好剑指的是你的编程环境. 硬件方面要是可以的话买最快, 最美, 最便宜的套装. 软件方面, 我们只简单介绍昆仑流派.
 
 **昆仑流派**  
     
@@ -760,13 +740,13 @@ __pragma (pack(pop))
 
 ```
 
-其中 Window 用最新的操作系统 + 最新的 Visual Studio 上面最新的 Clang 编译器. 当然我们本文核心是代码思路和代码训练环境. 方面最好能多简单就多简单.
+其中 Window 用最新的操作系统 + 最新的 Visual Studio 上面最新的 Clang 编译器, 可以简单写写 C++, 写 C 很难受, 推荐还是得 Linux 嗨起来. 当然我们本文核心是代码思路和代码训练环境, 多尝试, 多试错, 保持开放.
 
 ## 1.7 夜太黑练剑好时光
 
-聊的有些多, 细节部分需要自己亲身建构. 回想起 2013 年看<<自制编程语言>>那本书, 惊为天人. 感觉作者实力好强. 因为看不明白, 强行撸, 狂看猛打最后懂了点, 收益良多(虽然已经忘记了, 但却是另一番体验). 在编程的世界里, 不需要太多前缀, 只要 wo are 正在用手挥舞! 
+聊的有些多, 细节部分需要自己亲身建构. 回想起 2013 年看<<自制编程语言>>那本书, 惊为天人. 感觉作者实力好强. 因为看不明白, 强行撸, 狂看猛打最后懂了点, 收益良多(虽然已经忘记了, 但却是另一番体验). 在编程的世界里, 不需要太多前缀, 初期只要 wo are 正在用手挥舞! 中后期需要兴趣和喜欢, 短期是出不了长期的成就 ~
 
-如果咱们一样只是为了, 更有意思的生存和活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具, 帮人实现梦想, 自我积蓄德才 ~ 然后回家开个水果店, 想想也挺好.
+如果一样只是为了, 更有意思的活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具, 实现想法, 自我积蓄德(包括武德)才 ~ 然后落叶生根, 想想也挺好.
 
 如果你没有对象, 那就使劲敲代码
 
@@ -782,17 +762,17 @@ __pragma (pack(pop))
 #pragma once
 
 //
-// 这是个非常简单粗暴内存分配模块. 
-// 多数这类模块会和项目业务绑定, 例如添加栈日志打印.
+// 这是个非常简单粗暴 allocation 内存分配模块.
+// 多数这类模块会和项目业务绑定, 例如添加栈日志打印. 例如分配数据统计
 //
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// check 内存检测并处理
-inline void * check(void * ptr, size_t size) {
-    if (!ptr) {
+// ation_check 内存检测并处理
+inline void * ation_check(void * ptr, size_t size) {
+    if (ptr == NULL) {
         fprintf(stderr, "check memory collapse %zu\n", size);
         fflush (stderr);
         abort();
@@ -801,58 +781,72 @@ inline void * check(void * ptr, size_t size) {
 }
 
 //
-// malloc_  - malloc 包装函数
+// ation_malloc  - malloc 包装函数
 // size     : 分配的内存字节
 // return   : 返回可使用的内存地址
 //
-inline void * malloc_(size_t size) {
-    return check(malloc(size), size);
+inline void * ation_malloc(size_t size) {
+    return ation_check(malloc(size), size);
 }
 
 //
-// strdup_  - strdup 包装函数
+// ation_strdup  - strdup 包装函数
 // str      : '\0' 结尾 C 字符串
 // return   : 拷贝后新的 C 字符串
 //
-inline char * strdup_(const char * str) {
-    if (str) {
-        size_t n = strlen(str)+1;
-        return memcpy(malloc_(n), str, n);
+inline char * ation_strdup(const char * str) {
+    if (str != NULL) {
+        size_t n = strlen(str) + 1;
+        return memcpy(ation_malloc(n), str, n);
+    }
+    return NULL;
+}
+
+inline char * ation_strndup(const char * str, size_t size) {
+    if (str != NULL) {
+        // @see https://stackoverflow.com/questions/66346502/which-is-most-standard-strnlen-or-strnlen-s/66347259#66347259
+        // POSIX 标准真是良心. 好的标准往往容易有好的生态. 而不需要程序员和土匪似得东抢西偷.
+        size_t n = strnlen(str, size);
+        char * dup = ation_malloc(n+1);
+        dup[n] = 0;
+        return memcpy(dup, str, n);
     }
     return NULL;
 }
 
 //
-// calloc_  - calloc 包装函数
+// ation_calloc  - calloc 包装函数
 // num      : 数量
 // size     : 大小
 // return   : 返回可用内存地址, 并置 0
 //
-inline void * calloc_(size_t num, size_t size) {
-    return check(calloc(num, size), size);
+inline void * ation_calloc(size_t num, size_t size) {
+    return ation_check(calloc(num, size), size);
 }
 
 //
-// realloc_ - realoc 包装函数
+// ation_realloc - realoc 包装函数
 // ptr      : 首地址, NULL 等同于 malloc
 // size     : 重新分配的内存大小
 // return   : 返回重新分配的新地址
 //
-inline void * realloc_(void * ptr, size_t size) {
-    return check(realloc(ptr, size), size);
+inline void * ation_realloc(void * ptr, size_t size) {
+    return ation_check(realloc(ptr, size), size);
 }
 
 // :) 包裹内存分配层, 些许感怀 ~ 可以通过 define ALLOC_OFF 关闭
 //
 #ifndef ALLOC_OFF
-#  undef    malloc
-#  define   malloc   malloc_
 #  undef    strdup
-#  define   strdup   strdup_
+#  define   strdup      ation_strdup
+#  undef    strndup
+#  define   strndup     ation_strndup
+#  undef    malloc
+#  define   malloc      ation_malloc
 #  undef    calloc
-#  define   calloc   calloc_
+#  define   calloc      ation_calloc
 #  undef    realloc
-#  define   realloc realloc_
+#  define   realloc     ation_realloc
 #endif
 
 ```
@@ -861,90 +855,18 @@ inline void * realloc_(void * ptr, size_t size) {
 
 对于 check 函数思路, 在内存不足时, 直接 abort. 不知道有没有朋友会问为什么不用 exit? 思考的出发点是这样的, 当出现申请内存不足的时候. 笼统的概括有两种场景:
 
-1' 申请大内存, 
-2' 申请小内存. 
++ 1' 申请大内存, 
++ 2' 申请小内存. 
 
 如果是 1' 申请大内存, exit 退出是可行, 并且还会执行 atexit 相关函数.
 
 但如果是 2' 申请小内存, 小内存都耗尽, 那么后续都将是未定义. 综合 1' 和 2' 加上这是个学习项目定位最终
 使用了 abort. 当内存不足的时候, 直接'休息', 粗暴有效的上车. 
 
-对于上面直接使用操作系统能力, 也可以采用了近代软件编程中免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 如果其中遇到困难, 可以搜索和翻看作者相关博客. jemalloc alloc.c 实现全在这里, 代码即注释 ~
+对于上面直接使用操作系统能力, 也可以采用了近代软件编程中免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 整体 alloc.h 是可插拔的, 这也是程序封装一个好技巧, 好用方便. 
 
-```C
-#define ALLOC_OFF
-#include "alloc.h"
 
-#define JEMALLOC_NO_DEMANGLE
-#include <jemalloc/jemalloc.h>
-
-// check 内存检测并处理
-inline void * check(void * ptr, size_t size) {
-    if (NULL == ptr) {
-        fprintf(stderr, "check memory collapse %zu\n", size);
-        fflush(stderr);
-        abort();
-    }
-    return ptr;
-}
-
-//
-// realloc_ - realoc 包装函数
-// ptr      : 首地址, NULL 等同于 malloc
-// size     : 重新分配的内存大小
-// return   : 返回重新分配的新地址
-//
-inline void * realloc_(void * ptr, size_t size) {
-    void * ntr = je_realloc(ptr, size);
-    return check(ntr, size);
-}
-
-//
-// calloc_  - calloc 包装函数
-// num      : 数量
-// size     : 大小
-// return   : 返回可用内存地址, 并置 0
-//
-inline void * calloc_(size_t num, size_t size) {
-    void * ptr = je_calloc(num, size);
-    return check(ptr, size);
-}
-
-//
-// malloc_  - malloc 包装函数
-// size     : 分配的内存字节
-// return   : 返回可使用的内存地址
-//
-inline void * malloc_(size_t size) {
-    void * ptr = je_malloc(size);
-    return check(ptr, size);
-}
-
-//
-// free_    - free 包装函数
-// ptr      : 内存首地址
-// return   : void
-//
-inline void free_(void * ptr) {
-    je_free(ptr);
-}
-
-//
-// strdup_  - strdup 包装函数
-// s        : '\0' 结尾 C 字符串
-// return   : 拷贝后新的 C 字符串
-//
-inline char * strdup_(const char * s) {
-    if (s) {
-        size_t n = strlen(s) + 1;
-        char * ptr = malloc_(n);
-        return memcpy(ptr, s, n);
-    }
-    return NULL;
-}
-```
-
-可插拔 alloc.h 中引入 jemalloc 库对于我们这类学习项目而言, 非常自信扛住内存方面瓶颈, 算是华山剑法中一道自信秘术 :0 练习的人是否体会到身体中兴奋 ~ 颤抖 ~ 原来变强这么简单, 就可以这么炫. 啊哈. 此刻只想说三个字, 这很 cool ~
+:0 初期练习的人体内要感受到兴奋 和 颤抖 ~ 原来变强就是这么简单, 系统临摹和训练. 啊哈. 此刻只想说三个字, 这很 cool ~ 享受 code.
 
 ***
 
@@ -969,7 +891,7 @@ inline char * strdup_(const char * s) {
 
 ***
 
-C 是个传统古老编程领域, 当你想入门时候, 可能需要读更多好书, 记录更多笔记, 写更多代码, 让他成为你的额外母语.
+C 是个传统古老编程领域, 当你想入门时候, 可能需要读更多好书, 记录更多笔记, 写更多代码, 让他成为你的额外母语, 感受编程细节的魅力.
 
 ***
 
