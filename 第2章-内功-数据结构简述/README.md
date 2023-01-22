@@ -1,5 +1,30 @@
 # 第2章-内功-数据结构简述
 
+<!-- TOC -->
+
+- [第2章-内功-数据结构简述](#%E7%AC%AC2%E7%AB%A0-%E5%86%85%E5%8A%9F-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AE%80%E8%BF%B0)
+    - [1. list](#1-list)
+        - [1.1. list interface](#11-list-interface)
+        - [1.2. list implements](#12-list-implements)
+    - [2. string](#2-string)
+        - [2.1. 包装 string.h => strext.h](#21-%E5%8C%85%E8%A3%85-stringh--strexth)
+        - [2.2. chars interface](#22-chars-interface)
+        - [2.3. chars implement](#23-chars-implement)
+    - [3. array](#3-array)
+    - [4. 阅读理解两篇](#4-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3%E4%B8%A4%E7%AF%87)
+        - [4.1. 阅读理解 - stack 设计](#41-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3---stack-%E8%AE%BE%E8%AE%A1)
+        - [4.2. 阅读理解 - id hash 设计](#42-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3---id-hash-%E8%AE%BE%E8%AE%A1)
+    - [5. 拓展阅读 strlen 工程样例](#5-%E6%8B%93%E5%B1%95%E9%98%85%E8%AF%BB-strlen-%E5%B7%A5%E7%A8%8B%E6%A0%B7%E4%BE%8B)
+    - [6. 展望](#6-%E5%B1%95%E6%9C%9B)
+    - [7. dict](#7-dict)
+    - [8. 来个队列吧](#8-%E6%9D%A5%E4%B8%AA%E9%98%9F%E5%88%97%E5%90%A7)
+        - [8.1. 简单版本队列](#81-%E7%AE%80%E5%8D%95%E7%89%88%E6%9C%AC%E9%98%9F%E5%88%97)
+        - [8.2. 线程安全版本](#82-%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%89%88%E6%9C%AC)
+        - [8.3. 队列拓展小练习](#83-%E9%98%9F%E5%88%97%E6%8B%93%E5%B1%95%E5%B0%8F%E7%BB%83%E4%B9%A0)
+    - [9. 阅读理解 struct heap](#9-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3-struct-heap)
+
+<!-- /TOC -->
+
 对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其他语言好一点, 标准或者框架中对结构算法有很好用(中庸)的支持. 重复说, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得自己敲打. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 这里只讲简单一点 list, string, array, stack, hash, dict, queue, heap 等普通工程类型的数据结构.
 
 ## 2.1 list
