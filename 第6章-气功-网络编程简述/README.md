@@ -418,7 +418,7 @@ static void * run(void * arg) {
 int sum(int a[static 99]) { ... }
 ```
 
-**19' extern**
+**19. extern**
     
 解释 :
 
@@ -444,7 +444,7 @@ extern int kill(int sig, int val);
 int kill(int sig, int val);
 ```
 
-**20' break**
+**20. break**
 
 解释 :
 
@@ -471,7 +471,7 @@ while(i < 8) {
 
 break 用法主要和循环一块使用, 还有 do while. 但只能跳出当前层循环. 
 
-**21' case**
+**21. case**
     
 解释 :
 
@@ -492,7 +492,7 @@ case 't': *ntr++ = '\t'; break;
 
 对于 case 相当于标记点. switch 中值决定 case 跳转到哪里. 再一直往下执行, 遇到 break 再结束 switch 嵌套.
 
-**22' continue**
+**22. continue**
 
 解释 :
 
@@ -511,7 +511,7 @@ for(int i = 0; i < 2222; ++i) {
 }
 ```
 
-**23' default**
+**23. default**
 
 解释 :
 
@@ -536,7 +536,7 @@ skynet_queryname(struct skynet_context * ctx, const char * name) {
 }
 ```
 
-**24' do**
+**24. do**
 
 解释 :
 
@@ -558,7 +558,7 @@ do {
 
 do while 循环有时候可以减少一次条件判断. 性能更好, 代码更长.
 
-**25' else**
+**25. else**
 
 解释 :
 
@@ -583,7 +583,7 @@ if (true) {
 #  enfif
 ```
 
-**26' for**
+**26. for**
 
 解释 :
 
@@ -621,7 +621,7 @@ for (;;) {
 
 for(;;) {  } 比 while (true) { } 写法好. 虽然最终汇编一样, 想表达出不走判断的意图. 
 
-**27' goto**
+**27. goto**
 
 解释 :
 
@@ -653,7 +653,7 @@ err_faid:
     }
 ```
 
-**28' if**
+**28. if**
     
 解释 :
 
@@ -669,7 +669,7 @@ if (false) {
 }
 ```
 
-**29' return**
+**29. return**
 
 解释 :
 
@@ -687,7 +687,7 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-**30' switch**
+**30. switch**
 
 解释 :
 
@@ -716,7 +716,7 @@ do {
 } while(ret > 0);
 ```
 
-**31' while**
+**31. while**
 
 解释 :
 
@@ -735,7 +735,7 @@ while(++i < TTL_INT) {
 }
 ```
 
-**32' sizeof**
+**32. sizeof**
 
 解释 :   
 
@@ -759,7 +759,7 @@ printf("sizeof a = %zu.\n", sizeof a);
 
 ### 7.1.2 C99 5 个新增关键字
 
-**33' _Bool**
+**33. _Bool**
 
 解释 :
 
@@ -786,7 +786,7 @@ bool 类型变量!
 #endif /* _STDBOOL */
 ```
 
-**34' _Complex**
+**34. _Complex**
 
 解释 :
 
@@ -815,7 +815,7 @@ int main(int argc, char * argv[]) {
 }
 ```
 
-复数类型在GCC 中采用标准实现的
+复数类型在 GCC 中采用标准实现的
 
 ```C
 #define complex     _Complex
@@ -849,7 +849,7 @@ typedef _C_ldouble_complex _Lcomplex;
 
 总的说, 学习 C 最好的平台就是 *nix 平台上使用 Best new GCC. 除了科学计算会用到复数, 其他地方很少用到. 这里 VS 和 GCC 实现理念不一样. 用起来需要注意. 总有一天你会全身入定的进入开源的怀抱 ~
 
-**35' _Imaginary**
+**35. _Imaginary**
 
 解释 :
 
@@ -863,7 +863,7 @@ typedef _C_ldouble_complex _Lcomplex;
 /* 这个关键字无法在代码中表示. 系统保留, 我们不能使用. */
 ```
 
-**36'  inline**
+**36.  inline**
 
 解释 :
 
@@ -886,7 +886,7 @@ inline static int socket_set_block(socket_t s) {
 }
 ```
 
-**37' restrict**
+**37. restrict**
 
 解释 :
 
@@ -913,7 +913,7 @@ static inline void strlove(char * __restrict dest) {
 
 ### 7.1.3 C11 7 个新增关键字
 
-**38' _Alignas**
+**38. _Alignas**
 
 解释 :
 
@@ -958,7 +958,7 @@ int main(int argc, char * argv[]) {
 
 将 money 数组以 struct demo 对齐方式对齐构造赋值. 同 placement new.
 
-**39' _Alignof**
+**39. _Alignof**
 
 解释 :
 
@@ -973,7 +973,7 @@ int main(int argc, char * argv[]) {
 printf("alignof(struct demo) = %zu.\n", alignof(struct demo));
 ```
 
-**40' _Atomic**
+**40. _Atomic**
 
 解释 :
 
@@ -1006,7 +1006,7 @@ int main(int argc, char * argv[]) {
 
 具体执行结果, 相信你也懂. 原子操作, 对于写出高效代码很重要.
 
-**41' _Generic**
+**41. _Generic**
 
 解释 :
 
@@ -1038,7 +1038,7 @@ int main(int argc, char * argv[]) {
 
 宏泛型真的很给力. 如果全平台都支持的话, 宏又能被玩上天 :)
 
-**42' _Noreturn**
+**42. _Noreturn**
 
 解释 :
 
@@ -1056,7 +1056,7 @@ _Noreturn void suicide(void) {
  
 再扯一点, 他等同于 GCC 中 __attribute__((__noreturn__)), 在 CL 中相似功能是 __declspec(noreturn). 他不是说函数没有返回值, 而是说一旦你调了这个函数, 他存在永远不会返回的情况. 一些函数是永远不会返回的, 比如 abort 或者 exit 之类, 调用他们就意味着结束程序. 所以编译器再给出 warning 就显得没有必要.
 
-**43' _Static_assert**
+**43. _Static_assert**
 
 解释 :
 
@@ -1071,7 +1071,7 @@ _Noreturn void suicide(void) {
 _Static_assert(__STDC_VERSION__ >= 201112L, "C11 support required");
 ```
 
-**44' _Thread_local**
+**44. _Thread_local**
 
 解释 :
 
@@ -1112,6 +1112,7 @@ pthread_key_create 创建私有变量, 需要注册销毁行为. 随后是删除
 ![真正男子汉](./img/心痛.jpg)
 
 ***
+
 ## 7.2 C 语言 SOCKET 编程指南
 
 有了 C 基础语法支持, 随后一举巩固练气, 拿下常见 socket api 基本操作. socket 编程也被狭义的称为网络编程, 其基础知识是成为高级大头兵一个卡. 很久以前整理过一个学习手册, 抄袭的年代久远. 这里借花献佛随我温故那些必备 socket 相关知识. 协助同道气成丹田, 安身立命 ~ 
