@@ -1,24 +1,8 @@
 # 第1章-代码套路-华山剑法
 
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+代码风格形成风味 OR 套路后也被称呼为代码规范或者代码范式. 开发界流传至今范式很多, 其中以 Window 操作系统风格'武当流派', GNU Linux 操作系统极客风格'昆仑流派'最具代表性. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发. 本书是在昆仑流派基础上衍生, 也会尝试逐一分析其中范式缘由.
 
-<!-- code_chunk_output -->
-
-- [第1章-代码套路-华山剑法](#第1章-代码套路-华山剑法)
-  - [1.1 缘起 main](#11-缘起-main)
-  - [1.2 括号布局](#12-括号布局)
-  - [1.3 C 中三大战神 - 函数 § 帝释天](#13-c-中三大战神-函数-帝释天)
-  - [1.4 C 中三大战神 - 指针 - 达姿·奥利哈刚](#14-c-中三大战神-指针-达姿奥利哈刚)
-  - [1.5 C 中三大战神 - 宏 - 封神记·天](#15-c-中三大战神-宏-封神记天)
-  - [1.6 绝世好剑](#16-绝世好剑)
-  - [1.7 夜太黑练剑好时光](#17-夜太黑练剑好时光)
-
-<!-- /code_chunk_output -->
-
-
-代码风格形成风味 OR 套路后也被称呼为代码规范或者代码范式. 开发界流传至今范式很多, 其中以 Window 操作系统风格'武当'流派, GNU Linux 极客风格昆仑流派最具代表性. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发. 本书是在昆仑流派基础上衍生, 也会尝试逐一分析其中范式缘由.
-
-在如今这个互联网末法年代, 想一招鲜吃遍天, 市充满荆棘和挑战, 更多需要更加系统训练培养自己专业力和自我兴趣或追求. 而在成长中也会时常遇到不熟悉领域, 一种有点意思方式是, 忘记以前了解的, 立即训练需要现在知道的, 先进去学后深究. 如果此刻你正好 C 第一本语法书, 数据结构书籍刚学完, 这里将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行思索**求简求美** ~  
+在如今这个互联网末法年代, 想一招鲜吃遍天, 可能充满荆棘和挑战, 更多需要更加系统训练培养自己专业力和自我兴趣或追求. 而在成长中也会时常遇到不熟悉领域, 一种有点意思方式是, 忘记以前了解的, 立即训练需要现在知道的, 先进去学后深究. 如果此刻你正好 C 第一本语法书, 数据结构书籍刚学完, 这里将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行思索**求简求美** ~  
 
 希望这本小册子带大家进入代码**写手**的世界. 尝试在自己动手中感受其中思路和设计! 
 
@@ -28,7 +12,7 @@
 
 ![img/main.png](img/main.png)
 
-main 是起点, 也是一切美好或梦魇的诞生点. C 学习历程可以从 Brian W. Kernighan / Dennis M. Ritchie 的 The C Programming Language 起步, 再到 C 标准文献, 随后熟悉操作系统. 此后遇到疑惑问题翻阅资料查看标准手册, 攀登在起源山峰上, 大多数问题都会迎刃有解. 
+main 是起点, 也是一切美好或梦魇的诞生点. C 学习历程可以从 Brian W. Kernighan / Dennis M. Ritchie 的 The C Programming Language 起步, 再到 C 标准文献, 随后熟悉操作系统. 此后遇到疑惑问题翻阅资料查看标准手册, 攀登在标准起源的山峰中, 大多数问题都会因上帝视角迎刃有解. 
 
 > 不知道这会有没有人想起 void main() {} or main() {} 写法呢?
 > 对于 void main() {} 引述 C++ 之父 Bjarne Stroustrup 在其 FAQ 中说的 
@@ -53,7 +37,7 @@ int main(int argc, char * argv[]) {
 
 ## 1.2 括号布局
 
-C 是极其强调细节的语言. 多数写手在用 C 开发的时候都会有点神经质. 难以接收铺张浪费. 恶心的是, 细节之处往往充满了妖魔神鬼, 让人'发狂'! 陆小凤通过一片落叶根蒂, 判断出自己绝不是西门吹雪对手. 同样一个 { } 布局就能见证你的起手式. 本门华山剑法 { } 遵循的如下规则和演示.
+C 是极其强调细节的语言. 多数写手在用 C 开发的时候都会有点神经质. 难以接收铺张浪费. 恶心的是, 细节之处往往充满了妖魔神鬼, 让人'发狂'! 陆小凤通过一片落叶根蒂, 判断出自己绝不是西门吹雪对手. 同样一个 { } 布局就能见证你的起手式. 这门华山剑法 { } 遵循的如下规则和演示.
 
     1' 左 { 右对齐
     2' 右 } 上对齐
@@ -75,7 +59,7 @@ if (true) {
 }
 ```
 
-对于 for ( ; ; ) 和 while (true) 二者最终生成的汇编代码是一样的, 但是推荐前者. 因为他更加简单优美. 
+对于 for ( ; ; ) 和 while (true) 二者编译器最终优化生成的汇编代码是一样的, 但是推荐前者. 因为他更加简单优美. 
 
 对于 if else 为什么这么写, 先看下面对比.
 
@@ -153,9 +137,9 @@ static void heoo(int a[static 64]) {
 
 局部代码中包含的 static 套路和潜规则剖析如下:
 
-+ 第1个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数定义行以下范围.
-+ 第2个 static 是 C99 出现的语法, 告诉编译器这个"数组"至少有 64 个数据单元, 您可以放心优化.
-+ 第3个 static 表示声明一个私有静态变量 count, 作用域属于 heoo 函数域. 
++ 第 1 个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数定义行以下范围.
++ 第 2 个 static 是 C99 出现的语法, 告诉编译器这个"数组"至少有 64 个数据单元, 您可以放心优化.
++ 第 3 个 static 表示声明一个私有静态变量 count, 作用域属于 heoo 函数域. 
 + 另一个细节是 count 生命周期同未初始化全局的变量. 默认内存都是以 0 填充的. 即这里 count = 0 是缺省的.
 
 ***
@@ -164,7 +148,7 @@ static void heoo(int a[static 64]) {
 > **0, 00, 0x0, .0, '\0', '0', "0", NULL, false, EXIT_SUCCESS** 
 > 是什么鬼!  
 
-> 我们首先看源码中能找见的部分
+> 我们首先看某些实现版本源码中能找见的部分
 
 ```C
 #ifndef NULL
@@ -221,7 +205,7 @@ int test(void) {
 // $ ./test.exe
 ```
 
-> 程序启动后, 退出时多数会崩溃. 因为基础库准备的善后操作执行异常. 这时将 return 替换为 exit 就可以解决! 因为直接退出会走编译器为 exit 开通的善后流程. 为了安全起见有时候直接 exit 粗暴高效. C 很多依赖平台特性, 不保证每个平台都一致, 推荐熟悉一个主平台保持深挖和开放思维模式.
+> 程序启动后, 退出时有些支持编译的系统会崩溃. 因为基础库准备的善后操作执行异常. 这时将 return 替换为 exit 就可以解决! 因为直接退出会走编译器为 exit 开通的善后流程. 为了安全起见有时候直接 exit 粗暴高效. C 很多依赖平台特性, 不保证每个平台都一致, 推荐熟悉一个主平台保持深挖和开放思维模式.
 
 > **2' 编译器没有警告原因, 先看截取部分源码**
 
@@ -275,7 +259,7 @@ free(void* block) {
 }
 ```
 
-微弱发现上面两种写法不太自然和统一. 由于 C 本身存在缺陷, 上面两种写法都不完美. 第1种, 函数定义的时候 * 号就不知道该放在那里了. 这种用法比较广, 但也不是最好的选择. 第2种写法, 多数是有过面向对象的编程经验, 想重温写哈 C. 这种写法在定义多个变量指针的时候基本就废了. 而且本身是变量指针声明, 却被"幻想"成指针类型. 第2种写法强烈不推荐. 这里采用下面写法, 在追求自然和美过程中, 脚步不要停歇!
+微弱发现上面两种写法不太自然和统一. 由于 C 本身存在缺陷, 上面两种写法都不完美. 第 1 种, 函数定义的时候 * 号就不知道该放在那里了. 这种用法比较广, 但也不是最好的选择. 第 2 种写法, 多数是有过面向对象的编程经验, 想重温写哈 C. 这种写法在定义多个变量指针的时候基本就废了. 而且本身是变量指针声明, 却被"幻想"成指针类型. 第 2 种写法强烈不推荐. 这里采用下面写法, 在追求自然和美过程中, 脚步不要停歇!
 
 ```C
 // 第3种: 变量声明, * 全部放中间
@@ -298,35 +282,33 @@ typedef void (* signal_f)(int sig);
 ```C
 问: 如何判断哪些标识符可以使用, 那些被保留了?
 答:
-1' 标识符的3个属性: 作用域, 命名空间和链接类型.
-[*] C 语言有4种作用域(标识符声明的有效区域): 函数, 文件, 块和原型. (第4种类型
+1' 标识符的 3 个属性: 作用域, 命名空间和链接类型.
+[*] C 语言有 4 种作用域(标识符声明的有效区域): 函数, 文件, 块和原型. (第4种类型
     仅仅存在于函数原型声明的参数列表中)
-[*] C 语言有4种命名空间: 行标(label, 即 goto 的目的地), 标签(tag, 结构, 联
+[*] C 语言有 4 种命名空间: 行标(label, 即 goto 的目的地), 标签(tag, 结构, 联
     合和枚举名称), 结构联合成员, 以及标准所谓的其他"普通标识符"(函数, 变量, 类
     型定义名称和枚举常量). 另一个名称集(虽然标准并没有称其为"命名空间")包括了预
     处理宏. 这些宏在编译器开始考虑上述4种命名空间之前就会被扩展.
-[*] 标准定义了3中"链接类型": 外部链接, 内部链接, 无链接. 对我们来说, 外部链接
+[*] 标准定义了 3 中"链接类型": 外部链接, 内部链接, 无链接. 对我们来说, 外部链接
     就是指全部变量, 非静态变量和函数(在所有的源文件中有效); 内部链接就是指限于
     文件作用域内的静态函数和变量; 而"无链接"则是指局部变量及类型定义(typedef)
     名称和枚举常量.
 
 2' ANSI/ISO C 标准标识符标准建议规则:
-规则1: 所有下划线大头, 后跟一个大写字母或另一个下划线的标识符永远保留(所有的作
+规则 1: 所有下划线大头, 后跟一个大写字母或另一个下划线的标识符永远保留(所有的作
        用域, 所有的命名空间).
-规则2: 所有以下划线打头的标识符作为文件作用域的普通标识符(函数, 变量, 类型定义
+规则 2: 所有以下划线打头的标识符作为文件作用域的普通标识符(函数, 变量, 类型定义
        和枚举常量)保留(为编译器后续实现保留).
-规则3: 被包含的标准头文件中的宏名称的所有用法保留.
-规则4: 标准中所有具有外部链接属性的标识符(即函数名)永远保留用作外部链接标识符.
-规则5: 在标准头文件中定义的类型定义和标签名称, 如果对应的头文件被包含, 则在(同
+规则 3: 被包含的标准头文件中的宏名称的所有用法保留.
+规则 4: 标准中所有具有外部链接属性的标识符(即函数名)永远保留用作外部链接标识符.
+规则 5: 在标准头文件中定义的类型定义和标签名称, 如果对应的头文件被包含, 则在(同
        一个命名空间中的)文件作用域内保留.(事实上, 标准声称"所有作用于文件作用
-       域的标识符", 但规则4没有包含标识符只剩下类型定义和标签名称了.)
+       域的标识符", 但规则 4 没有包含标识符只剩下类型定义和标签名称了.)
 ```
-
-以上关于标识符问答推荐 write and read or 背一遍 :)
 
 ## 1.5 C 中三大战神 - 宏 - 封神记·天
 
-宏有点爽也有些疯狂. 需切记教条[能用 inline 内联, 就不要用宏!] 如果说指针是自由, 那宏就是噩梦. 我们从 **struct.h** 来认识这个偏执狂 ->
+宏有点爽也有些疯狂. 需切记教条[能用 inline 内联, 就不要用宏!] 如果说指针是自由, 那宏就是噩梦. 我们从 **struct.h** 来认识这个偏执狂.
 
 ```C
 #pragma once
@@ -347,7 +329,28 @@ typedef void (* signal_f)(int sig);
 #include <stdbool.h>
 #include <inttypes.h>
 
-#include "alloc.h"
+//
+// STR - 添加双引号的宏 
+// v        : 变量标识
+//
+#ifndef STR
+#define STR_(v) #v
+#define STR(v)  STR_(v)
+#endif
+
+#ifndef CONCAT
+#define CONCAT_(X, Y) X ## Y
+#define CONCAT(X, Y) CONCAT_(X, Y)
+#endif//CONCAT
+
+#ifndef LEN
+//
+// LEN - 计算获取数组长度
+// a        : 数组变量
+//
+#define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
+#endif
+
 
 #ifndef CMP_F
 #define CMP_F
@@ -408,28 +411,6 @@ typedef int (* each_f)(void * node, void * arg);
 #endif//DCODE
 
 //
-// STR - 添加双引号的宏 
-// v        : 变量标识
-//
-#ifndef STR
-#define STR_(v) #v
-#define STR(v)  STR_(v)
-#endif
-
-#ifndef CONCAT
-#define CONCAT_(X, Y) X ## Y
-#define CONCAT(X, Y) CONCAT_(X, Y)
-#endif//CONCAT
-
-#ifndef LEN
-//
-// LEN - 计算获取数组长度
-// a        : 数组变量
-//
-#define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
-#endif
-
-//
 // EXTERN_RUN - 函数包装宏, 声明并立即使用
 // frun     : 需要执行的函数名称
 // ...      : 可变参数, 保留
@@ -440,17 +421,17 @@ do {                                                                    \
     frun (__VA_ARGS__);                                                 \
 } while(0)
 
-// PRINT fprintf 包装操作宏. time_t x64 8字节 window %lld, linux %ld
-#define PRINT(stream, error, fmt, ...)                                  \
+// PRINTF fprintf 包装操作宏. time_t x64 8字节 window %lld, linux %ld
+#define PRINTF(stream, error, fmt, ...)                                 \
 fprintf(stream, "[%"PRId64"]["#stream"][%s:%s:%d][%d:%s]"fmt"\n",       \
     time(NULL),                                                         \
     __FILE__, __func__, __LINE__, error, strerror(error), ##__VA_ARGS__)
 
 #define POUT(fmt, ...)                                                  \
-PRINT(stdout, errno, fmt, ##__VA_ARGS__)
+PRINTF(stdout, errno, fmt, ##__VA_ARGS__)
 
 #define PERROR(error, fmt, ...)                                         \
-PRINT(stderr, error, fmt, ##__VA_ARGS__)
+PRINTF(stderr, error, fmt, ##__VA_ARGS__)
 
 //
 // PERR - 打印错误信息
@@ -459,7 +440,7 @@ PRINT(stderr, error, fmt, ##__VA_ARGS__)
 //
 
 #define PERR(fmt, ...)                                                  \
-PRINT(stderr, errno, fmt, ##__VA_ARGS__)
+PRINTF(stderr, errno, fmt, ##__VA_ARGS__)
 
 #define EXIT(fmt, ...)                                                  \
 do {                                                                    \
@@ -494,6 +475,50 @@ RETURN(NULL, fmt, ##__VA_ARGS__)
 #define RETERR(fmt, ...)                                                \
 RETURN(-1  , fmt, ##__VA_ARGS__)
 
+//
+// 辽阔的夜, 黝黑而深邃 ~ 
+// 
+// 苏堤春晓
+// 明·杨周
+// 
+// 柳暗花明春正好，重湖雾散分林鸟。
+// 何处黄鹂破暝烟，一声啼过苏堤晓。
+//
+
+// defined(__linux__) && defined(__GNUC__)
+// defined(_WIN32)    && defined(_MSC_VER)
+// defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined (__NetBSD__)
+// 
+
+//
+// 约定: BEST NEW VERSION 操作系统 Linux + 编译工具 GCC
+//
+#if defined(__linux__) && defined(__GNUC__)
+
+# if defined(__x86_64__)
+#  define ISX64
+# endif
+
+//
+// 大小端检测 : ISBIG defined 表示大端
+//
+# if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
+#  define ISBIG
+# endif
+
+# ifndef likely
+#   define likely(x)   __builtin_expect(!!(x), 1)
+# endif
+# ifndef unlikely
+#   define unlikely(x) __builtin_expect(!!(x), 0)
+# endif
+
+#endif
+
+#ifndef UNUSED
+#define UNUSED(parameter) if (parameter) {}
+#endif//UNUSED
+
 ```
 
 这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式风味! 基调是**推荐不强求**, 求美求简 ❤ 就好. 上面 **struct.h** 封装一些函数指针类型主要为了后面写演示代码方便, 实战封装跟着具体的库走.
@@ -511,7 +536,7 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 #define N               (16)
 ```
 
-上面是常量的宏命名好的示例, 统一大写. 而后 H, STR, UINT INT, FLOAT ... 让人很清晰知道宏的类型. 展示的第一个是头文件宏. 如果项目比较大可以在左边继续加上项目名称, 工程名称等等, 这就是命名空间由来. 其中字符串常量宏, 为了方便字符串拼接不用加 (). 数值常量宏防止意外拼接加了 (). 宏设计过程中, 当你不清楚会有什么意外会发生, 加括号是最保险的解决方案. 
+上面是常量的宏命名好的示例, 统一大写. 而后 H, STR, UINT INT, FLOAT ... 让人很清晰知道宏的类型. 展示的第一个是头文件宏. 如果项目比较大可以在左边继续加上项目名称, 工程名称等等, 这就是命名空间由来. 其中字符串常量宏, 为了方便字符串拼接不用加 (). 数值常量宏防止意外拼接加了 (). 宏设计过程中, **当你不清楚会有什么意外会发生, 加括号是最保险的解决方案**. 
 
 **函数宏另起一行写, 局部使用宏可以放一行写**
 
@@ -575,18 +600,20 @@ static atomic_int id = ATOMIC_VAR_INIT(1);
 
 //
 // EXTERN_TEST  - 单元测试宏, 并打印执行时间
+//                常量 CLOCKS_PER_SEC, 它用来表示一秒钟会有多少个时钟计时单元
+//                clock_t __cdecl clock(void) 该程序从启动到函数调用占用 CPU 的时间
 // ftest        : 测试函数
 // ...          : 可变参数
 //
-#define EXTERN_TEST(ftest, ...)                                         \
-do {                                                                    \
-  int $id = atomic_fetch_add(&id, 1);                                   \
-  printf("\n[test %d]. "STR(ftest)" run start ...\n\n", $id);           \
-  clock_t $s = clock();                                                 \
-  extern void ftest (); ftest (__VA_ARGS__);                            \
-  double $e = (double)clock();                                          \
-  printf("\n[test %d]. "STR(ftest)" run end time difference %lfms\n\n", \
-         $id, ($e - $s) / (CLOCKS_PER_SEC / 1000));                     \
+#define EXTERN_TEST(ftest, ...)                                                     \
+do {                                                                                \
+  int $id = atomic_fetch_add(&id, 1);                                               \
+  printf("\n[test %d]. "STR(ftest)" run start ...\n\n", $id);                       \
+  clock_t $start = clock();                                                         \
+  extern void ftest (); ftest (__VA_ARGS__);                                        \
+  clock_t $end = clock() - $start;                                                  \
+  printf("\n[test %d]. "STR(ftest)" run end difference clock %ld, time %lfms\n\n",  \
+         $id, $end, (double)$end / (CLOCKS_PER_SEC / 1000));                        \
 } while(0)
 ```
 
@@ -656,107 +683,11 @@ a) Install Best New Ubuntu Desktop LTS ISO
 b) Install Best New GCC, GDB, VIM
 c) Install Best New Visual Studio Code
 
-Linux 是业界标杆, 简单高效优美. vi gcc make 能够搞定一切. 无数的一手资料, 强大的 man 手册. 题外话, 自己用老式 Linux 机器很快, 所以推荐 Linux 平台, 其实什么环境都行(Window 系统技术进阶最曲折缓慢, 推荐要不 Mac 要不 Linux), 怎么舒服怎么来, 但都要醇厚精通 ~ 
+Linux 是业界标杆, 简单高效优美. vi gcc make 能够搞定一切. 无数的一手资料, 强大的 man 手册. 题外话, 自己用老式 Linux 机器很快, 所以推荐一定要玩玩 Linux 平台, 其实什么环境都行(Window 系统技术进阶最曲折缓慢但操作上特别综合简单好用, Mac 非常舒服, Linux 很纯粹), 怎么舒服怎么来, 但都要醇厚精通 ~ 
 
 **剑指何方**  
 
-个人感悟, 跨平台对于浮游生物而言是在浪费生命, 我们这里简单整理 **system.h** 部分辅助简单跨平台操作. 有些人单纯的用 Linux, 感觉非常纯粹, 越纯粹越强. Linux 是个回报率很高的平台. 但自从走上了 C 系语言之路. 真是天高地厚不知路长 ~ 岁月过的非常快 ...
-
-```C
-#pragma once
-
-//
-// 辽阔的夜, 黝黑而深邃 ~
-//
-// 跨平台模拟自娱自乐了很久, 可能也有零星的收获, 那就是认怂 ~ 
-//
-// 
-// 苏堤春晓
-// 明·杨周
-// 
-// 柳暗花明春正好，重湖雾散分林鸟。
-// 何处黄鹂破暝烟，一声啼过苏堤晓。
-//
-
-#include <stdint.h>
-#include <stddef.h>
-
-/*
-project defined template
-
-#if defined(__linux__) && defined(__GNUC__)
-
-#elif defined(_WIN32) && defined(_MSC_VER)
-
-#endif
-*/
-
-//
-// 约定: BEST NEW VERSION 操作系统 Linux + 编译工具 GCC
-//
-#if defined(__linux__) && defined(__GNUC__)
-
-# if defined(__x86_64__)
-#  define ISX64
-# endif
-
-//
-// 大小端检测 : ISBIG defined 表示大端
-//
-# if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
-#  define ISBIG
-# endif
-
-#define PACKED(declare)             \
-declare                             \
-__attribute__((__packed__))
-
-# ifndef likely
-#   define likely(x)   __builtin_expect(!!(x), 1)
-# endif
-# ifndef unlikely
-#   define unlikely(x) __builtin_expect(!!(x), 0)
-# endif
-
-//
-// 约定: BEST NEW VERSION 操作系统 window + vs
-//
-#elif defined(_WIN32) && defined(_MSC_VER)
-
-//
-// CPU 检测 x64 or x86
-// ISX64 defined 表示 x64 否则 x86
-//
-# if defined _M_ARM64 || defined_M_X64
-#  define ISX64
-# endif
-
-//
-// _M_PPC 为 PowerPC 平台定义, 现在已不支持
-//
-# if defined _M_PPC
-#  define ISBIG
-# endif
-
-#define PACKED(declare)             \
-__pragma (pack(push, 1))            \
-declare                             \
-__pragma (pack(pop))
-
-                                    /* 开眼不知何处, */
-                                    /* 但听满耳松风。*/
-#define likely(x)    (x)
-#define unlikely(x)  (x)
-
-#endif
-
-#ifndef UNUSED
-#define UNUSED(parameter) (void)(parameter)
-#endif//UNUSED
-
-```
-
-其中 Window 用最新的操作系统 + 最新的 Visual Studio 上面最新的 Clang 编译器, 可以简单写写 C++, 写 C 很难受, 推荐还是得 Linux 嗨起来. 当然我们本文核心是代码思路和代码训练环境, 多尝试, 多试错, 保持开放.
+个人感悟, 跨平台对于浮游生物而言是在浪费生命, 有些人单纯的用 Linux, 感觉非常纯粹, 越纯粹越强. Linux 是个回报率很高的平台. 但自从走上了 C 系语言之路. 真是天高地厚不知路长 ~ 岁月过的非常快 ... 书本内容很少更广阔世界留给各自兴趣去探索感悟吧 ~
 
 ## 1.7 夜太黑练剑好时光
 
@@ -772,7 +703,17 @@ __pragma (pack(pop))
 
 如果你真不甘心, 那就呵呵萌萌哒
 
-书归正转, 前面 **struct.h** 头文件中引入了 **alloc.h** 头文件, 不知道小伙伴是否还记得. 这个 **alloc.h** 是我们对 malloc / free 等内存操作接口包装层. 他基本原理是替换系统申请内存释放内存相关函数. 并且携带了少量平台通用宏. 先看接口设计
+书归正转, 前面 **struct.h** 头文件中其实少了正规项目一个处理内存分配模块, 简单点说是我们对 malloc / free 等内存操作接口怎么处理的包装层. 常见的是下面这样模式
+
+```C
+void * ptr = malloc(sizeof (struct type));
+if (ptr == NULL) {
+    // 业务兜底逻辑
+}
+free(ptr);
+```
+
+通过和 NULL 比较, 但实战中往往更加复杂, 因为内存不够时候, 程序在复杂系统中运行的情况往往是未定义的. 这个很考研工程师业务和技术理解, 也看系统整体规划. 这里简陋写一种简单粗暴方式方便大家感受下这类情况处理方法之一
 
 ```C
 #pragma once
@@ -850,26 +791,9 @@ inline void * ation_realloc(void * ptr, size_t size) {
     return ation_check(realloc(ptr, size), size);
 }
 
-// :) 包裹内存分配层, 些许感怀 ~ 可以通过 define ALLOC_OFF 关闭
-//
-#ifndef ALLOC_OFF
-#  undef    strdup
-#  define   strdup      ation_strdup
-#  undef    strndup
-#  define   strndup     ation_strndup
-#  undef    malloc
-#  define   malloc      ation_malloc
-#  undef    calloc
-#  define   calloc      ation_calloc
-#  undef    realloc
-#  define   realloc     ation_realloc
-#endif
-
 ```
 
-通过 ALLOC_OFF 宏配置来替换全局 free / malloc. 使用时候对用户无感知的. 
-
-对于 check 函数思路, 在内存不足时, 直接 abort. 不知道有没有朋友会问为什么不用 exit? 思考的出发点是这样的, 当出现申请内存不足的时候. 笼统的概括有两种场景:
+对于上面 alloc.h 中 ation_check 函数思路, 在内存不足时, 直接 abort. 不知道有没有朋友会问为什么不用 exit? 思考的出发点是这样的, 当出现申请内存不足的时候. 笼统的概括有两种场景:
 
 + 1' 申请大内存, 
 + 2' 申请小内存. 
@@ -879,7 +803,7 @@ inline void * ation_realloc(void * ptr, size_t size) {
 但如果是 2' 申请小内存, 小内存都耗尽, 那么后续都将是未定义. 综合 1' 和 2' 加上这是个学习项目定位最终
 使用了 abort. 当内存不足的时候, 直接'休息', 粗暴有效的上车. 
 
-对于上面直接使用操作系统能力, 也可以采用了近代软件编程中免费午餐 jemalloc 来包装我们的 alloc.h 层. jemalloc 科普可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 整体 alloc.h 是可插拔的, 这也是程序封装一个好技巧, 好用方便. 
+对于上面真的内存不足去打印信息 fprintf 也是未定义, 大多数情况没问题吧. 以上简单直接使用操作系统能力, 也可以采用了近代软件编程中免费午餐 jemalloc 来包装自己的 alloc.h 层. jemalloc 科普可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 整体 alloc.h 是可插拔的, 这也是程序封装一个好技巧, 好用方便. 
 
 
 :0 初期练习的人体内要感受到兴奋 和 颤抖 ~ 原来变强就是这么简单, 系统临摹和训练. 啊哈. 此刻只想说三个字, 这很 cool ~ 享受 code.
