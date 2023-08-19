@@ -1,14 +1,14 @@
 # C 菜鸟之旅
 
-    很久以前想写本关于 C 入门的华山剑法 § 方便精进 ~
+    很久以前想写些关于 C 语言学完之后的简单篇章, 也就是这里的入门级华山剑法 § 方便工程精进 ~
 
     微笑有清风 :) 
 
-    Lets'go C 初学者全面爆气超赛之旅
+    Lets'go C 开启爆气超赛之旅
 
 ## 修炼参悟
 
->[虚虚实实 : http://music.163.com/#/song?id=189433](http://music.163.com/#/song?id=189433)  
+> [虚虚实实 - 电视剧《少年张三丰》片头曲 - 张卫健](http://music.163.com/#/song?id=189433) 
 
     假如我可以再生
     像太极为两仪而生
@@ -26,23 +26,23 @@
 
 **素材库**
 
-因为想写本小册介绍华山剑法, 所以写了 structc
+当想写本小册介绍华山剑法, 随后简单写了些素材 structc
 
-> [基础素材: https://github.com/wangzhione/structc](https://github.com/wangzhione/structc)
-
-> [入门素材: cloudwu skynet](https://github.com/cloudwu/skynet)
-
+> [基础素材: wangzhione/structc](https://github.com/wangzhione/structc)
+> [入门素材: cloudwu/skynet](https://github.com/cloudwu/skynet)
 > [拓展素材: glibc](https://www.gnu.org/software/libc/)
 
 ***
 
+**整体节奏**
+
     1. 第一阶段 代码风味大致缘由
-    1. 第二阶段 构建和练习常见的套路
-    2. 第三阶段 socket 网络编程简介
+    2. 第二阶段 构建和练习常见的套路
+    3. 第三阶段 socket 网络编程简介
 
 ***
     
-菜鸟之旅核心在于 **写**, Coding player ~ 
+代码修行之旅逃不开核心命门在于 **写**, Coding player ~ 
     
 **Talk is cheap, show me the code.**
 
@@ -61,3 +61,7 @@
 ### 2022年12月24日记
 
 - [高] 开始整理小册
+
+### 2023年8月20日记
+
+- [高] 翻修整理成简单的小册
