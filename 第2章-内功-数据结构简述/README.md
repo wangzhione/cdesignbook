@@ -1,31 +1,6 @@
 # 第2章-内功-数据结构简述
 
-<!-- TOC -->
-
-- [第2章-内功-数据结构简述](#%E7%AC%AC2%E7%AB%A0-%E5%86%85%E5%8A%9F-%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AE%80%E8%BF%B0)
-    - [1. list](#1-list)
-        - [1.1. list interface](#11-list-interface)
-        - [1.2. list implements](#12-list-implements)
-    - [2. string](#2-string)
-        - [2.1. 包装 string.h => strext.h](#21-%E5%8C%85%E8%A3%85-stringh--strexth)
-        - [2.2. chars interface](#22-chars-interface)
-        - [2.3. chars implement](#23-chars-implement)
-    - [3. array](#3-array)
-    - [4. 阅读理解两篇](#4-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3%E4%B8%A4%E7%AF%87)
-        - [4.1. 阅读理解 - stack 设计](#41-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3---stack-%E8%AE%BE%E8%AE%A1)
-        - [4.2. 阅读理解 - id hash 设计](#42-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3---id-hash-%E8%AE%BE%E8%AE%A1)
-    - [5. 拓展阅读 strlen 工程样例](#5-%E6%8B%93%E5%B1%95%E9%98%85%E8%AF%BB-strlen-%E5%B7%A5%E7%A8%8B%E6%A0%B7%E4%BE%8B)
-    - [6. 展望](#6-%E5%B1%95%E6%9C%9B)
-    - [7. dict](#7-dict)
-    - [8. 来个队列吧](#8-%E6%9D%A5%E4%B8%AA%E9%98%9F%E5%88%97%E5%90%A7)
-        - [8.1. 简单版本队列](#81-%E7%AE%80%E5%8D%95%E7%89%88%E6%9C%AC%E9%98%9F%E5%88%97)
-        - [8.2. 线程安全版本](#82-%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%89%88%E6%9C%AC)
-        - [8.3. 队列拓展小练习](#83-%E9%98%9F%E5%88%97%E6%8B%93%E5%B1%95%E5%B0%8F%E7%BB%83%E4%B9%A0)
-    - [9. 阅读理解 struct heap](#9-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3-struct-heap)
-
-<!-- /TOC -->
-
-对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其他语言好一点, 标准或者框架中对结构算法有很好用(中庸)的支持. 重复说, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得自己敲打. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 这里只讲简单一点 list, string, array, stack, hash, dict, queue, heap 等普通工程类型的数据结构.
+对于 C 而言, 数据结构不熟练, 很难不是美丽的泡沫. 其他语言好一点, 标准或者框架中对结构算法有很好用的中庸支持. 重复讲, 在 C 的世界里, 数据结构和操作系统是硬通货. 其中数据结构就是核心内功, 一招一式全得自己敲打. 修炼数据结构本质是为了掌握业务世界和编程世界沟通单元, 规划细节, 捋顺输入输出. 而关于数据结构内功没有几个月苦练, 很难实现外放得心应手. 这里只讲简单一点 list, string, array, stack, hash, dict, queue, heap 等普通工程类型的数据结构. 复杂需要自己的兴趣去带路, 融会贯通的少也是一种精.
 
 ## 2.1 list
 
@@ -135,8 +110,7 @@ typedef void (* node_f)();
 #endif//NODE_F
 ```
 
-对于 **struct $list { struct $list * next; };** 链式结构的设计方式, 可以稍微思考一下, 等同于内存级别的继承. '$' (类似 _, __ 这些, 存在极微小
-时候可能会和编译器生成的冲突) 符号希望标识当前结构是私有的, 不推荐使用, 或者使用要谨慎, 需要知道其内存的全貌. 下面用以上 list 提供的接口原型, 构建 people list 演示例子
+对于 **struct $list { struct $list * next; };** 链式结构的设计方式, 可以稍微思考一下, 等同于内存级别的继承. '$' (类似 _, __ 这些, 存在极微小时候可能会和编译器生成的冲突) 符号希望标识当前结构是私有的, 不推荐使用, 或者使用要谨慎, 需要知道其内存的全貌. 下面用以上 list 提供的接口原型, 构建 people list 演示例子
 
 ```C
 struct people {
@@ -194,9 +168,9 @@ struct people p = { .free = 100, .ideal = "59", .future = 0.0 };
 > 因而由 &p 地址可以确定 $node 地址, 因而也获得了 $node 内部的 $next
 ((struct $list *)&p)->$next
 
-读者可以画画写写感受哈, list 过于基础, 解释太多没有 **自己抄写 10几类 10几遍 链表源码** 来的实在. 用 C 写业务, 几乎都是**围绕 list 相关结构的增删改查**. 
+读者可以画画写写感受哈, list 过于基础, 解释太多没有 **自己抄写 10 几类 10 几遍 链表源码** 来的实在. 用 C 写业务, 几乎都是**围绕 list 相关结构的增删改查**. 
 
-后续封装代码库基本套路整体是三思而后行, 想出大致思路, 定好基本接口, 再堆实现. 设计出优雅好用的接口, 是第一位. 在 C 中思路落地表现是基本的数据结构定型, 后续实现相关代码实现就已经妥了! 后面是 Debug 和 Unit test 来回倒腾一段时间.
+后续封装代码库基本套路整体是三思而后行, 想出大致思路, 定好基本接口, 再堆实现. 设计出优雅好用的接口非常加分. 在 C 中思路落地表现是基本的数据结构定型, 后续实现相关代码实现就已经妥了! 后面是 Debug 和 Unit test 来回倒腾一段时间.
 
 ### 2.1.2 list implements
 
@@ -228,7 +202,7 @@ list_delete 做了 3 件事情
 
 - 1 检查 pist 和 fdie 是否都不为 NULL
 - 2 为 list 每个结点执行 fdie 注入的行为
-- 3 *(void **)pist = NULL 图个心安
+- 3 *(void **)pist = NULL 图个心安, 可有可无
     
 继续渐进的看 list_add 实现, 直接通过注入函数决定插入的位置
 
@@ -478,13 +452,6 @@ strext.h 是基于 string.h 扩展而来, 先引入 strext.h 目的是方便后�
 
 #include "stdext.h"
 
-#if defined(_WIN32) && defined(_MSC_VER)
-
-#define strcasecmp  _stricmp
-#define strncasecmp _strnicmp
-
-#endif
-
 //
 // BKDHash - Brian Kernighan 与 Dennis Ritchie hash 算法
 // str      : 字符串内容
@@ -689,6 +656,9 @@ str_sprintf(const char * fmt, ...) {
 
     // 获取待分配内存, 尝试填充格式化数据
     char * ret = malloc(++n);
+    if (ret == NULL) {
+        RETNUL("malloc panic n = %d", n);
+    }
 
     va_start(arg, fmt);
     n = vsnprintf(ret, n, fmt, arg);
@@ -713,6 +683,7 @@ str_sprintf(const char * fmt, ...) {
 //
 char * 
 str_freads(const char * path) {
+    if (path == NULL || *path == 0) return NULL;
     int64_t size = fsize(path);
     if (size <  0) return NULL;
     if (size == 0) return calloc(1, sizeof (char));
@@ -723,6 +694,11 @@ str_freads(const char * path) {
 
     // 构建最终内存
     char * str = malloc(size + 1);
+    if (str == NULL) {
+        // 隐含内存不足问题
+        RETNUL("malloc panic return nullptr size = %ld", size);
+    }
+
 
     size_t n = fread(str, sizeof(char), size, txt);
     assert(n == (size_t)size); UNUSED(n);
@@ -777,7 +753,6 @@ inline int
 str_fappends(const char * path, const char * str) {
     return str_fwrite(path, str, "ab");
 }
-
 ```
 
 **str_freads** 中 **fsize** 获取文件大小功能来自于 **stdext.h** 中, 这个功能实现我们放在后面讲. str_fwrite 设计仅仅对系统的文件输出函数包装一下. 以上关于 string.h 接口扩展部分不华丽, 但又是不可或缺, 适合传授新手, 带其练手和快速上手 ~
@@ -942,7 +917,9 @@ char * chars_expand(struct chars * cs, size_t len) {
         }
 
         cs->str = realloc(cs->str, cs->cap = cap);
+        assert(cs->str != NULL && cs->cap > len);
     }
+
     return cs->str + cs->len;
 }
 ```
@@ -983,10 +960,12 @@ static inline int pow2gt(int x) {
 // cs       : struct chars * 串
 // return   : 返回创建好的 C 串
 //
-inline char * chars_dup(struct chars * cs) {
+char * 
+chars_dup(struct chars * cs) {
     // 构造内存, 返回最终结果
     size_t len = cs->len + (cs->len == 0 || cs->str[cs->len-1] != 0);
     char * str = malloc(len);
+    assert(str != NULL);
     memcpy(str, cs->str, len-1);
     str[len-1] = 0;
     return str;
@@ -1006,7 +985,6 @@ inline void chars_pop(struct chars * cs, size_t len) {
         memmove(cs->str, cs->str+len, cs->len);
     }
 }
-
 ```
 
 chars_dup 用于 struct chars 结构到 C char * 转换. chars_pop 操作会在 str 头部弹出特定长度字符, 可用于协议解析模块. 再附加赠送个 chars_sprintf 用于 chars sprintf 操作
@@ -1073,34 +1051,15 @@ struct array {
     void *  data;       // 数组存储
 };
 
-// ARRAY_UINT    - 数组初始化默认大小
-#define ARRAY_UINT      (1u<<5)
-inline struct array array_create(unsigned size) {
-    return (struct array) { 
-        .size = size,
-        // set default cap size 1^x
-        .cap = ARRAY_UINT,
-        .data = malloc(size * ARRAY_UINT),
-     };
-}
+
+// init array success return true, size is 元素大小
+extern bool array_init(struct array * a, unsigned size);
+
+// push array element success return not nullptr
+extern void * array_push(struct array * a);
 
 inline void array_release(struct array * a) {
     free(a->data);
-}
-
-//
-// array_push - 数组中插入一个数据
-// a        : 动态数组对象
-// return   : void * 压入数据首地址
-//
-inline void * array_push(struct array * a) {
-    if (a->len >= a->cap) {
-        /* the array is full; allocate new array */
-        a->cap <<= 1;
-        a->data = realloc(a->data, a->cap * a->size);
-    }
-
-    return (char *)a->data + a->size * a->len++;
 }
 
 //
@@ -1179,8 +1138,6 @@ extern int array_each(struct array * a, each_f func, void * arg);
 
 ```
 
-```array_create``` 中 struct array 通过注册的 size 确定数组中每个对象模型内存大小, 是一种很原始的反射套路. 高级语言做的很多工作就是把原本编译时做的事情转到了运行时. 更现代化的魔法直接跳过编译时吟唱阶段而瞬发.
-
 array 接口设计分为两部分, 第一部分是核心围绕创建, 删除, 压入, 弹出. 第二部分是应用围绕 array 结构做一些辅助操作. 
 
 **array.c**
@@ -1209,6 +1166,48 @@ array_each(struct array * a, each_f func, void * arg) {
     return 0;
 }
 
+// ARRAY_UINT    - 数组初始化默认大小
+#define ARRAY_UINT      (1u<<5)
+
+// init array success return true
+bool 
+array_init(struct array * a, unsigned size) {
+    assert(a != NULL && size > 0);
+
+    void * data = malloc(size * ARRAY_UINT);
+    if (data == NULL) {
+        RETURN(false, "malloc panic ARRAY_UINT = %u, a = %p, size = %u", ARRAY_UINT, a, size);
+    }
+    a->size = size;
+    a->cap = ARRAY_UINT;
+    a->data = data;
+    a->len = 0;
+    return true;
+}
+
+//
+// array_push - 数组中插入一个数据
+// a        : 动态数组对象
+// return   : void * 压入数据首地址, NULL 表示 PUSH 失敗
+//
+inline void * 
+array_push(struct array * a) {
+    assert(a != NULL);
+
+    if (a->len >= a->cap) {
+        /* the array is full; allocate new array */
+        unsigned cap = a->cap <= 0 ? ARRAY_UINT : a->cap * 2;
+        void * data = realloc(a->data, a->cap * a->size);
+        if (data == NULL) {
+            RETNUL("realloc panic data = %p, cap = %u, size = %u", a->data, cap, a->size);
+        }
+        a->cap = cap;
+        a->data = data;
+    }
+
+    return (char *)a->data + a->size * a->len++;
+}
+
 ```
 
 代码写来写去, 也就那点东西了. 当然了, 越是经过筛选的好东西, 理应很顺很清晰. 顺带补充点, 对于编程而言, 尽量少 typedef, 多 struct 写全称. 减少身体对糖依赖性. 并且多用标准中推出的解决方案, 例如标准提供的 stdint.h 和 stddef.h 定义全平台类型. 不妨传大家我这么多年习得的无上秘法, 开 血之限界 -> 血轮眼 -> 不懂装懂, 抄抄抄, 如梦如幻! 回到正题. 再带大家写个很傻的业务可用性的单元测试, 供参考. 对于单元测试有比没有好很多, 严格标准单元测试比普通 Hello World 类型单元测试好很多.
@@ -1219,19 +1218,21 @@ array_each(struct array * a, each_f func, void * arg) {
 // array_test - array test
 void array_test(void) {
     // 构建一个在栈上的动态数组
-    array_declare(double, a);
+    struct array a;
 
-    // 开始处理数据
-    *(double *)array_push(a) = 1.1234;
-    *(double *)array_push(a) = 2.2345;
-    *(double *)array_push(a) = 4.9876;
+    IF (array_init(&a, sizeof(double)) == false);
+
+    // 开始处理数据, 内存不足返回 NULL 程序会崩溃
+    *(double *)array_push(&a) = 1.1234;
+    *(double *)array_push(&a) = 2.2345;
+    *(double *)array_push(&a) = 4.9876;
 
     // 输出数据
-    printf("v = %lf\n", *(double *)array_pop(a));
-    printf("v = %lf\n", *(double *)array_pop(a));
-    printf("v = %lf\n", *(double *)array_pop(a));
+    printf("v = %lf\n", *(double *)array_pop(&a));
+    printf("v = %lf\n", *(double *)array_pop(&a));
+    printf("v = %lf\n", *(double *)array_pop(&a));
 
-    array_free(a);
+    array_release(&a);
 }
 
 ```
@@ -1241,6 +1242,8 @@ void array_test(void) {
 ### 2.4.1 阅读理解 - stack 设计
 
 stack 设计和上面 chars, array 非常类似. 我们这本书强调是工程实现, 如果你还不知道 stack 干什么的特性是什么, 可以尝试看看数据结构栈的部分. 温故而知新, 一起加油.
+
+**stack.h**
 
 ```C
 #pragma once
@@ -1257,15 +1260,8 @@ struct stack {
     void **  data;  // 栈实体
 };
 
-#define INT_STACK   (1 << 8)
-
-inline struct stack stack_create(void) {
-    return (struct stack) {
-        .tail = -1,
-        .cap = INT_STACK,
-        .data = malloc(sizeof(void *) * INT_STACK),
-    };
-}
+extern bool stack_init(struct stack * s);
+extern bool stack_push(struct stack * s, void * m);
 
 inline void stack_release(struct stack * s) {
     free(s->data);
@@ -1335,18 +1331,57 @@ inline void * stack_pop(struct stack * s) {
     return s->data[s->tail--];
 }
 
+```
+
+**stack.c**
+
+```C
+#include "stack.h"
+
+// struct stack 对象栈
+// stack empty <=> tail = -1 
+// stack full  <=> tail == cap
+// 
+
+#define INT_STACK   (1 << 8)
+
+bool 
+stack_init(struct stack * s) {
+    assert(s != NULL);
+
+    void * data = malloc(sizeof(void *) * INT_STACK);
+    if (data == NULL) {
+        RETURN(false, "malloc panic INT_STACK = %d", INT_STACK);
+    }
+
+    s->tail = -1;
+    s->cap = INT_STACK;
+    s->data = data;
+    return true;
+}
+
 //
 // stack_push - 压入元素到对象栈栈顶
 // s        : stack 对象栈
 // m        : 待压入的对象
 // return   : void
 // 
-inline void stack_push(struct stack * s, void * m) {
-    if (s->cap <= s->tail) {
-        s->cap <<= 1;
-        s->data = realloc(s->data, sizeof(void *)*s->cap);
+bool 
+stack_push(struct stack * s, void * m) {
+    assert(s != NULL);
+    
+    if (s->cap <= s->tail || s->cap <= 0) {
+        int cap = s->cap <= 0 ? INT_STACK : s->cap * 2;
+        void * data = realloc(s->data, sizeof(void *) * cap);
+        if (data == NULL) {
+            RETURN(false, "realloc panic s = %p, cap = %d, tail = %d", s, cap, s->tail);
+        }
+        s->cap = cap;
+        s->data = data;
     }
+
     s->data[++s->tail] = m;
+    return true;
 }
 
 ```
@@ -1792,7 +1827,7 @@ extern __typeof (strlen) __GI_strlen __attribute__ ((alias ("strlen"))) __attrib
  
 总结:  libc_hidden_builtin_def (strlen) 意思是基于 strlen 符号, 重新定义一个符号别名 __GI_strlen. (@see strong_alias 注释)
 
-strlen 工程代码有很多种, 我们这里选择一个通用 glibc 版本去思考和分析. 有兴趣可以自行查阅更多. 做人嘛开心最重要 ~
+strlen 工程代码有很多种, 我们这里选择一个通用 glibc 版本简单直白的去思考和分析. 有兴趣可以自行查阅更多. 做人嘛开心最重要 ~
 
 ## 2.6 展望
 
@@ -1892,10 +1927,13 @@ inline void keypair_delete(struct keypair * pair, node_f fdie) {
 }
 
 // keypair_create - 创建结点数据
-inline struct keypair * keypair_create(unsigned hash, 
+struct keypair * keypair_create(unsigned hash, 
                                        void * v, const char * k) {
     size_t len = strlen(k) + 1;
     struct keypair * pair = malloc(sizeof(struct keypair) + len);
+    if (pair == NULL) {
+        RETNUL("malloc panic len = %zu", len);
+    }
     pair->hash = hash;
     pair->val = v;
     memcpy(pair->key, k, len);
@@ -1916,6 +1954,7 @@ unsigned dict_size(dict_t d) {
 unsigned dict_used(dict_t d) {
     return d ? d->used : 0u;
 }
+
 ```
 
 dict::table 就是我们的 keypair 池子, 存放所有 struct keypair 结构. 如果冲突了, 那就向 keypair::next 链式结构中接着插入. 如果池子满了, 那就重新挖一个大点的池子, 重新调整所有关系. 这就是核心思想! 不妨详细看看池子漫了的时候的策略.
@@ -1951,6 +1990,9 @@ static void dict_resize(struct dict * d) {
     
     // 构造新的内存布局大小
     table = calloc(size, sizeof(struct keypair *));
+    if (table == NULL) {
+        RETNIL("calloc panic size = %u", size);
+    }
 
     // 开始转移数据
     for (unsigned i = 0; i < d->size && d->used > used; i++) {
@@ -2010,14 +2052,23 @@ dict_delete(dict_t d) {
 // fdie     : v 销毁函数
 // return   : dict_t
 //
-inline dict_t 
+dict_t 
 dict_create(void * fdie) {
     struct dict * d = malloc(sizeof(struct dict));
+    if (d == NULL) {
+        RETNUL("malloc panic size = %zu", sizeof(struct dict));
+    }
+
     d->used = 0;
     d->size = DICT_INIT_UINT;
     d->fdie = fdie;
     // 默认构建的第一个素数表 index = 0
     d->table = calloc(DICT_INIT_UINT, sizeof(struct keypair *));
+    if (d->table == NULL) {
+        free(d);
+        RETNUL("calloc panic size = %zu, count=%u", sizeof(struct keypair *), DICT_INIT_UINT);
+    }
+
     return d;
 }
 ```
@@ -2132,6 +2183,11 @@ dict_set(dict_t d, const char * k, void * v) {
 
     // 没有找见设置操作, 直接插入数据
     pair = keypair_create(hash, v, k);
+    if (pair == NULL) {
+        // 插入失败, 记录错误日志直接返回
+        RETNIL("keypair_create panic hash=%u, k = %s, v = %p", hash, k, v);
+    }
+
     pair->next = d->table[index];
     d->table[index] = pair;
     ++d->used;
@@ -2142,7 +2198,7 @@ dict_set(dict_t d, const char * k, void * v) {
 
 ## 2.8 来个队列吧
 
-队列实战意义非凡, 基本偏 C 系列的开发中不是链表, 就是队列. 队列可以比喻为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是队列作用. 队列超好用的能力是让异步编程变成同步并发. 说白了就是将异步程序变成顺序同步程序. 不用考虑并发上资源冲突, 开发起来很爽. 而在 C 中队列至高王的装逼是无锁, 而我们这里还是会老老实实带大家用原子自旋锁实现(没有错误和不炒股一样领先 90% 选手). 大伙还记得 **stdatomic.h** 吗? 练气期之后的战斗, 无不是队列领域的对撞. 随我打开简单的队列世界的传送门. 
+队列实战意义非凡, 基本偏 C 系列的开发中不是链表, 就是队列. 队列可以比喻为咱们排队等待进入火车站, 那个一排排的栏杆让人一个个的检查过去, 就是队列作用. 队列超好用的能力是让异步编程变成同步并发. 说白了就是将异步程序变成顺序同步程序. 不用考虑并发上资源冲突, 开发起来很爽. 而在 C 中队列至高王的装逼是无锁, 而我们这里还是会老老实实带大家用原子自旋锁实现(没有错误和不炒股一样领先 99.99% 业务选手). 大伙还记得 **stdatomic.h** 吗? 练气期之后的战斗, 无不是队列领域的对撞. 随我打开简单的队列世界的传送门. 
 
 ### 2.8.1 简单版本队列
 
@@ -2164,18 +2220,7 @@ struct q {
     void ** data;       // 队列实体
 };
 
-// Q_INT  - 队列初始大小, 必须是 2 的幂
-#ifndef Q_INT
-#define Q_INT     (1<< 6)
-#endif
-
-inline struct q q_create(void) {
-    return (struct q) {
-        .tail = -1,
-        .cap = Q_INT,
-        .data = malloc(sizeof(void *)*Q_INT),
-    };
-}
+extern bool q_init(struct q * q);
 
 inline void q_release(struct q * q) {
     free(q->data);
@@ -2218,9 +2263,9 @@ extern void * q_pop(struct q * q);
 // q_push - 队列中压入数据
 // q      : 队列对象
 // m      : 压入消息
-// return : void
+// return : bool true push success
 // 
-extern void q_push(struct q * q, void * m);
+extern bool q_push(struct q * q, void * m);
 
 //
 // q_delete - 队列删除
@@ -2232,10 +2277,25 @@ extern void q_delete(struct q * q, node_f fdie);
 
 ```
 
-上面写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满, q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_delete 实现.
+上面写的循环队列, 喜欢用 q::head == (q::tail + 1) & (q::size - 1) 标识队列为满, q::tail == -1 标识队列为空. 读者可以思考下还有没有其他方式标识 empty 和 full状态, 再互相对比方式差异好处和坏处! 那仍然先看看 q_init 和 q_delete 实现.
 
 ```C
 #include "q.h"
+
+// Q_INT  - 队列初始大小, 必须是 2 的幂
+#define Q_INT     (1<< 6)
+
+bool q_init(struct q * q) {
+    void * data = malloc(sizeof(void *) * Q_INT);
+    if (data == NULL) {
+        RETURN(false, "malloc panic Q_INT = %d", Q_INT);
+    }
+
+    q->tail = -1;
+    q->cap = Q_INT;
+    q->data = data;
+    return true;
+}
 
 //
 // q_delete - 队列删除
@@ -2288,9 +2348,15 @@ q_push 操作包含了 q_expand 内存扩充操作, 用于内存重建, 同前�
 
 ```C
 // q_expand - expand memory by twice
-static void q_expand(struct q * q) {
+static bool q_expand(struct q * q) {
+    assert(q != NULL && q->cap > 0);
+
     int cap = q->cap << 1;
-    void ** p = malloc(sizeof(void *)*cap);
+    void ** p = malloc(sizeof(void *) * cap);
+    if (p == NULL) {
+        RETURN(false, "malloc panic cap = %d", cap); 
+    }
+
     for (int i = 0; i < q->cap; ++i)
         p[i] = q->data[(q->head+i) & (q->cap-1)];
     free(q->data);
@@ -2300,23 +2366,29 @@ static void q_expand(struct q * q) {
     q->tail = q->cap;
     q->cap = cap;
     q->data = p;
+
+    return true;
 }
 
 //
 // q_push - 队列中压入数据
 // q      : 队列对象
 // m      : 压入消息
-// return : void
+// return : bool true push success
 // 
-void 
+bool 
 q_push(struct q * q, void * m) {
     int tail = (q->tail+1) & (q->cap-1);
     // 队列 full 直接扩容
-    if (tail == q->head && q->tail >= 0)
-        q_expand(q);
-    else
-        q->tail = tail;
+    if (tail == q->head && q->tail >= 0) {
+        if (q_expand(q) == false) {
+            return false;
+        }
+    } else {
+        q->tail = tail;   
+    }
     q->data[q->tail] = m;
+    return true;
 }
 ```
 
@@ -2330,32 +2402,19 @@ q_push(struct q * q, void * m) {
 #include "q.h"
 #include "spinlock.h"
 
+//
+// init : 
+//    struct mq mq;
+//    if (q_init(&mq.q)) {
+//        mq.lock = (atomic_flag) ATOMIC_FLAG_INIT;
+//    }
+// free :
+//    q_delete(&q->q, fdie);    
+// 
 struct mq {
-    struct q       q;       // 队列
-    atomic_flag lock;  // 自旋锁
+    struct q       q;   // 队列
+    atomic_flag lock;   // 自旋锁
 };
-
-//
-// mq_delete - 消息队列删除
-// q        : 消息队列对象
-// fdie     : node_f 行为, 删除 push 进来的结点
-// return   : void
-//
-inline void mq_delete(struct mq * q, node_f fdie) {
-    // 销毁所有对象
-    q_delete(&q->q, fdie);
-}
-
-//
-// mq_create - 消息队列创建
-// return   : 消息队列对象
-//
-inline struct mq mq_create(void) {
-    return (struct mq) {
-        .q = q_create(),
-        .lock = ATOMIC_FLAG_INIT,
-    };
-}
 
 //
 // mq_pop - 消息队列中弹出消息, 并返回数据
@@ -2395,17 +2454,17 @@ extern inline int mq_len(struct mq * q) {
 
 ```
 
-不知道有没有同学好奇 **mq_delete** 为什么不是线程安全的? 这个是这样的, mq_delete 一旦执行后, 那么 mq 随后的所有的操作都不应该被调用. 因为内存都没了, 别让野指针大魔头冲出封印. 基于这个, mq_delete 只能在所有业务都停下的时候调用. 所以无需画蛇添足. mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~ 这倔强的 q.
+mq_len 额外添加的函数用于线上监控当前循环队列的峰值. 用于观测和调整代码内存分配策略. 这套骚操作, 主要是感悟(临摹)化神巨擘云风 skynet mq 残留的意境而构建的. 欢迎道友修炼 ~ 这倔强的 q. 对于 **spinlock.h** 核心来自于 **stdatomic.h** atomic_flag 结构, 后面章节会简单介绍.
+
 
 ### 2.8.3 队列拓展小练习
 
-本章已经轻微剧透了些筑基功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的解决方案 TLV. 首先定义消息结构.
+本章已经轻微剧透了些筑基功法的消息. 在我们处理服务器通信的时候, 采用 UDP 报文套接字能很好处理边界问题, 因为 UDP 包有固定大小. 而 TCP 流式套接字一直在收发, 流式操作需要自行定义边界. 因此 TCP 的报文边切割需要程序员自己处理. 这里就利用所学给出一个简易的解决方案 TLV. 首先定义消息结构 **msg.h**.
 
 ```C
 #pragma once
 
 #include "struct.h"
-#include "system.h"
 
 //
 // msg_t 网络传输协议结构
@@ -2450,6 +2509,7 @@ static inline msg_t msg_create(const void * data, uint32_t len) {
 
     uint32_t sz = len + sizeof(uint32_t);
     msg_t msg = malloc(sizeof(*msg) + sz);
+    assert(msg != NULL);
     msg->sz = sz;
     
     // sz -> type + len 本地网络大端字节序 -> data
@@ -2614,7 +2674,6 @@ msg_buf_append(msg_buf_t q,
     msg_buf_push(q, data, sz);
     return msg_buf_pop(q,p);
 }
-
 ```
 
 而 msg_buf_data_pop 解析可以尝试当阅读理解, 相对容易一点. 但需要对比 msg_create 着看. 注释很用心, 欢迎阅读 ~ 
