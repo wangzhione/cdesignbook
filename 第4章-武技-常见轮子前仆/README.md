@@ -1,32 +1,10 @@
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
-
-<!-- code_chunk_output -->
-
-- [第4章-武技-常见轮子前仆](#第4章-武技-常见轮子前仆)
-  - [4.1 那些年写过的日志库](#41-那些年写过的日志库)
-    - [4.1.1 小小日志库](#411-小小日志库)
-    - [4.1.2 小小 VT 二连](#412-小小-vt-二连)
-  - [4.2 开胃点心, 高效随机数库](#42-开胃点心-高效随机数库)
-  - [4.3 文件操作](#43-文件操作)
-    - [4.3.1 文件操作辅助库 stdext](#431-文件操作辅助库-stdext)
-    - [4.3.2 配置文件刷新小练习](#432-配置文件刷新小练习)
-  - [4.4 C 造 json 轮子](#44-c-造-json-轮子)
-    - [4.4.1 C json 设计布局](#441-c-json-设计布局)
-    - [4.4.2 C json 详细设计](#442-c-json-详细设计)
-    - [4.4.3 parse array value](#443-parse-array-value)
-  - [4.5 C json 小练习 config 配置库](#45-c-json-小练习-config-配置库)
-  - [4.6 奥特曼, 通用头文件](#46-奥特曼-通用头文件)
-  - [4.7 阅读理解 csv 解析](#47-阅读理解-csv-解析)
-  - [4.8 展望](#48-展望)
-
-<!-- /code_chunk_output -->
 # 第4章-武技-常见轮子前仆
 
-本章是关于系统中常见轮子的介绍. 构建框架中最基础最简单的组件. 保障咱们'战斗'过程中的生命线. 定位是练气期的顶阶武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套路的实力, 一招飞龙在天, 同阶无敌. 武技的宗旨就是让你成为战场上能苟住能偷袭的小强 ┗|｀O′|┛ . 嗷, 那请出招吧 ~
+本章是关于系统中常见出现的轮子的简单介绍. 构建框架中最基础最简单的组件. 保障咱们'战斗'过程中的生命线. 定位是练气期的武技, 融合了那些在妖魔大战中无数前辈们的英魄构建的套路. 武技的宗旨就是让你成为战场上能苟住能偷袭的小强 ┗|｀O′|┛ . 嗷 ~
 
 ## 4.1 那些年写过的日志库
 
-用过很多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最后展示核心代码不足 20 行的日志库, 来追求最简单的美好. 越简单越优美越让人懂的代码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎 
+用过很多日志库轮子, 也写过不少. 见过漫天飞花, 也遇到过一个个地狱火撕裂天空, 最后展示核心代码不足 20 行的简单的日志库, 来追求最简单的美好. 越简单越优美越让人懂的代码总会出彩, 不是吗? 一个高性能的日志库突破点无外乎 
 
 - 1' 缓存
 - 2' 无锁
@@ -41,66 +19,59 @@
 ```C
 #pragma once
 
+#include <errno.h>
 #include <stdlib.h>
-#include <stdarg.h>
+#include <string.h>
 
 #include "times.h"
 
+extern FILE * log_instance;
+
 //
-// LOG_PRINTF - 构建拼接输出的格式串
-// pre        : 日志前缀串必须 "" 包裹
-// fmt        : 自己要打印的串, 必须 "" 包裹
-// return     : void
+// LOG_PRINT - 构建拼接输出的格式串
+// V         : 标识 日志前缀串必须 "" 包裹
+// X         : fmt 自己要打印的串, 必须 "" 包裹
+// return    : void
 //
-#define LOG_PRINTF(pre, fmt, ...)   \
-log_printf(pre"[%s:%s:%d]"fmt"\n", __FILE__, __func__, __LINE__, ##__VA_ARGS__)
+#define LOG_PRINT(V, X, ...)                                            \
+fprintf(log_instance, "[%s]"V"[%s:%s:%d][%d:%s]"X"\n", times(),         \
+    __FILE__, __func__, __LINE__, errno, strerror(errno), ##__VA_ARGS__)
 
 //
 // log 有些朴实, 迅速 ~
 //
-#define LOG_ERROR(fmt, ...) LOG_PRINTF("[ERROR]", fmt, ##__VA_ARGS__)
-#define LOG_INFOS(fmt, ...) LOG_PRINTF("[INFOS]", fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_PRINT("[ERROR]", fmt, ##__VA_ARGS__)
+#define LOG_INFOS(fmt, ...) LOG_PRINT("[INFOS]", fmt, ##__VA_ARGS__)
 #ifndef NDEBUG
-#define LOG_DEBUG(fmt, ...) LOG_PRINTF("[DEBUG]", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_PRINT("[DEBUG]", fmt, ##__VA_ARGS__)
 #else
 #define LOG_DEBUG(fmt, ...) /*  (^_−)☆ */
 #endif
-
-//
-// log_printf - 日志输出
-// fmt        : 必须 "" 包裹的串
-// ...        : 对映 fmt 参数
-// return     : void
-//
-void log_printf(const char * fmt, ...) __attribute__((format(printf, 1, 2))) ;
 
 ```
 
 **log.h** 继承自 **times.h**, 唯一依赖的是其中 **times_fmt** 接口. 协助得到特定时间格式串, 填充到日志的头部.  
 
 ```C
-// TIMES_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{毫秒}"
-#define TIMES_STR "%04d-%02d-%02d %02d:%02d:%02d %03d"
+// TIMES_FMT_STR - "{年}.{月}.{日}.{时}.{分}.{秒}.{纳秒} {时区}"
+#define TIMES_FMT_STR "%04d-%02d-%02d %02d:%02d:%02d.%09ld %s"
 
-//
-// times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt      : 推荐遵循 TIMES_STR 意图
-// out      : 最终保存的内容
-// sz       : buf 长度
-// return   : 返回生成串长度
-//
-int
-times_fmt(const char * fmt, char out[], size_t sz) {
+// times TLS time str 版本
+extern const char * times(void) {
+    static _Thread_local times_t out;
+
     struct tm m;
     struct timespec s;
 
     timespec_get(&s, TIME_UTC);
     localtime_get(&m, s.tv_sec);
 
-    return snprintf(out, sz, fmt,
-                    m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
-                    m.tm_hour, m.tm_min, m.tm_sec,
-                    (int)(s.tv_nsec / 1000000));
+    sprintf(out, TIMES_FMT_STR,
+            m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
+            m.tm_hour, m.tm_min, m.tm_sec,
+            s.tv_nsec, tzname[0]);
+
+    return out;
 }
 ```
 
@@ -109,37 +80,15 @@ times_fmt(const char * fmt, char out[], size_t sz) {
 ```C
 #include "log.h"
 
-static FILE * txt;
+FILE * log_instance;
 
-// log_init - 单例, 日志库初始化
+// log_init 日志库初始化
 void log_init(const char * path) {
-    if ((txt = fopen(path, "ab")) == NULL) {
+    if ((log_instance = fopen(path, "ab")) == NULL) {
         // log 初始化失败, 程序默认启动失败.
         fprintf(stderr, "fopen ab error %"PRId64", %s\n", time(NULL), path);
         exit(EXIT_FAILURE);
     }
-}
-
-//
-// log_printf - 日志输出
-// fmt      : 必须 "" 包裹的串
-// ...      : 对映 fmt 参数
-// return   : void
-//
-void 
-log_printf(const char * fmt, ...) {
-    va_list ap;
-    // 每条日志大小, 按照系统缓冲区走
-    char buf[BUFSIZ];
-    int n = times_fmt("["TIMES_STR"]", buf, sizeof buf);
-
-    // 填入日志内容
-    va_start(ap, fmt);
-    vsnprintf(buf + n, sizeof buf - n, fmt, ap);
-    va_end(ap);
-
-    // 数据交给文件缓存层
-    fputs(buf, txt);
 }
 
 ```
@@ -161,11 +110,11 @@ do {                                                   \
 EXTERN_RUN(log_init, LOG_PATH_STR);
 ```
 
-是不是很恐怖, 一个日志库这就完了. fputs 是系统库输出函数, 默认自带缓冲机制. 缓冲说白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇, 自带文件锁. 有兴趣的可以详细研究 **printf**, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业务了! 也就是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
+是不是很恐怖, 一个日志库这就完了. fprintf 是系统库输出函数, 默认自带缓冲机制. 缓冲说白了就是批量处理, 存在非及时性. vsnprintf 属于 printf 函数簇, 自带文件锁. 有兴趣的可以详细研究 **printf**, C 入门最早用的函数, 也是最复杂的函数之一. 那目前就差生成业务了! 也就是第三点定位, 这也是小小日志库的另一个高明之处, 借天罚来隔绝妖魔鬼怪. 
 
 ### 4.1.2 小小 VT 二连
 
-先构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 切换到 Linux 平台. 依次看下去
+先在 Linux 平台构建一下测试环境. 模拟一个妖魔大战的场景 ~ 嗖 ~ 依次看下去
 
 ```C
 #include <stdio.h>
@@ -250,23 +199,23 @@ Esc
 logrotate -vf /etc/logrotate.d/simplec
 ```
 
-copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失那一瞬间新加的日志. 如果不想日志发生丢失, 可以自行实现, 最终取舍在于你对于业务的认识. 最终所搭建的环境:
+copytruncate 复制截断存在一个隐患是 logrotate 在 copy 后 truncate 时候会丢失那一瞬间新加的日志. 如果不想日志发生丢失, 可以自行加重实现, 最终取舍在于你对于业务的认识和取舍. 此刻所搭建的环境:
 
 ![logrotate log](./img/createlog.png)
 
 如果你有幸遇到贵人, 也只会给你一条路, 随后就是自己双手双脚的主场. 如果没有那么是时候 -> 冲冲冲, 四驱兄弟在心中 ~ 
 
-以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器了, 例如 crontabs 等等, 这些事情那就留给专业工具做吧. 以上就是最精简的优质日志库实战架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路, 知彼知己选择才会更贴合. 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看法他很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
+以往小小 VT 二连之后, 可以再 A 一下. 那就利用自带的定时器了, 例如 crontabs 等等, 这些事情那就留给专业工具做吧. 以上是精简的日志库简单架构. 对于普通选手可能难以吹 NB(说服别人), 因而这里会再来分析一波所见过日志库的套路, 知彼知己选择才会更贴合. 日志库大体实现还存在一种套路, 开个线程跑日志消息队列. 这类日志库在游戏服务器中极其常见, 例如端游中大量日志打印, 运维备份的时候, 同步日志会将业务机卡死(日志无法写入, 玩家业务挂起). 所以构造出消息队列来缓存日志. 此类日志库可以秀一下代码功底, 毕竟线程轮询, 消息队列, 资源竞争, 对象池, 日志构建这些都需要有. 个人看法他很重. 难有摘叶伤人来的迅捷呀. 其缓冲层消息队列, 还不一定比不进行 fflush 的系统层面输出接口来的快捷. 而且启动一个单独线程处理日志, 那么就一定重度依赖对象池. 一环套一环, 收益普通 ~ 业务设计的时候能不用线程就别用. 因为线程脾气可大了, 还容易琢磨不透. 到这也扯的差不多了, 如果以后和人交流的时候, 被问到这个日志库为什么高效. 记住
 	    
 - 1' 无锁编程, 利用 fprintf IO 锁
-- 2' fputs 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
+- 2' fprintf 最大限度利用系统 IO 缓冲层, 没必要 fflush, 从消息队列角度分析
 - 3' 各司其职, 小小日志库只负责写, 其他交给系统层面最合适的工具搞. 定位单一
 
-随着日志业务和日志库接触多了, 我们决策时候, 首先基于日志业务**定位**, 承载和联动的**功能**. 选择或者构建出当下很合适, 满足核心需求, 就很不错 ~   
+随着日志业务和日志库接触多了, 我们决策时候, 首先基于日志业务**定位**, 承载和联动的**功能**. 选择或者构建出当下很合适, 满足核心需求, 就很不错, 各有各的好 ~    
 
 ## 4.2 开胃点心, 高效随机数库
 
-为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 导致期望结果不一致. 顺便嫌弃系统 rand 函数不够安全并且低效. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人类模拟未知的一种可能. 随机和概率非常有意思, 在概率分析学上一种神奇的常识是: "概率为 0 的事情, 也可能发生 "! 有点呵呵参照无穷小, 非标准分析中可能有答案. 数学的诞生与推动不仅仅是为了解决具体遇到问题, 多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷尔曼]渡劫真君(注: 渡劫 > 化神), 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息, 哭 ~ 首先看 **rand.h** 接口设计.
+为什么来个随机数库呢? 因为不同平台的随机数实现不一样, 有些期望结果可用性差异很大. 顺便嫌弃系统 rand 函数不够安全并且低效. 随机函数算法诞生对于计算机行业的发展真不得了, 奠定了人类模拟未知的一种可能. 随机和期望非常有意思, 在概率分析学上一种神奇的常识是: "概率为 0 的事情, 也可能发生 "! 有点呵呵参照无穷小, 非标准分析中可能有答案. 数学的诞生与推动不仅仅是为了解决具体遇到问题, 多数是人内部思维的升华 -> 自己爽就好了. 就如同这个时代最强数学家俄罗斯[格里戈里·佩雷尔曼]渡劫真君(注: 渡劫 > 化神), 嗨了一发就影响了整个人类思维的跳跃. 我们的随机函数算法是从 redis 源码上拔下来的, redis 是从 pysam 源码上拔下来. 可以算是薪火相传, 生生不息, 哭 ~ 首先看 **rand.h** 接口设计.
 
 ```C
 #pragma once
@@ -462,80 +411,111 @@ int main(int argc, char* argv[]) {
 ```C
 #pragma once
 
-/*
-    继承 : string.h
-    功能 : 扩展 string.h 中部分功能, 方便业务层调用
- */
+#include <fcntl.h>
+#include <stdint.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include <errno.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <assert.h>
-#include <stdarg.h>
-#include <string.h>
+#include "struct.h"
 
-#include "stdext.h"
+// 此库对于目录相关操作, 并没有較好的屏蔽平台相关差异性. 依赖使用者求同存异.
+// 例如 怎么看待目录: logs/heoos/gghh\\gggs/g/
+// window 文件分隔符为 \ , 并且也兼容 /. 所以他看见的是 logs heoos gghh gggs g
+// linux 文件分隔符为 /, 所以他看见的目录是 logs heoos gghh\gggs g
+// 这些差别会影响 remove 和 mkdir 行为, 依赖使用者去怎么用对
+// 
 
-#if defined(_WIN32) && defined(_MSC_VER)
+#if defined(__linux__) && defined(__GNUC__)
 
-#define strcasecmp  _stricmp
-#define strncasecmp _strnicmp
+#include <unistd.h>
+#include <termios.h>
+
+//
+// mkdir - 单层目录创建函数宏, 类比 mkdir path
+// path     : 目录路径
+// return   : 0 表示成功, -1 表示失败, errno 存原因
+// 
+#undef  mkdir
+#define mkdir(path)                                 \
+mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+
+// getch - 立即得到用户输入的一个字符
+inline int getch(void) {
+    struct termios now, old;
+    // 得到当前终端标准输入的设置
+    if (tcgetattr(STDIN_FILENO, &old))
+        return EOF;
+    now = old;
+
+    // 设置终端为 Raw 原始模式，让输入数据全以字节单位被处理
+    cfmakeraw(&now);
+    // 设置上更改之后的设置
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &now))
+        return EOF;
+
+    int c = getchar();
+
+    // 设置还原成老的模式
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &old))
+        return EOF;
+    return c;
+}
+
+// cls - 屏幕清除, 依赖系统脚本
+inline void clrscr(void) { printf("\ec"); }
 
 #endif
 
 //
-// BKDHash - Brian Kernighan 与 Dennis Ritchie hash 算法
-// str      : 字符串内容
-// return   : 返回计算后的 hash 值
-//
-extern unsigned BKDHash(const char * str);
-
-//
-// str_cpyn - tar 复制内容到 src 中, 相比 strncpy 安全一点, 推荐 memcpy or memncpy
-// src      : 返回保存内容
-// tar      : 目标内容
-// n        : 最大容量
-// return   : 返回字符串长度
-//
-extern int str_cpyn(char * src, const char * tar, size_t n);
-
-//
-// str_trim - 去除字符数组前后控制字符
-// str      : 待操作的字符数组 \0 结尾
-// return   : 返回构建好字符数组首地址
-//
-extern char * str_trim(char str[]);
-
-//
-// str_sprintf - 格化式字符串构建
-// fmt      : 构建格式参照 printf
-// ...      : 参数集
-// return   : char * 堆上内存
-//
-extern char * str_sprintf(const char * fmt, ...) __attribute__((format(printf, 1, 2)));
-
-//
-// str_freads - 读取整个文件内容返回, 需要事后 free
+// fmtime - 得到文件最后修改时间
 // path     : 文件路径
-// return   : 文件内容字符串, NULL 表示读取失败
+// return   : 返回时间戳, -1 表示失败
 //
-extern char * str_freads(const char * path);
+inline time_t fmtime(const char * path) {
+    struct stat st;
+    // 数据最后的修改时间
+    return stat(path, &st) ? -1 : st.st_mtime;
+}
 
 //
-// str_fwrites - 将 C 串 str 覆盖写到 path 文件中
+// fsize - 得到文件内容内存大小
 // path     : 文件路径
-// str      : C 串内容
-// return   : >=0 is success, < 0 is error
+// return   : 返回文件内存
 //
-extern int str_fwrites(const char * path, const char * str);
+inline int64_t fsize(const char * path) {
+    struct stat st;
+    // 数据最后的修改时间
+    return stat(path, &st) ? -1 : st.st_size;
+}
 
 //
-// str_fappends - 将 C 串 str 追加写到 path 文件末尾
+// removes - 删除非空目录 or 文件
 // path     : 文件路径
-// str      : C 串内容
-// return   : >=0 is success, < 0 is error
+// return   : not 0 is error, equal 0 is success
 //
-extern int str_fappends(const char * path, const char * str);
+extern int removes(const char * path);
+
+//
+// mkdirs - 创建多级目录
+// path     : 目录路径
+// return   : < 0 is error, 0 is success
+//
+extern int mkdirs(const char * path);
+
+//
+// fmkdir - 通过文件路径创建目录
+// path     : 文件路径
+// return   : < 0 is error, 0 is success
+//
+extern int fmkdir(const char * path);
+
+//
+// getawd - 得到程序运行目录, \\ or / 结尾
+// buf      : 存储地址
+// size     : 存储大小
+// return   : 返回长度, -1 or >= size is unusual 
+//
+extern int getawd(char * buf, size_t size);
 
 ```
 
@@ -562,9 +542,7 @@ inline int removes(const char * path) {
     char s[BUFSIZ];
 
 # ifndef RMRF_STR
-#   if defined(_WIN32) && defined(_MSC_VER)
-#     define RMRF_STR    "rmdir /s /q \"%s\""
-#   else
+#   if defined(__linux__) && defined(__GNUC__)
 #     define RMRF_STR    "rm -rf \"%s\""
 #   endif
 # endif
@@ -597,7 +575,7 @@ mkdirs(const char * path) {
     if (!access(path, F_OK) || !mkdir(path))
         return 0;
 
-    // 跳过第一个 ['/'|'\\'] 检查是否是多级目录
+    // 跳过第一个 ['/' | '\\'] 检查是否是多级目录
     p = (char *)path;
     while ((c = *++p) != '\0')
         if (c == '/' || c == '\\')
@@ -606,6 +584,10 @@ mkdirs(const char * path) {
 
     // 开始循环构建多级目录
     s = p = strdup(path);
+    if (p == NULL) {
+        RETURN(-1, "strdup path = %p panic", path);
+    }
+
     while ((c = *++p) != '\0') {
         if (c == '/' || c == '\\') {
             *p = '\0';
@@ -626,7 +608,6 @@ mkdirs(const char * path) {
     c = p[-1]; free(s);
     if (c == '/' || c == '\\')
         return 0;
-
     // 剩下最后文件路径, 开始构建
     return mkdir(path);
 }
@@ -649,6 +630,10 @@ fmkdir(const char * path) {
 
     // 复制地址地址并构建
     s = p = strdup(path);
+    if (p == NULL) {
+        RETURN(-1, "strdup path = %p panic", path);
+    }
+
     p[r - path] = '\0';
 
     while ((c = *++p) != '\0') {
@@ -693,9 +678,7 @@ getawd(char * buf, size_t size) {
     char * tail;
 
 # ifndef getawe
-#   if defined(_WIN32) && defined(_MSC_VER)
-#     define getawe(b, s)    (int)GetModuleFileNameA(NULL, b, (DWORD)s);
-#   else
+#   if defined(__linux__) && defined(__GNUC__)
 #     define getawe(b, s)    (int)readlink("/proc/self/exe", b, s);
 #   endif
 # endif
@@ -711,6 +694,7 @@ getawd(char * buf, size_t size) {
     *++tail = '\0';
     return (int)(tail - buf);
 }
+
 ```
 
 主要使用场景, 通过 getawd 得到程序运行目录, 随后拼接出各种文件的绝对路径. 再去嗨.
@@ -742,6 +726,7 @@ stdext 拓展库主要围绕文件, 创建和删除还有文件属性等. 这些
 
 #include "struct.h"
 #include "strext.h"
+#include "spinlock.h"
 
 //
 // file_f - 文件更新行为
@@ -924,11 +909,11 @@ str 指向内存常量, cstr 指向内存不怎么变, 所以采用两块内存�
 #include <limits.h>
 #include <stdbool.h>
 
-#include "cstr.h"
+#include "chars.h"
 #include "strext.h"
 
 //
-// c json fast parse, type is all design
+// cj json fast parse, type is all design
 // https://www.json.org/json-zh.html
 //
 #ifndef JSON_NULL
@@ -951,13 +936,14 @@ str 指向内存常量, cstr 指向内存不怎么变, 所以采用两块内存�
 //                              -> next -> ..
 struct json {
     unsigned type;          // C JSON_NULL - JSON_ARRAY and JSON_CONST
-    struct json * next;     // type & OBJECT or ARRAY -> 下个结点链表
-    struct json * child;    // type & OBJECT or ARRAY -> 对象结点数据
+    struct json * next;     // type & JSON_ARRAY | JSON_OBJECT -> 同级下个结点
+    struct json * child;    // type & JSON_ARRAY | JSON_OBJECT -> 子结点
 
     char * key;             // json 结点的 key
     union {
-        char * str;         // type & JSON_STRING -> 字符串
-        double num;         // type & JSON_NUMBER -> number
+        int len;            // type & JSON_ARRAY | JSON_OBJECT is json child len
+        char * str;         // type & JSON_STRING is 字符串
+        double num;         // type & JSON_NUMBER is number
     };
 };
 
@@ -974,17 +960,17 @@ typedef struct json * json_t;
 
 //
 // json_delete - json 对象销毁
-// c        : json 对象
+// cj        : json 对象
 // return   : void
 //
-extern void json_delete(json_t c);
+extern void json_delete(json_t cj);
 
 //
 // json_len - 获取 json 对象长度
-// c        : json 对象
+// cj        : json 对象
 // return   : 返回 json 对象长度
 //
-extern int json_len(json_t c);
+extern int json_len(json_t cj);
 
 //
 // json_array - 通过索引获取 json 数组中子结点
@@ -1007,15 +993,10 @@ size_t json_mini(char * str);
 // json_parse - json 解析函数 low level api
 json_t json_parse(const char * str);
 
-//
-// json_file - 通过文件构造 json 对象
-// json_create  - 通过字符串构造 json 对象
-// str      : 字符串
-// path     : 文件路径
-// return   : json_t 对象
-//
-extern json_t json_file(const char * path);
+// json_create  解析字符串构造 json 对象
 extern json_t json_create(const char * str);
+// json_file 通过文件 path 解析文件内容构造 json 对象
+extern json_t json_file(const char * path);
 
 // json_detach_str - json 字符串分离, 需要自行 free
 inline char * json_detach_str(json_t item) {
@@ -1029,10 +1010,10 @@ extern json_t json_detach_object(json_t obj, const char * k);
 
 //
 // json_string - 生成 json 对象 char * 字符串
-// c        : json_t 对象
+// cj        : json_t 对象
 // return   : 返回生成的 json 字符串, 需要自行 free
 //
-extern char * json_string(json_t c);
+extern char * json_string(json_t cj);
 
 ```
 
@@ -1050,29 +1031,57 @@ C json 中处理的类型类型无外乎 JSON_NULL, JSON_BOOL, JSON_NUMBER, JSON
 
 ```C
 #include "json.h"
+#include "q.h"
 
-//
-// json_delete - json 对象销毁
-// c        : json 对象
-// return   : void
-//
-void 
-json_delete(json_t c) {
-    while (c) {
-        json_t next = c->next;
-        unsigned char t = c->type;
+void json_delete_recursion(json_t cj) {
+    while (cj) {
+        json_t next = cj->next;
+        unsigned type = cj->type;
 
-        free(c->key);
-        if ((t & JSON_STRING) && !(t & JSON_CONST))
-            free(c->str);
+        free(cj->key);
+        if ((type & JSON_STRING) && !(type & JSON_CONST))
+            free(cj->str);
 
         // 子结点继续走深度递归删除
-        if (c->chid)
-            json_delete(c->chid);
+        if (cj->child)
+            json_delete(cj->child);
 
-        free(c);
-        c = next;
+        free(cj);
+        cj = next;
     }
+}
+
+void json_delete(json_t cj) {
+    if (cj == NULL) {
+        return;
+    }
+
+    struct q q;
+    if (q_init(&q) == false) {
+        // 把崩溃从堆推向了栈
+        return json_delete_recursion(cj);
+    }
+
+    do {
+        json_t next = cj->next;
+        unsigned type = cj->type;
+        
+        free(cj->key);
+        if ((type & JSON_STRING) && !(type & JSON_CONST))
+            free(cj->str);
+
+        if (cj->child) {
+            if (q_push(&q, cj->child) == false) {
+                // 堆上以及没有内存, 这时候尝试崩溃, 当然这里纯为了学习, 而无中生有
+                EXIT("q_push panic memory");
+            }
+        }
+
+        free(cj);
+        cj = next ? next : q_pop(&q);
+    } while (cj);
+
+    q_release(&q);
 }
 ```
 
@@ -1157,47 +1166,37 @@ size_t json_mini(char * str) {
 // return   : json 对象, NULL 表示解析失败
 //
 json_t json_parse(const char * str) {
-    json_t c = json_new();
-    if (!parse_value(c, str)) {
-        json_delete(c);
+    json_t cj = json_new();
+    if (parse_value(cj, str) == NULL) {
+        json_delete(cj);
         return NULL;
     }
-    return c;
-}
-
-//
-// json_file - 通过文件构造 json 对象
-// json_create  - 通过字符串构造 json 对象
-// str      : 字符串
-// path     : 文件路径
-// return   : json_t 对象
-//
-json_t 
-json_file(const char * path) {
-    // 读取文件中内容, 并检查
-    if (!path || !*path) return NULL;
-    char * str = str_freads(path);
-    if (!str) return NULL;
-
-    // 返回解析结果
-    json_t c = json_create(str);
-    free(str);
-    return c;
+    return cj;
 }
 
 json_t 
 json_create(const char * str) {
-    json_t c = NULL;
-    if (str && *str) {
-        cstr_declare(cs);
-        cstr_appends(cs, str);
+    if (str == NULL || *str == 0) 
+        return NULL;
 
-        // 清洗 + 解析
-        json_mini(cs->str);
-        c = json_parse(cs->str);
+    char * ss = strdup(str);
+    // 清洗 + 解析
+    json_mini(ss);
+    json_t c = json_parse(ss);
+    free(ss);
+    return c;
+}
 
-        cstr_free(cs);
-    }
+json_t 
+json_file(const char * path) {
+    char * str = str_freads(path);
+    // 读取文件中内容, 并事先检查参数
+    if (str == NULL)
+        return NULL;
+
+    // 尝试解析结果
+    json_t c = json_create(str);
+    free(str);
     return c;
 }
 ```
@@ -1216,7 +1215,7 @@ static const char * parse_value(json_t item, const char * str);
 static const char * parse_value(json_t item, const char * str) {
     if (!str) return NULL;
     switch (*str) {
-    // node or N = null, f or F = false, t or T = true ...
+    // n or N = null, f or F = false, t or T = true
     case 'n': case 'N':
         if (strncasecmp(str + 1, "ull", sizeof "ull" - 1)) return NULL;
         item->type = JSON_NULL;
@@ -1383,6 +1382,7 @@ static const char * parse_string(json_t item, const char * str) {
 
     // 开始复制拷贝内容
     cursor = out = malloc(len);
+    assert(out != NULL);
     for (ptr = str; ptr < etr; ++ptr) {
         // 普通字符直接添加处理
         if ((c = *ptr) != '\\') {
@@ -1404,21 +1404,21 @@ static const char * parse_string(json_t item, const char * str) {
             };
             unsigned oc, uc = parse_hex4(ptr + 1);
             // check for invalid
-            if ((ptr += 4) >= etr) goto err_free;
+            if ((ptr += 4) >= etr) goto faild_free;
             if ((uc >= 0xDC00 && uc <= 0xDFFF) || uc == 0)
-                goto err_free;
+                goto faild_free;
 
             // UTF16 surrogate pairs
             if (uc >= 0xD800 && uc <= 0xDBFF) {
-                if ((ptr + 6) >= etr) goto err_free;
+                if ((ptr + 6) >= etr) goto faild_free;
                 // missing second-half of surrogate
                 if ((ptr[1] != '\\') || (ptr[2] != 'u' && ptr[2] != 'U')) 
-                    goto err_free;
+                    goto faild_free;
 
                 oc = parse_hex4(ptr + 3);
                 ptr += 6; // parse \uXXXX
                 // invalid second-half of surrogate
-                if (oc < 0xDC00 || oc > 0xDFFF) goto err_free;
+                if (oc < 0xDC00 || oc > 0xDFFF) goto faild_free;
                 // calculate unicode codepoint from the surrogate pair
                 uc = 0x10000 + (((uc & 0x3FF) << 10) | (oc & 0x3FF));
             }
@@ -1458,11 +1458,10 @@ static const char * parse_string(json_t item, const char * str) {
     item->type = JSON_STRING;
     return ptr + 1;
 
-err_free:
+faild_free:
     free(out);
     return NULL;
 }
-
 ```
 
 编码转换有兴趣需要详细看 Unicode 字符集中 UTF-8, UTF-16, UTF-32 编码关系. 扯一点, 很久以前对于编码解决方案. 采用的是 libiconv 方案, 将其移植到 window 上. 后面学到一招, 因为国内开发最多的需求就是 gbk 和 utf-8 国际标准的来回切. 那就直接把这个编码转换的算法拔下来, 岂不最好 ~ 所以后面抄录了一份 **utf8.h**. 有兴趣同学可以去作者主页找下来看看, 这里只带大家看看接口设计. 
@@ -1478,31 +1477,32 @@ err_free:
 // g = gbk 是 ascii 扩展码, u8 = utf8
 // 2 * LEN(g) >= LEN(u8) >= LEN(g)
 //
+// 编码相关小知识科普: https://madmalls.com/blog/post/unicode-and-utf8/
 
 //
-// u82g - utf8 to gbk save d mem
-// g2u8 - gbk to utf8 save d mem by size n
+// utf82gbk - utf8 to gbk save d mem
+// gbk2utf8 - gbk to utf8 save d mem by size n
 // d        : mem
 // n        : size
 // return   : void
 //
-extern void u82g(char d[]);
-extern void g2u8(char d[], size_t n);
+extern void utf82gbk(char d[]);
+extern void gbk2utf8(char d[], size_t n);
 
 //
-// isu8s - 判断字符串是否是utf8编码
+// isutf8s - 判断字符串是否是utf8编码
 // s        : 输入的串
 // return   : true 表示 utf8 编码
 //
-extern bool isu8s(const char * s);
+extern bool isutf8s(const char * s);
 
 //
-// isu8 - check is utf8
+// isutf8 - check is utf8
 // d        : mem
 // n        : size
 // return   : true 表示 utf8 编码
 //
-extern bool isu8(const char d[], size_t n);
+extern bool isutf8(const char d[], size_t n);
 
 ```
 
@@ -1523,66 +1523,66 @@ extern bool isu8(const char d[], size_t n);
 有了插播的内容, 写个判断是否是 utf-8 编码还是容易的. 希望对你理解 parse_string 有所帮助.
 
 ```C
-// isu8_local - 判断是否是 utf8 串的临时状态
-static bool isu8_local(unsigned char c, unsigned char * byts, bool * ascii) {
+// isutf8_local - 判断是否是 utf8 串的临时状态
+static bool isutf8_local(unsigned char c, unsigned char * bytes, bool * ascii) {
     // ascii 码最高位为 0, 0xxx xxxx
     if ((c & 0x80)) *ascii = false;
 
     // 计算字节数
-    if (0 == *byts) {
+    if (0 == *bytes) {
         if (c >= 0x80) {
-            if (c >= 0xFC && c <= 0xFD) *byts = 6;
-            else if (c >= 0xF8) *byts = 5;
-            else if (c >= 0xF0) *byts = 4;
-            else if (c >= 0xE0) *byts = 3;
-            else if (c >= 0xC0) *byts = 2;
+            if (c >= 0xFC && c <= 0xFD) *bytes = 6;
+            else if (c >= 0xF8) *bytes = 5;
+            else if (c >= 0xF0) *bytes = 4;
+            else if (c >= 0xE0) *bytes = 3;
+            else if (c >= 0xC0) *bytes = 2;
             else return false; // 异常编码直接返回
-            --*byts;
+            --*bytes;
         }
     } else {
         // 多字节的非首位字节, 应为 10xx xxxx
         if ((c & 0xC0) != 0x80) return false;
-        // byts 来回变化, 最终必须为 0
-        --*byts;
+        // bytes 来回变化, 最终必须为 0
+        --*bytes;
     }    
     return true;
 }
 
 //
-// isu8s - 判断字符串是否是utf8编码
+// isutf8s - 判断字符串是否是utf8编码
 // s        : 输入的串
 // return   : true 表示 utf8 编码
 //
 bool 
-isu8s(const char * s) {
+isutf8s(const char * s) {
     bool ascii = true;
-    // byts 表示编码字节数, utf8 [1, 6] 字节编码
-    unsigned char byts = 0;
+    // bytes 表示编码字节数, utf8 [1, 6] 字节编码
+    unsigned char bytes = 0;
 
     for (unsigned char c; (c = *s); ++s)
-        if (!isu8_local(c, &byts, &ascii)) 
+        if (!isutf8_local(c, &bytes, &ascii)) 
             return false;
 
-    return !ascii && byts == 0;
+    return !ascii && bytes == 0;
 }
 
 //
-// isu8 - check is utf8
+// isutf8 - check is utf8
 // d        : mem
 // n        : size
 // return   : true 表示 utf8 编码
 //
 bool 
-isu8(const char d[], size_t n) {
+isutf8(const char d[], size_t n) {
     bool ascii = true;
-    // byts 表示编码字节数, utf8 [1, 6] 字节编码
-    unsigned char byts = 0;
+    // bytes 表示编码字节数, utf8 [1, 6] 字节编码
+    unsigned char bytes = 0;
 
     for (size_t i = 0; i < n; ++i)
-        if (!isu8_local(d[i], &byts, &ascii)) 
+        if (!isutf8_local(d[i], &bytes, &ascii)) 
             return false;
 
-    return !ascii && byts == 0;
+    return !ascii && bytes == 0;
 }
 
 ```
@@ -1596,15 +1596,16 @@ isu8(const char d[], size_t n) {
 ```C
 // parse_array - array 解析
 static const char * parse_array(json_t item, const char * str) {
-    json_t chid;
+    json_t child;
     item->type = JSON_ARRAY;
     // 空数组直接解析完毕退出
     if (']' == *str) return str + 1;
 
     // 开始解析数组中数据
-    item->chid = chid = json_new();
-    str = parse_value(chid, str);
+    item->child = child = json_new();
+    str = parse_value(child, str);
     if (!str) return NULL;
+    item->len++;
 
     // array ',' cut
     while (',' == *str) {
@@ -1612,11 +1613,12 @@ static const char * parse_array(json_t item, const char * str) {
         if (']' == *++str)
             return str + 1;
 
-        chid->next = json_new();
-        chid = chid->next;
+        child->next = json_new();
+        child = child->next;
         // 继续间接递归处理值
-        str = parse_value(chid, str);
+        str = parse_value(child, str);
         if (!str) return NULL;
+            item->len++;
     }
 
     return ']' == *str ? str + 1 : NULL;
@@ -1628,26 +1630,27 @@ parse_array 处理的格式 '[ ... , ... , ... ]' 串. 同样 parse_object 处�
 ```C
 // parse_object - object 解析
 static const char * parse_object(json_t item, const char * str) {
-    json_t chid;
+    json_t child;
     item->type = JSON_OBJECT;
     if ('}' == *str) return str + 1;
     // "key" check invalid
     if ('"' != *str && *str != '`') return NULL;
 
     // {"key":value,...} 先处理 key 
-    item->chid = chid = json_new();
+    item->child = child = json_new();
     if ('"' == *str)
-        str = parse_string (chid, str + 1);
+        str = parse_string (child, str + 1);
     else 
-        str = parse_literal(chid, str + 1);
+        str = parse_literal(child, str + 1);
 
     if (!str || *str != ':') return NULL;
-    chid->key = chid->str;
-    chid->str = NULL;
+    child->key = child->str;
+    child->str = NULL;
 
     // 再处理 value
-    str = parse_value(chid, str + 1);
+    str = parse_value(child, str + 1);
     if (!str) return NULL;
+    item->len++;
 
     // 开始间接递归解析
     while (*str == ',') {
@@ -1655,19 +1658,20 @@ static const char * parse_object(json_t item, const char * str) {
         if ('}' == *++str) return str + 1;
         if ('"' != *str && *str != '`') return NULL;
 
-        chid->next = json_new();
-        chid = chid->next;
+        child->next = json_new();
+        child = child->next;
         if ('"' == *str)
-            str = parse_string (chid, str + 1);
+            str = parse_string (child, str + 1);
         else 
-            str = parse_literal(chid, str + 1);
+            str = parse_literal(child, str + 1);
 
         if (!str || *str != ':') return NULL;
-        chid->key = chid->str;
-        chid->str = NULL;
+        child->key = child->str;
+        child->str = NULL;
 
-        str = parse_value(chid, str + 1);
+        str = parse_value(child, str + 1);
         if (!str) return NULL;
+        item->len++;
     }
 
     return '}' == *str ? str + 1 : NULL;
@@ -1678,13 +1682,13 @@ static const char * parse_object(json_t item, const char * str) {
 
 ```C
 // json_string_string - string 编码
-static char * json_string_string(char * str, cstr_t p) {
+static char * json_string_string(char * str, struct chars * p) {
     unsigned char c;
     const char * ptr;
     char * cursor, * out;
     // 什么都没有 返回 "" empty string
     if (NULL == str || *str == 0) {
-        out = cstr_expand(p, 3);
+        out = chars_expand(p, 3);
         out[0] = out[1] = '"'; out[2] = '\0';
         p->len += 2;
         return out;
@@ -1707,7 +1711,7 @@ static char * json_string_string(char * str, cstr_t p) {
     }
 
     // 开始分配内存
-    cursor = out = cstr_expand(p, len+3);
+    cursor = out = chars_expand(p, len+3);
     out[len+2] = 0;
     *cursor++ = '"';
 
@@ -1891,9 +1895,10 @@ bool conf_init(const char * path) {
 
 #include "log.h"
 #include "rand.h"
-#include "check.h"
+#include "alloc.h"
 #include "thread.h"
 #include "strext.h"
+#include "sundries.h"
 
 
 ```
@@ -1901,7 +1906,7 @@ bool conf_init(const char * path) {
 base.h 相关内容比较很简单, 就是汇总常用头文件. **思想就是让业务使用者不再如数家珍去记忆常用头文件**. 其中 check.h 可以放入一些参数校验的函数. 可以随着自身对业务修炼的理解, 自主添加. 目前这里只是加了个 email 校验操作.
 
 ```C
-#include "check.h"
+#include "sundries.h"
 
 //
 // is_email - 判断是否是邮箱
@@ -1962,6 +1967,101 @@ is_email(const char * mail) {
     // 必须存在 ., 最后 '\0' 结尾, 255 以内
     return b && d && !c && i < EMAIL_INT 
              && (mail[-1] < '0' || mail[-1] > '9');
+}
+
+//
+// url_encode - url 编码, 需要自己 free
+// s        : url串
+// len      : url串长度
+// nen      : 返回编码后串长度
+// return   : 返回编码后串的首地址
+// 
+char * 
+url_encode(const char * s, int len, int * nen) {
+    if (s == NULL || *s == '\0' || len <= 0) {
+        if (nen) *nen = 0;
+        return NULL;
+    }
+
+    const unsigned char * from = (unsigned char *)s;
+    const unsigned char * end = from + len;
+    unsigned char * to = calloc(3 * len + 1, 1);
+    unsigned char * start = to;
+
+    while (from < end) {
+        register unsigned char c = *from++;
+        if (c == ' ') {
+            *to++ = '+';
+            continue;
+        }
+
+        // [a-z] [A-Z] [0-9] [&-./:=?_] 以外字符采用二进制替代
+        if ((c < '0' && c != '&' && c != '-' && c != '.' && c != '/') ||
+            (c < 'A' && c >  '9' && c != ':' && c != '=' && c != '?') ||
+            (c > 'Z' && c  < 'a' && c != '_') ||
+            (c > 'z')) {
+            to[0] = '%';
+            to[1] = "0123456789ABCDEF"[c >> 4];
+            to[2] = "0123456789ABCDEF"[c & 15];
+            to += 3;
+            continue;
+        }
+
+        *to++ = c;
+    }
+    *to = '\0';
+
+    // 返回结果
+    if (nen) *nen = (int)(to - start);
+    return (char *)start;
+}
+
+// htoc - 2 字节变成 16 进制数表示
+inline char htoc(char * s) {
+    int v, c= s[0];
+    // 小写变大写是兼容性写法
+    if (islower(c)) c = toupper(c);
+    v =  (c >= '0' && c <= '9' ? c - '0' : c - 'A' + 10) * 16;
+
+    c = s[1];
+    if (islower(c)) c = toupper(c);
+    v += (c >= '0' && c <= '9' ? c - '0' : c - 'A' + 10);
+
+    return (char)v;
+}
+
+//
+// url_decode - url 解码, 解码后也是放在 s[] 中
+// s        : 待解码的串
+// len      : 解码串长度
+// return   : 返回解码串的长度, < 0 表示失败
+//
+int 
+url_decode(char s[], int len) {
+    if (s == NULL || *s == '\0' || len <= 0)
+        return -1;
+
+    char * dest = s,  * data = s;
+    while (len--) {
+        char c = *data++;
+        // 反向解码
+        if (c == '+')
+            *dest = ' ';
+        else if (c == '%' && len >= 2 
+                          && isxdigit(data[0]) 
+                          && isxdigit(data[1])) {
+            *dest = htoc(data);
+            data += 2;
+            len -= 2;
+        }
+        else {
+            *dest = c;
+        }
+        ++dest;
+    }
+    *dest = '\0';
+
+    return (int)(dest - s);
 }
 
 ```
@@ -2057,12 +2157,12 @@ static int csv_parse_partial(char * str, int * pr, int * pc) {
             }
             // 继续判断,只有是 c == '"' 才会继续, 否则都是异常
             if (c != '"') 
-                goto err_faid;
+                goto ret_faild;
             break;
         case ',' : *s++ = '\0'; ++cnt; break;
         case '\r': break;
         case '\n': *s++ = '\0'; ++cnt; ++rnt; break;
-        default  : *s++ = c; // 其他所有情况只添加数据就可以了
+        default  : *s++ = c; // 其它所有情况只添加数据就可以了
         }
     }
     // CRLF 处理
@@ -2072,7 +2172,7 @@ static int csv_parse_partial(char * str, int * pr, int * pc) {
 
     // 检查, 行列个数是否正常
     if (rnt == 0 || cnt % rnt) {
-err_faid:
+ret_faild:
         RETURN(-1, "csv parse error %d, %d, %d.", c, rnt, cnt);
     }
 
@@ -2089,6 +2189,10 @@ csv_t csv_parse(char * str) {
     
     // 分配最终内存
     csv_t csv = malloc(n + sizeof *csv + sizeof(char *) * cnt);
+    if (csv == NULL) {
+        RETNUL("malloc panic return null, n = %d, cnt = %d", n, cnt);
+    }
+
     char * s = (char *)csv + sizeof *csv + sizeof(char *) * cnt;
     memcpy(s, str, n);
 
