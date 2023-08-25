@@ -1,29 +1,12 @@
 # 第3章-气功-系统编程简述
 
-<!-- TOC -->
+仰望星海, 编程行业类比玄幻小说中修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒心中豪情啪的一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜血, 几朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通过大毅力和机缘破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
 
-- [第3章-气功-系统编程简述](#%E7%AC%AC3%E7%AB%A0-%E6%B0%94%E5%8A%9F-%E7%B3%BB%E7%BB%9F%E7%BC%96%E7%A8%8B%E7%AE%80%E8%BF%B0)
-    - [1. 原子操作](#1-%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C)
-        - [1.1. 引言](#11-%E5%BC%95%E8%A8%80)
-        - [1.2. 原子自旋锁](#12-%E5%8E%9F%E5%AD%90%E8%87%AA%E6%97%8B%E9%94%81)
-        - [1.3. 原子库封装](#13-%E5%8E%9F%E5%AD%90%E5%BA%93%E5%B0%81%E8%A3%85)
-    - [2. POSIX 线程库](#2-posix-%E7%BA%BF%E7%A8%8B%E5%BA%93)
-        - [2.1. pthread 练手](#21-pthread-%E7%BB%83%E6%89%8B)
-    - [3. 读写锁](#3-%E8%AF%BB%E5%86%99%E9%94%81)
-        - [3.1. 读写锁练习](#31-%E8%AF%BB%E5%86%99%E9%94%81%E7%BB%83%E4%B9%A0)
-    - [4. 阅读理解 - time.h 二次封装](#4-%E9%98%85%E8%AF%BB%E7%90%86%E8%A7%A3---timeh-%E4%BA%8C%E6%AC%A1%E5%B0%81%E8%A3%85)
-    - [5. 拓展练习 - 链表定时器](#5-%E6%8B%93%E5%B1%95%E7%BB%83%E4%B9%A0---%E9%93%BE%E8%A1%A8%E5%AE%9A%E6%97%B6%E5%99%A8)
-    - [6. 展望](#6-%E5%B1%95%E6%9C%9B)
-
-<!-- /TOC -->
-
-不妨仰望星海, 为编程行业引入修真体系 [ 炼气 -> 筑基 -> 金丹 -> 元婴 -> 化神 ]. 那时候在学校里或者野路子中锻炼并感应着天地间的元气, 在练气期幸福而不知睡眠. 感受着编程行业斑驳交割的元气, 最终选择几类元气开始自己的练气生涯. 期间勤奋些的或者时间够了, 一舒心中豪情啪的一声进入筑基期. 心随意动, 修炼生涯正式展开. 蹭蹭的我们进入了门派中磨炼. 随着门派体系或者一些心有不甘的选手日夜操戈, 自我驱动跃升成为人魔大战的前线主力. 挥洒鲜血, 几朝凝华金丹成. 此时的战场才刚刚拉开序幕. 同样以前修炼遗留的隐患也一并爆发. 无数人在此厮杀, 对抗域外天魔. 此刻或者在远古战场中获得奇遇, 又或者占有一个门派的全力支持, 通过大毅力和机缘破吾金丹, 晋升元婴大佬. 隐射一方, 出手之间自带领域威势. 回顾也是白骨功成, 为门派马首是瞻. 唯独极个别生时天资聪慧, 道心自明的元婴大佬. 忘却红尘迷恋, 占一代之强气运, 耐一世之大孤独, 甩手间风云变幻, 天雷滚滚, 超脱物外, 万中无一化神巨擘独立无为之境, 位于东方. 无一丝情感遥望着心的远方, 立于缥缈峰 ~ 窥探浩瀚 ~
-
-各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本章讲的气功, 等同于练气期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同平台的修炼会有所大不同. 本章是在不同平台间练就一门气功入门, 海典剑芒贯双江.
+各位看官, 化神难道就是编程的至高境界了吗? 然而一切才刚刚开始, 这里先不表. 本书讲的气功, 等同于练气期修炼的法术. 打通和操作系统联系的基本关节. 专业程序或多或少依赖于平台, 不同平台的修炼会有所大不同. 本章是在一个平台间练就一门气功入门, 海典剑芒贯双江更多平台知识留给那些化神大佬惠泽气运新人吧.
     
 ## 3.1 原子操作
 
-原子操作一个古老的庞大话题, 例如在不主动放弃 CPU 情况下解决资源竞争问题. 在简述原子库之前简单科普些基本原子操作.
+原子操作一个古老的庞大话题, 常见简单有在不主动放弃 CPU 情况下解决资源竞争问题. 在简述原子库之前简单科普些基本原子操作.
 
 ![原子自旋](./img/永恒万花筒.jpg)
 
@@ -61,9 +44,11 @@ bool __sync_bool_compare_and_swap (type * ptr, type old, type new, ...);
 #define atom_cas(v, c, a)   __sync_bool_compare_and_swap(&(v), (c), (a))
 ```
 
-以上定义了 add set cas 原子操作. 随后原子基础库中会封装更多更常用的. 下面展示哈全貌. 更多细节可以细查 man 手册, 一切无所遁形.
+以上定义了 add set cas 原子操作. 随后原子基础库中会封装更多更常用的. 更多细节可以细查 man 手册, 一切无所遁形.
 
 ### 3.1.2 原子自旋锁
+
+**spinlock.h**
 
 ```C
 #pragma once
@@ -150,11 +135,11 @@ printf("a = 0x%p, a.str = 0x%p, a.str.str = 0x%p\n", &a, &a.str, a.str.str);
 free(a.str.str);
 ```
 
-以上就是原子自旋锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 普通开发要求下编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美, 增加修成元婴可能性. 当然金丹大圆满也都能够很好的胜任大部分生涯工作. 上面原子锁仍然可以优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化, 具体可以研究 pthread mutex 做的拓展了解二者使用场景. 总而言之在解决资源竞争问题上, 消耗最小不一定是无锁编程, 更舒爽的方式, 往往是通过业务优化避免冲突的产生, 减少锁粒度和频率. 我们在做开发时候, **如果没想明白场景要不要用原子锁的时候, 那请直接用互斥锁**, 别犹豫.
+以上是原子自旋锁使用的核心步骤. 当然了, 装波的事情远远还没有结束. 普通开发要求下编程本身就那些东西, 讲明白后大家就很容易懂. 切记编程路上多真善美, 增加修成元婴可能性. 当然金丹大圆满也都能够很好的胜任大部分生涯工作. 上面原子锁仍然可以优化, 例如采用忙等待和阻塞混合编程, 降低 CPU 空转, 等等优化, 具体可以研究 pthread mutex 做的拓展了解二者使用场景. 总而言之在解决资源竞争问题上, 消耗最小不一定是无锁编程, 更舒爽的方式, 往往是通过业务优化避免冲突的产生, 减少锁粒度和频率. 我们在做开发时候, **如果没想明白场景要不要用原子锁的时候, 那请直接用互斥锁**, 别犹豫.
 
-### 3.1.3 原子库封装
+### 3.1.3 内存顺序简单扫盲
 
-在很多年前, 我们因为不同平台原子库形态各异, 要费大力气进行跨平台封装. 现在好了太多了, 认真研究标准中 **stdatomic.h** 完全足够胜任绝大多数奇葩业务了. 而我们这里也将会扫盲 stdatomic.h 中引入的六种不同 memory order 来控制同步的粒度, 以获得更好的程序性能. 这六种 order 分别是:
+在很多年前, 我们因为不同平台原子库形态各异, 要费大力气进行跨平台封装. 现在好了太多了, 认真研究标准中 **stdatomic.h** 完全足够胜任绝大多数奇葩业务了. 这里会简单扫盲 stdatomic.h 中引入的六种不同 memory order 来控制同步的粒度, 可能会获得更好的程序性能吧. 这六种 order 分别是:
 
 ```C
 /* 7.17.3 Order and consistency */
@@ -185,7 +170,7 @@ int b = atomic_load_explicit(&x, memory_order_relaxed); // C
 atomic_store_explicit(&y, 28, memory_order_relaxed);    // D
 ```
 
-允许产生结果 a == 28 && b == 28. 因为即使线程 1 中 A 先序于 B 且线程 2 中 C 先序于 D, 但没法保证 y 的修改顺序中 D 比 A 先执行, x 的修改顺序中 B 比 C 先执行. 这就会导致 D 在 y 上的副效应, 可能可见于线程 1 中的加载 A, 同时 B 在 x 上的副效应, 可能可见于线程 2 中的加载 C. 宽松内存顺序的典型应用场景是计数器自增. 例如引用计数器, 因为这只要求原子性保证自增 OK, 但不要求顺序或同步(注意计数器自减要求进行 memory_order_acquire 获取内存顺序同步)
+**允许产生结果 a == 28 && b == 28**. 因为即使线程 1 中 A 先序于 B 且线程 2 中 C 先序于 D, 但没法保证 y 的修改顺序中 D 比 A 先执行, x 的修改顺序中 B 比 C 先执行. 这就会导致 D 在 y 上的副效应, 可能可见于线程 1 中的加载 A, 同时 B 在 x 上的副效应, 可能可见于线程 2 中的加载 C. **宽松内存顺序的典型应用场景是计数器自增**. 例如引用计数器, 因为这只要求原子性保证自增 OK, 但不要求顺序或同步(注意计数器自减要求进行 memory_order_acquire 获取内存顺序同步)
 
 - **memory_order_consume 消费内存顺序 :**
 
@@ -210,7 +195,7 @@ while (atomic_load_explicit(&x, memory_order_consume) != 1) {
 }
 ```
 
-更好理解的是下面这个例子, a 的值一定为 0. 但多数编译器没有跟踪依赖链, 均将消费内存顺序操作提升为 memory_order_acquire 获得内存顺序操作.
+更好理解的是下面这个例子, a 的值一定为 0. 但多数编译器没有跟踪依赖链, 均将 memory_order_consume 消费内存顺序操作提升为 memory_order_acquire 获得内存顺序操作.
 
 ```C
 atomic_int x = 0;
@@ -241,7 +226,7 @@ typedef struct atomic_flag { atomic_bool _Value; } atomic_flag;
 
 但当 memory_order_acquire 及 memory_order_release 与 memory_order_seq_cst 混合使用时, 会产生诡异的结果. 对于 memory_order_seq_cst 需要了解的注意点: 1' memory_order_seq_cst 标签混合使用时, 程序的序列一致保证就会立即丧失 2' memory_order_seq_cst 原子操作相对于同一线程所进行的其他原子操作可重排.
 
-有了简单基础, 自身陆续学习 C11 stdatomic.h 理念和功能, 完全可以没有包袱的直接使用. 如果有些平台不支持 C11, 如果只是学习阶段, 那可以跳过不支持平台, 去支持平台去学习, 年轻人就应该有朝气和态度.
+有了简单基础, 自身陆续学习 C11 stdatomic.h 理念和功能, 完全可以没有包袱的直接使用. 如果有些平台不支持 C11, 如果只是学习阶段, 那可以跳过不支持平台, 去支持平台去学习, 年轻人就应该有拒绝者的朝气和态度.
 
 ## 3.2 POSIX 线程库
 
@@ -362,9 +347,7 @@ inline void thread_async(void * frun) {
 // arg      : 运行参数
 // return   : 0 is success, -1 is error
 //
-inline int pthread_run(pthread_t * p, void * frun, void * arg) {
-    return pthread_create(p, NULL, frun, arg);
-}
+extern int pthread_run(pthread_t * p, void * frun, void * arg);
 
 //
 // pthread_end - 等待线程运行结束
@@ -384,7 +367,9 @@ inline void pthread_end(pthread_t id) {
 ```C
 #include "thread.h"
 
-static pthread_attr_t attr[1];
+static pthread_attr_t attr;
+
+static pthread_attr_t rtta;
 
 // 
 // pthread_init - thread 使用方需要手动初始化
@@ -392,8 +377,9 @@ static pthread_attr_t attr[1];
 // return   : void
 //
 void pthread_init(void) {
-    pthread_attr_init(attr);
-    pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_attr_init(&rtta);
 }
 
 //
@@ -405,7 +391,20 @@ void pthread_init(void) {
 inline int 
 pthread_async(void * frun, void * arg) {
     pthread_t id;
-    return pthread_create(&id, attr, frun, arg);
+    return pthread_create(&id, &attr, frun, arg);
+}
+
+
+//
+// pthread_run - 启动线程
+// p        : 指向线程 id 的指针
+// frun     : node_f or ... 运行主体
+// arg      : 运行参数
+// return   : 0 is success, -1 is error
+//
+inline int 
+pthread_run(pthread_t * p, void * frun, void * arg) {
+    return pthread_create(p, &rtta, frun, arg);
 }
 
 ```
@@ -488,9 +487,7 @@ reads(struct rwarg * arg) {
 
 pthread 已经提供了读写锁, 为什么还要没事瞎搞呢. 对于这个问题我是这样解释的. 
 
-- 1 学习价值, 写写顺便了解一下基本原理
-- 2 pthread 读写锁有点重, 不如原子实现轻量
-- 3 pthread 读写锁存在写操作饥渴的隐患        
+- 1 pthread 读写锁存在写操作饥渴的隐患, 写写顺便了解原子自旋锁的基本基本原理     
 
 特别是 3 问题很严重, 不妨自行构造多读少写情况自行验证. 下面对读写锁进行详细分析. 读写锁主要还是为了解决, 大量'读'和少量'写'的业务而设计的. 如果读写均衡, 那用 pthrad rwlock 效果更好. 我们这里写优先的读写锁满足 3 个特征:
 
@@ -614,7 +611,7 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 
 通过 rwlock.c 可以看出来这里是分别对读和写进行加锁和解锁的. rwlock 中 rlock 和 wlock 两个字段就是直接表现, 本质通过两把交叉的锁模拟出一把读写锁. 来来回回, 虚虚实实, 互相打配合 ~
 
-到这里关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为往往能很容易被更高效的业务设计所替代 ~ 
+到这里关于读写锁的炫迈已经嚼完了. 读写锁应用场景也很窄, 例如配置中心用于解决配置读取和刷新可能会尝试使用. 读写锁用于学习原子操作特别酷炫, 但不推荐实战使用, 因为往往能很容易被更高效的业务设计或者使用安全性更高的优质库的 API 所替代 ~ 
 
 ## 3.4 阅读理解 - time.h 二次封装
 
@@ -652,68 +649,10 @@ extern bool atomic_w_trylock(struct rwlock * rw) {
 //     Hour                 = 60 * Minute
 // )
 
-#if defined(_WIN32) && defined(_MSC_VER)
-
-#include <winsock2.h>
-
-//
-// gettimeofday - 实现 Linux sys/time.h 得到微秒时间, 推荐使用 localtime_get
-// tv       : 返回秒数和微秒数
-// tz       : 返回时区结构, 目前默认废弃
-// return   : success is 0
-//
-extern int gettimeofday(struct timeval * restrict tv, void * /* unused */ tz);
-
-// Set time conversion information from the TZ environment variable.
-// If TZ is not defined, a locale-dependent default is used.
-#undef  tzset
-#define tzset _tzset
-
-// 如果 TZ 在操作系统中指定或确定了夏令时(DST)区域, 则为 1; 否则为 0.
-#define daylight _daylight
-
-// tzname 的值由 TZ 环境变量的值确定. 如果您未显式设置 TZ 的值, 
-// 则 tzname[0] 和 tzname[1] 将分别包含"PST"和"PDT"(太平洋夏令时)的默认设置
-#define tzname _tzname
-
-// timezone 协调世界时 UTC 与当地时间 LOC 之间的秒数差. 例如 中国 UTC - CST 默认值为 -28,800
-// fix 适配 window struct timezone
-#define timezone _timezone
-
-//
-// msleep - 睡眠函数, 颗粒度是毫秒.
-// ms       : 睡眠的毫秒数
-// return   : void
-//
-inline void msleep(int ms) {
-    Sleep(ms);
-}
-
-//
-// usleep - 微秒级别等待函数
-// usec     : 等待的微秒
-// return   : 0 on success.  On error, -1 is returned.
-//
-extern int usleep(unsigned usec);
-
-//
-// localtime_r - 获取当前时间线程加锁版本, 推荐使用 localtime_get
-// timep    : 输入的时间戳指针
-// result   : 返回输出时间结构
-// return   : 失败 NULL, 正常返回 result
-//
-inline struct tm * localtime_r(const time_t * timep, struct tm * result) {
-    return localtime_s(result, timep) ? NULL : result;
-}
-
-#elif defined(__linux__) && defined(__GNUC__)
+#if defined(__linux__) && defined(__GNUC__)
 
 #include <unistd.h>
 #include <sys/time.h>
-
-inline void msleep(int ms) { 
-    usleep(ms * 1000); 
-}
 
 #endif
 
@@ -721,7 +660,7 @@ inline void msleep(int ms) {
  * If div by 4 and not 100 is surely leap.
  * If div by 100 *and* not by 400 is not leap.
  * If div by 100 and 400 is leap. */
-inline _Bool is_leap_year(time_t year) {
+inline bool is_leap_year(time_t year) {
     return ((year) % 4 == 0 && ((year) % 100 != 0 || (year) % 400 == 0));
 }
 
@@ -808,9 +747,10 @@ extern const char * times(void);
 
 ```
 
-道友是否看到 localtime_r 函数. 这种函数带着浓浓的 linux api 的设计口味. 标识是可重入的. 这就扯到另一个常被误导的话题了可重入和线程安全. 可重入是基于操作系统中断层面的定义, 多数是系统发生中断瞎比调用这个函数仍然没有问题, 表示此函数可重入. 线程安全呢? 他是线程调度层面的定义, 希望多个线程之间瞎比调用这个函数, 程序最终运行结果仍然能够符合预期思路. 二者有相关性, 例如多数可线程安全的函数可重入. 但而二者是个完全不同的概念. 例如 malloc 内部通过锁来实现线程安全, 如果调用 malloc 过程中发生中断, 中断程序再次调用 malloc 那么两次 lock 操作会导致死锁. 因而有些线程安全的函数是不可重入. 另外一个例子就是一个函数打开文件读取内容这是可重入的, 但却不是线程安全的(文件读写非线程安全), 因为可重入函数不一定线程安全. 希望到这里你能对可重入和线程安全有个更清晰的认识. 那继续剖析上面的 times.h 接口设计. 推荐随后的代码可以全部拔到你的项目中. 他们也算是久经考验的忠诚战士. 首先看一个飘逸的字符串解析为系统时间结构的函数.
+道友是否想起 localtime_r 函数. 这种函数带着浓浓的 linux api 的设计口味. 标识是可重入的. 这就扯到另一个常被误导的话题了可重入和线程安全. 可重入是基于操作系统中断层面的定义, 多数是系统发生中断瞎比调用这个函数仍然没有问题, 表示此函数可重入. 线程安全呢? 他是线程调度层面的定义, 希望多个线程之间瞎比调用这个函数, 程序最终运行结果仍然能够符合预期思路. 二者有相关性, 例如多数可线程安全的函数可重入. 但而二者是个完全不同的概念. 例如 malloc 内部通过锁来实现线程安全, 如果调用 malloc 过程中发生中断, 中断程序再次调用 malloc 那么两次 lock 操作会导致死锁. 因而有些线程安全的函数是不可重入. 另外一个例子就是一个函数打开文件读取内容这是可重入的, 但却不是线程安全的(文件读写非线程安全), 因为可重入函数不一定线程安全. 希望到这里你能对可重入和线程安全有个更清晰的认识. 那继续剖析上面的 times.h 接口设计. 推荐随后的代码可以全部拔到你的项目中. 他们也算是久经考验的忠诚战士. 首先看一个飘逸的字符串解析为系统时间结构的函数.
 
-```C// times_tm - 从时间串中提取出来年月日时分秒
+```C
+// times_tm - 从时间串中提取出来年月日时分秒
 bool times_tm(times_t ns, struct tm * outm) {
     if (ns == NULL) return false;
 
@@ -972,86 +912,12 @@ time_week_equal(time_t n, time_t t) {
 }
 ```
 
-8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说到时间业务上面, 推荐用新的标准函数 timespec_get 替代 gettimeofday! 精度更高, 更规范. 对于 gettimeofday 还有 usleep linux 上常用函数, 我们在 window 实现如下.
-
-```C
-#include "times.h"
-
-#if defined(_WIN32) && defined(_MSC_VER)
-
-//
-// usleep - 微秒级别等待函数
-// usec     : 等待的微秒
-// return   : 0 on success.  On error, -1 is returned.
-//
-int
-usleep(unsigned usec) {
-    int ret = -1;
-    // Convert to 100 nanosecond interval, negative value indicates relative time
-    LARGE_INTEGER t = { .QuadPart = -10LL * usec };
-
-    HANDLE timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    if (timer) {
-        // 负数以100ns为单位等待, 正数以标准FILETIME格式时间
-        SetWaitableTimer(timer, &t, 0, NULL, NULL, FALSE);
-        WaitForSingleObject(timer, INFINITE);
-        if (GetLastError() == ERROR_SUCCESS)
-            ret = 0;
-        CloseHandle(timer);
-    }
-
-    return ret;
-}
-
-#define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-
-//
-// gettimeofday - 实现 Linux sys/time.h 得到微秒时间, 推荐使用 localtime_get
-// tv       : 返回秒数和微秒数
-// tz       : 返回时区结构, 目前默认废弃
-// return   : success is 0
-//
-int gettimeofday(struct timeval * restrict tv, void * /* unused */ tz) {
-    if (tv) {
-        FILETIME t;
-        GetSystemTimeAsFileTime(&t);
-
-        uint64_t m = (uint64_t)t.dwHighDateTime << 32 | t.dwLowDateTime;
-        // convert into microseconds, converting file time to unix epoch
-        m = m / 10 - DELTA_EPOCH_IN_MICROSECS;
-
-        tv->tv_sec = (long)(m / 1000000UL);
-        tv->tv_usec = (long)(m % 1000000UL);
-    }
-
-    /*
-
-    // Structure crudely representing a timezone.
-    // This is obsolete and should never be used.
-    struct timezone {
-        int tz_minuteswest; // Minutes west of GMT.
-        int tz_dsttime;     // Nonzero if DST is ever in effect.
-    };
-
-    // 不管 linux or window, gettimeofday 都不是个好的 api 设计
-    if (tz) {
-        tz->tz_minuteswest = _timezone / 60;
-        tz->tz_dsttime = _daylight;
-    }
-
-    */
-   /* unused */ if (tz) {}
-
-    return 0;
-}
-
-#endif
-```
+8UL * 3600 科普一下, GMT(Greenwich Mean Time) 代表格林尼治标准时间, 也是咱们代码中 time(NULL) 返回的时间戳. 而中国北京标准时间采用的 CST(China Standard Time UT+8:00). 因而需要在原先的标准时间戳基础上加上 8h, 就得到咱们中国皇城的时间戳. 说到时间业务上面, 推荐用新的标准函数 timespec_get 替代 传统特定的系统库的 gettimeofday! 精度更高, 更规范. 
 
 扩展一点, 假如有个策划奇葩需求, 我们规定一天的开始时间是 5 时 0 分 0 秒. 现实世界默认一天开始时间是 0 时 0 分 0 秒. 那你会怎么做呢 ? 其实有很多处理方式, 只要计算好偏移量就可以. 例如我们假如在底层支持. 可以这么写.
 
 ```C
-#define DAYNEWSTART_INT	(_timezone + 5UL * 3600 + 0 * 60 + 0)
+#define DAYNEWSTART_INT	(timezone + 5UL * 3600 + 0 * 60 + 0)
 
 inline bool time_isday(time_t n, time_t t) {
     n = (n - DAYNEWSTART_INT) / (24 * 3600);
@@ -1063,6 +929,53 @@ inline bool time_isday(time_t n, time_t t) {
 同样的对于如果判断是否是同一周什么鬼, 也是减去上面偏移量. 当然这样需求最好拒绝! 大家多写多用, 将吸星大法练习精深. 本书很多素材最初来自于写游戏服务器业务时感悟. 扯一点题外话, 游戏相比其他互联网项目而言, 开宝箱的几率很高. 技术上多数吃老本, 新技术落后. 业务上面增删改查不多. 整个行业偏重客户端和策划玩法. 那把剩下关于 times_t 操作补全.
 
 ```C
+//
+// time_day_equal - 判断时间戳是否是同一天
+// n        : 第一个时间戳 UTC
+// t        : 第二个时间戳 UTC
+// return   : true 表示同一天
+//
+inline bool
+time_day_equal(time_t n, time_t t) {
+    // UTC(世界协调时间)
+    // 世界协调时间(UTC)与世界协调时间(UTC)没有时差.
+    // CST(中国标准时间)
+    // 中国标准时间(CST)比世界协调时间(UTC)早08:00小时. 该时区为标准时区时间, 主要用于 亚洲
+    // UTC [World] + 8 * 3600 = CST [China] | UTC [World] = CST [China] - timezone (8 * 3600)
+    // 其他地区也类似 UTC 和 CST 关系, 存在 timezone = UTC - LOC -> LOC = UTC - timezone
+    n = (n - timezone) / (24 * 3600);
+    t = (t - timezone) / (24 * 3600);
+    return n == t;
+}
+
+//
+// time_week_equal - 判断时间戳是否是同一周
+// n        : 第一个时间戳
+// t        : 第二个时间戳
+// return   : true 表示同一周
+//
+bool
+time_week_equal(time_t n, time_t t) {
+    time_t p;
+    struct tm m;
+    // n = max(n, t), t = min(n, t)
+    if (n < t) {
+        p = n; n = t; t = p;
+    }
+
+    // 得到 n 表示的当前时间
+    localtime_get(&m, n);
+    // 得到当前时间到周一起点的时间差
+    p = (time_t)(m.tm_wday ? m.tm_wday - 1 : 6) * 24 * 3600 
+      + (time_t)m.tm_hour * 3600 
+      + (time_t)m.tm_min * 60 
+      + m.tm_sec;
+
+    // [week start, n], n = max(n, t), , week start = n - p
+    // t = min(n, t) >= week start 表示在同一周内
+    return t >= n - p;
+}
+
 //
 // times_day_equal - 判断时间串是否是同一天
 // ns       : 第一个时间串
@@ -1093,12 +1006,12 @@ times_week_equal(times_t ns, times_t ts) {
 
 //
 // times_fmt - 通过 fmt 格式最终拼接一个字符串
-// fmt      : 推荐遵循 TIMES_STR 意图
+// fmt      : 推荐遵循 TIMES_FMT_STR 意图
 // out      : 最终保存的内容
 // sz       : buf 长度
 // return   : 返回生成串长度
 //
-int
+int 
 times_fmt(const char * fmt, char out[], size_t sz) {
     struct tm m;
     struct timespec s;
@@ -1109,13 +1022,34 @@ times_fmt(const char * fmt, char out[], size_t sz) {
     return snprintf(out, sz, fmt,
                     m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
                     m.tm_hour, m.tm_min, m.tm_sec,
-                    (int)(s.tv_nsec / 1000000));
+                    s.tv_nsec, tzname[0]);
 }
+
+// times TLS time str 版本
+extern const char * times(void) {
+    static _Thread_local times_t out;
+
+    struct tm m;
+    struct timespec s;
+
+    timespec_get(&s, TIME_UTC);
+    localtime_get(&m, s.tv_sec);
+
+    sprintf(out, TIMES_FMT_STR,
+            m.tm_year + 1900, m.tm_mon + 1, m.tm_mday,
+            m.tm_hour, m.tm_min, m.tm_sec,
+            s.tv_nsec, tzname[0]);
+
+    return out;
+}
+
 ```
 
 对于比较的问题, 用草纸画画涂涂就明白了. 其中使用的 **localtime_get** 从 redis 中扒下来, 阅读起来非常不错.
 
 ```C
+#include "times.h"
+
 /* This is a safe version of localtime() which contains no locks and is
  * fork() friendly. Even the _r version of localtime() cannot be used safely
  * in Redis. Another thread may be calling localtime() while the main thread
@@ -1453,11 +1387,11 @@ static void start(struct skills * kill) {
 
 调用 start 就可以了, 火球术吟唱, 持续输出. 中间打断什么鬼, 那就自己扩展. 后期根据标识统一绘制显示. 以上是简单到吐的思路说不定也很有效. 有点像优化过的 select 特定的时候出其不意 ~
 
-对于定时器常见的实现有三类套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆顶, 最先执行. 还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条刻度上的链表. 总的而言定时器的套路取舍得看应用的场景. 这篇 timer 阅读理解是基于有序链表. 可以说起缘 list, 终于 list. 希望这篇拓展练习能加深你对当前所学知识点的掌握和运用. 多想想多实操.
+对于定时器常见的实现有三类套路. 一种是有序链表用于解决, 大量重复轮询的定时结点设计的. 另一种是采用时间堆构建的定时器, 例如小顶堆, 时间差最小的在堆顶, 最先执行. 还有一种时间片结构, 时间按照一定颗度转呀转, 转到那就去执行那条刻度上的链表. 总的而言定时器的套路取舍得看应用的场景. 这篇 timer 阅读理解是基于有序链表. 可以说起缘 list, 终于 list. 希望这篇拓展练习能加深你对当前所学知识点的掌握和运用. 多想想多实操, 很多实战交给系统库或者优质库去做这块. 
 
 ## 3.6 展望
 
-这章目的是为了大家对系统编程有一点点感受. 先给大家抛砖引玉, 试图解开开发中基础操作奥秘. 学会一种方法, 应对不同平台的封装策略. 也是为以后步入练气大圆满, 漫天空气炮和偏地是坑铺展一个好的开始 ~ 同样在心里希望, 多陪陪爱我们的人和我们爱的人, 房子票子那种法宝有最好, 没有也不影响 **你所求的道** *-*
+这章目的是为了大家对系统编程有一点点感受. 先给大家抛砖引玉, 试图解开开发中基础操作奥秘. 学会一个优质平台中一种方法, 应对不同平台的封装策略可学可不学看自己兴趣. 为以后步入练气大圆满, 漫天空气炮和偏地是坑铺展一个好的开始 ~ 同样在心里希望, 多陪陪爱我们的人和我们爱的人, 房子票子那种法宝有最好, 没有也不影响 **你所求的道** *-*
 
 ***
 

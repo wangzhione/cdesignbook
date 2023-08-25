@@ -2795,6 +2795,8 @@ int msg_buf_pop(msg_buf_t q, msg_t * p) {
 
 我们在内功修炼中写了不少实战中操练的数据结构, 不妨来个简单的阅读理解来调味. 构建一种通用的堆结构库. 让你嗨嗨嗨 :0 认真修炼, 精纯内功 ~
 
+**heap.h**
+
 ```C
 #pragma once
 
@@ -2833,6 +2835,8 @@ extern void * heap_remove(heap_t h, int i);
 extern void * heap_pop_push(heap_t h, void * node);
 
 ```
+
+**heap.c**
 
 ```C
 #include "heap.h"
