@@ -1,19 +1,6 @@
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
-
-<!-- code_chunk_output -->
-
-- [第6章-武技-常见组件后继](#第6章-武技-常见组件后继)
-  - [6.1 传说中的线程池](#61-传说中的线程池)
-    - [6.1.1 线程池设计](#611-线程池设计)
-    - [6.1.2 线程池实现](#612-线程池实现)
-  - [6.2 消息轮序器](#62-消息轮序器)
-  - [6.3 阅读理解](#63-阅读理解)
-  - [6.4 展望 pthread_mutex_lock](#64-展望-pthread_mutex_lock)
-
-<!-- /code_chunk_output -->
 # 第6章-武技-常见组件后继
 
-时间过得真快, 此章武技修炼完毕, 修真之旅的岁月也就过去一半了. 武技本是练气期选手在模拟的妖魔实战中的宝贵经验. 原始而奏效, 飞沙走石, 滔天气浪. 诉述故事也许很短, 但未来的传说由你自己谱写 ~ 此刻一同穿梭那场景, 感受一刹那间神魂震动, 山河破碎, 天地不仁
+时间过得真快, 武技部分修炼完毕, C 初学者进阶的修真之旅的岁月也就过去一半了. 武技本是练气期选手在模拟的妖魔实战中的宝贵经验. 原始而奏效, 飞沙走石, 滔天气浪. 诉述故事也许很短, 但未来的传说由自己在临摹和踩坑中肚子谱写 ~ 此刻一同穿梭那场景, 感受一刹那间神魂震动, 山河破碎, 天地不仁, 人鬼颠鸾
 
     ~
     ~ 带好你的剑, 
@@ -22,7 +9,7 @@
 
 ## 6.1 传说中的线程池
 
-线程池这个很古老的旧话题, 讨论的很多, 深入也挺难. 也就在一些基础库或编程语言设计中才能见到这类有点精妙的模型技巧. 此处也会随大流深入简述简单且控制性强的一种线程池实现. 先引入一个概念"惊群". 举个简单例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米渣. 扔出去, 立马无数麻雀过来争抢. 而最终会有一只或多只麻雀会得到. 而那些没有抢到的麻雀会很累 ... .. . 编程中惊群, 同样是个很古老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以自行搜索, 多数介绍的解决方案质量非常高. 而我们今天只讨论线程池中惊群现象. 采用的 POSIX 跨平台的线程库 pthread 来演示和克服. 
+线程池这个很老的旧话题, 讨论的不多, 深入还挺难. 也就在一些基础库或编程语言设计中才能见到这类有点精妙复杂的模型技巧. 这里随大流简述简单且控制性强的一种线程池实现. 先引入一个概念"惊群". 举个简单例子. 春天来了, 公园出现了很多麻雀. 而你恰巧有一个玉米渣. 扔出去, 立马无数麻雀过来争抢. 而最终会有一只或多只麻雀会得到. 而那些没有抢到的麻雀会很累 ... .. . 编程中惊群, 同样是个很老的话题. 服务器框架开发中很有机会遇到. 有兴趣的可以自行搜索, 多数介绍的解决方案质量非常高. 这里只讨论线程池中惊群现象. 采用的认可度最高的 POSIX 跨平台的线程库 pthread 来演示和克服. 
 
 ```C
 //
@@ -86,7 +73,7 @@ extern void threads_insert(threads_t pool, void * frun, void * arg);
 
 ```
 
-不完全类型 threads_t 就是我们定义的线程池对象, 并有创建删除添加行为. 其中使用函数参数 void * frun 是用于去掉警告. 设计的如果不好, 那还不如不设计, 同样功能越少出错的概率越小.
+不完全类型 threads_t 就是我们定义的线程池对象, 并有创建删除添加行为. 其中使用函数参数 void * frun 是用于去掉警告. 设计的如果不好, 那还不如不设计, 同样功能越少出错的概率越小越有针对性.
 
 ### 6.1.2 线程池实现
 
@@ -186,7 +173,7 @@ static pthread_cond_t * threads_cond(struct threads * pool) {
 }
 ```
 
-通过 struct thread 可以看出线程运行对象中, 都有个 pthread_cont_t 条件变量. 这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这类有风险的设计. 由上两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列. struct thread * thrs; 是线程对象的链表. 线程池对象中共用 struct threads 中 mutex 一个互斥量, 方便写代码. 希望还记得前面章节数据结构部分扯的, 链表是 C 结构中基础的内丹, 所有代码都是或多或少围绕他这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码其实和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其他接口实现.
+通过 struct thread 可以看出线程运行对象中, 都有个 pthread_cont_t 条件变量. 这就是定向激活的关键. struct threads::cancel 用于标识当前线程池是否在销毁阶段. 来避免使用 pthread_cancel + pthread_cleanup_push 和 pthread_cleanup_pop 这类有风险的设计. 由上两个结构衍生了几个辅助行为 threads_del threads_get threads_cond 等. 对于 struct threads 结构中 struct job * head, * tail; 是个待处理的任务队列. struct thread * thrs; 是线程对象的链表. 线程池对象中共用 struct threads 中 mutex 一个互斥量, 方便写代码. 希望还记得前面章节数据结构部分内容, 链表是 C 结构中基础的内丹, 所有代码都是或多或少围绕他这个结构. 要在勤磨练中熟悉提高, 对于刚学习的人. 上面代码其实和业务代码没啥区别, 创建删除添加查找等. 前戏营造的估计够了, 现在开搞其他接口实现.
 
 ```C
 // THREADS_INT - 开启的线程数是 2 * CPU
@@ -200,7 +187,7 @@ inline threads_t
 threads_create(void) {
     struct threads * pool = calloc(1, sizeof(struct threads));
     pool->size = THREADS_INT;
-    pool->mutx = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&pool->mutx, NULL);
     return pool;
 }
 ```
@@ -209,7 +196,7 @@ threads_create(void) {
 
 ```C
 //
-// threads_delete - 异步销毁线程池对象
+// threads_delete - 尝试异步销毁线程池对象, 有些行为是未定义的
 // pool     : 线程池对象
 // return   : void
 //
@@ -246,6 +233,7 @@ threads_delete(threads_t pool) {
         thrs = next;
     }
 
+    pthread_mutex_destroy(&pool->mutx);
     // 销毁自己
     free(pool);
 }
@@ -294,7 +282,7 @@ static void thread_consumer(struct threads * pool) {
         int status = pthread_cond_wait(cond, mutx);
         if (status < 0) {
             pthread_detach(id);
-            CERR("pthread_cond_wait error status = %d.", status);
+            PERR("pthread_cond_wait error status = %d.", status);
             break;
         }
         thrd->wait = false;
@@ -392,8 +380,8 @@ void test_threads(void) {
         threads_insert(pool, doc, NULL);
     }
 
-    //等待 5s 再结束吧
-    msleep(5000);
+    // 等待 5s 再结束吧
+    usleep(5 * 1000000);
 
     // 清除当前线程池资源, 实战上线程池是常驻内存, 不要清除.
     threads_delete(pool);
@@ -446,19 +434,22 @@ extern loop_t loop_create(void * frun, void * fdie);
 
 // loop 轮询器结构
 struct loop {
-    q_t rq;                // 读消息
-    q_t wq;                // 写消息
-    node_f frun;           // 消息处理行为
-    node_f fdie;           // 消息销毁行为
-    sem_t block;           // 线程信号量
-    pthread_t id;          // 运行的线程id
-    atomic_flag lock;      // 消息切换锁
-    volatile bool loop;    // true 线程正在运行
-    volatile bool wait;    // true 线程空闲等待
+    pthread_t id;           // 运行的线程id
+    pthread_mutex_t lock;   // 消息切换锁
+    pthread_cond_t cond;    // 等待条件变量
+
+    volatile bool wait;     // true 标识正在等待
+    volatile bool loop;     // true 线程正在运行
+
+    struct q wq;            // 写消息
+
+    struct q rq;            // 读消息
+    node_f frun;            // 消息处理行为
+    node_f fdie;            // 消息销毁行为
 };
 
-// run - 消息处理行为
-inline void run(loop_t p, void * m) {
+// loop_run 消息处理行为
+inline void loop_run(loop_t p, void * m) {
     // 开始处理消息
     p->frun(m);
     p->fdie(m);
@@ -471,19 +462,21 @@ inline void run(loop_t p, void * m) {
 //
 void 
 loop_delete(loop_t p) {
+    if (p == NULL) return;
+
     //
     // delete 执行必须在 push 之后, C 代码是在刀剑上跳舞 ~ 
     //
-    if (p) {
-        p->loop = false;
-        sem_post(&p->block);
-        // 等待线程结束, 然后退出
-        pthread_end(p->id);
-        sem_destroy(&p->block);
-        q_delete(p->rq, p->fdie);
-        q_delete(p->wq, p->fdie);
-        free(p);
-    }
+    p->loop = false;
+    // 尝试激活信号量
+    pthread_cond_broadcast(&p->cond);
+    // 等待线程结束, 然后退出
+    pthread_end(p->id);
+
+    // 队列内存清理
+    q_delete(&p->wq, p->fdie);
+    q_delete(&p->rq, p->fdie);
+    free(p);
 }
 
 //
@@ -494,37 +487,40 @@ loop_delete(loop_t p) {
 //
 void 
 loop_push(loop_t p, void * m) {
-    assert(p && m);
-    atomic_flag_lock(&p->lock);
-    q_push(p->rq, m);
-    atomic_flag_unlock(&p->lock);
+    assert(p != NULL && m != NULL);
+
+    pthread_mutex_lock(&p->lock);
+
+    q_push(&p->wq, m);
+
     if (p->wait) {
         p->wait = false;
-        sem_post(&p->block);
+        pthread_cond_signal(&p->cond);
     }
+
+    pthread_mutex_unlock(&p->lock);
 }
 
-// loop_run - 轮询器执行的循环体
-static void loop_run(loop_t p) {
+// loop_loop 轮询器执行的循环体
+static void loop_loop(loop_t p) {
     while (p->loop) {
-        void * m = q_pop(p->rq);
-        if (m) {
-            run(p, m);
+        void * m = q_pop(&p->rq);
+        if (m != NULL) {
+            loop_run(p, m);
             continue;
         }
 
-        // read q <- write q
-        atomic_flag_lock(&p->lock);
-        q_swap(p->rq, p->wq);
-        atomic_flag_unlock(&p->lock);
-
-        m = q_pop(p->rq);
-        if (m) run(p, m);
-        else {
-            // 仍然没有数据, 开始睡眠
+        pthread_mutex_lock(&p->lock);
+        // 没有数据开始阻塞
+        if (q_empty(&p->wq)) {
             p->wait = true;
-            sem_wait(&p->block);
+            pthread_cond_wait(&p->cond, &p->lock);
         }
+
+        // read q <- write q
+        q_swap(p->rq, p->wq);
+
+        pthread_mutex_unlock(&p->lock);
     }
 }
 
@@ -536,30 +532,56 @@ static void loop_run(loop_t p) {
 //
 loop_t 
 loop_create(void * frun, void * fdie) {
-    loop_t p = malloc(sizeof(struct loop));
+    assert(frun != NULL);
 
-    q_init(p->rq);
-    q_init(p->wq);
+    loop_t p = malloc(sizeof(struct loop));
+    if (p != NULL) {
+        RETNUL("malloc panic %zu", sizeof(struct loop));
+    }
+
+    // 初始化 POSIX 互斥锁和条件变量
+    if (pthread_mutex_init(&p->lock, NULL)) {
+        free(p);
+        RETNUL("pthread_mutex_init panic error");
+    }
+    if (pthread_cond_init(&p->cond, NULL)) {
+        pthread_cond_destroy(&p->cond);
+        free(p);
+        RETNUL("pthread_cond_init panic error");
+    }
+
+    if (q_init(&p->rq) == false) {
+        pthread_cond_destroy(&p->cond);
+        pthread_mutex_destroy(&p->lock);
+        free(p);
+        return NULL;
+    }
+    if (q_init(&p->wq) == false) {
+        free(p->rq.data);
+        pthread_cond_destroy(&p->cond);
+        pthread_mutex_destroy(&p->lock);
+        free(p);
+        return NULL;
+    }
     p->frun = frun;
     p->fdie = fdie;
     p->wait = p->loop = true;
-    // 初始化 POSIX 信号量, 进程内线程共享, 初始值 0
-    sem_init(&p->block, 0, 0);
-    p->lock = (atomic_flag)ATOMIC_FLAG_INIT;
-    if (pthread_run(&p->id, loop_run, p)) {
-        sem_destroy(&p->block);
-        free(p->rq->data);
-        free(p->wq->data);
-        free(p); 
-        return NULL;
+
+    if (pthread_run(&p->id, loop_loop, p)) {
+        free(p->wq.data);
+        free(p->rq.data);
+        pthread_cond_destroy(&p->cond);
+        pthread_mutex_destroy(&p->lock);
+        free(p);
+        RETNUL("pthread_run panic error");
     }
     
-    return p;    
+    return p;
 }
 
 ```
 
-对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些, 那就爽了. 整体思路是乒乓交换, 亮点在于 sem_wait. 分析会, 假如是多线程环境 loop_push 多次并发操作, 并触发相应的 sem_post 会执行多次 P 操作. 但 loop_run 是单线程轮询处理的, 只会触发对应次的 sem_wait V 操作. 所以 push 的 sem_post 不加锁不影响业务正确性. 而且 sem_wait 是通用层面阻塞性能最好的选择. 这些都是高效的保证. 武技修炼中, loop 库是继 clog 库之后, 基于最小意外的实现 ~ 感悟至今, 进出妖魔战场更加频繁, 修炼也越发坚深, 然而心境中域外天魔也逐渐在另一个次元逼近而来. 他会拷问你的内心, 你为何修炼编程? 随之进入弥天幻境, 太多太多人在幻境的路中间 ~ 不曾解脱 ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
+对于 struct loop::fdie 也支持 NULL 行为操作. 如果 C 编译器层面语法糖支持的好些, 那就爽了. 整体思路是乒乓交换 ~ 感悟至今, 进出妖魔战场更加频繁, 修炼也越发坚深, 然而心境中域外天魔也逐渐在另一个次元逼近而来. 他会拷问你的内心, 你为何修炼编程? 随之进入弥天幻境, 太多太多人在幻境的路中间 ~ 不曾解脱 ~ 不愿走过那条大道, 去, 元婴终身无望 ~ 
 ## 6.3 阅读理解 pthread_mutex_lock
 
 本文阅读理解抽自 glibc 库中 pt-mutext-lock.c 部分. 非常清晰讲述互斥锁大致原理. 首先要知道互斥锁提供那些功能, PT_MTX_NORMAL, PT_MTX_RECURSIVE, PT_MTX_ERRORCHECK, PTHREAD_MUTEX_ROBUST 业务语义. 然后是 lll_lock, lll_robust_lock 借助 atomic 和 syscall __NR_futex 等标准和系统能力. 经过之前几章训练感兴趣同学, 完全有能力看懂这些用户线程级别代码. 系统开发宝藏就是**最新的 glibc 库, 然后是 man 手册**. 有一说一这些成名库, 起的变量名确实**言简意赅, 一看就懂**. 
