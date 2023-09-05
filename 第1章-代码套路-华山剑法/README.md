@@ -500,6 +500,10 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 # endif
 
 //
+// With the new <stdbit.h>
+// Endian macros (__STDC_ENDIAN_BIG__, __STDC_ENDIAN_LITTLE__, __STDC_ENDIAN_NATIVE__)
+
+//
 // 大小端检测 : ISBIG defined 表示大端
 //
 # if defined(__BIG_ENDIAN__) || defined(__BIG_ENDIAN_BITFIELD)
@@ -518,6 +522,10 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 #ifndef UNUSED
 #define UNUSED(parameter) if (parameter) {}
 #endif//UNUSED
+
+//
+// With the new <stdbit.h>
+// Endian macros (__STDC_ENDIAN_BIG__, __STDC_ENDIAN_LITTLE__, __STDC_ENDIAN_NATIVE__)
 
 ```
 
