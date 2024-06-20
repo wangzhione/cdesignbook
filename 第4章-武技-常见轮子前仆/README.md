@@ -1788,7 +1788,7 @@ ret_out:
 `,
 
   //
-  // add you config, 再在 :: conf.h / conf.c 中添加映射关系
+  // add you config, 再在 :: config.h / config.c 中添加映射关系
   //
 
 }
@@ -1797,7 +1797,7 @@ ret_out:
 
 ** config 配置库定义**
 
-**conf.h** 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应. 可以从 struct conf 中字段看出来.
+**config.h** 接口构思是配置文件同运行程序中内存一一映射, 一条配置程序就有一个字段和其对应. 可以从 struct config 中字段看出来.
 
 ```C
 #pragma once
@@ -1808,55 +1808,55 @@ ret_out:
 //
 // config 映射配置
 //
-struct conf {
+struct config {
     char * description;
     char * image;
 };
 
 //
-// conf_instance - 获取配置
+// config_instance - 获取配置
 // return   : 返回详细配置内容
 //
-extern struct conf * conf_instance(void);
+extern struct config * config_instance(void);
 
 //
-// conf_init - 初始化读取配置内容
+// config_init - 初始化读取配置内容
 // path     : 配置初始化路径
 // return   : true 表示解析成功
 //
-bool conf_init(const char * path);
+bool config_init(const char * path);
 
 ```
 
 实现层面考虑了文件格式可能是 gdk 和 utf8 两种情况. 具体见 locals 实现代码.
 
 ```C
-#include "conf.h"
+#include "config.h"
 
 //
 // conf_instance - 获取配置
 // return   : 返回详细配置内容
 //
-inline struct conf * conf_instance(void) {
+inline struct config * config_instance(void) {
     //
     // 配置存储信息
     //
-    static struct conf conf;
+    static struct config conf;
 
     return &conf;
 }
 
 // CONFIG_PARSE_JSON_STR - json field -> conf field
-#define CONFIG_PARSE_JSON_STR(json, conf, field)            \
-json_t $##field = json_object(json, #field);                \
-if (!$##field || $##field->type != JSON_STRING) {           \
-    RETURN(false, "json_object err "#field" %p", $##field); \
-}                                                           \
-free(conf->field);                                          \
+#define CONFIG_PARSE_JSON_STR(json, conf, field)              \
+json_t $##field = json_object(json, #field);                  \
+if (!$##field || $##field->type != JSON_STRING) {             \
+    RETURN(false, "json_object error "#field" %p", $##field); \
+}                                                             \
+free(conf->field);                                            \
 conf->field = json_detach_str($##field);
 
 // conf_parse - 解析内容, 并返回解析结果
-static bool conf_parse(json_t json, struct conf * conf) {
+static bool config_parse(json_t json, struct config * conf) {
     CONFIG_PARSE_JSON_STR(json, conf, description);
     CONFIG_PARSE_JSON_STR(json, conf, image);
 
@@ -1870,21 +1870,21 @@ static bool conf_parse(json_t json, struct conf * conf) {
 // path     : 配置初始化路径
 // return   : true 表示解析成功
 //
-bool conf_init(const char * path) {
+bool config_init(const char * path) {
     json_t json = json_file(path);
     if (!json) {
-        RETURN(false, "json_file err path is %s", path);
+        RETURN(false, "json_file error path is %s", path);
     }
 
     // 解析 json 内容, 并返回详细配置内容
-    bool ret = conf_parse(json, conf_instance());
+    bool ret = config_parse(json, config_instance());
     json_delete(json);
     return ret;
 }
 
 ```
 
-使用的时候先要在业务使用之前注册 **conf_init**, 随后就可以通过 **conf_instance()** 来获取配置中内容. 经过这些是不是觉得, 到练气也不过如此. 气随心动.
+使用的时候先要在业务使用之前注册 **config_init**, 随后就可以通过 **config_instance()** 来获取配置中内容. 经过这些是不是觉得, 到练气也不过如此. 气随心动.
 
 ## 4.6 奥特曼, 通用头文件
 
@@ -1898,173 +1898,10 @@ bool conf_init(const char * path) {
 #include "alloc.h"
 #include "thread.h"
 #include "strext.h"
-#include "sundries.h"
-
 
 ```
 
-base.h 相关内容比较很简单, 就是汇总常用头文件. **思想就是让业务使用者不再如数家珍去记忆常用头文件**. 其中 check.h 可以放入一些参数校验的函数. 可以随着自身对业务修炼的理解, 自主添加. 目前这里只是加了个 email 校验操作.
-
-```C
-#include "sundries.h"
-
-//
-// is_email - 判断是否是邮箱
-// mail     : email 串 
-// return   : true is email
-#define EMAIL_INT (255)
-bool 
-is_email(const char * mail) {
-    //
-    // A@B.xx size <= 255
-    // [0-9][a-z][A-Z] .-_ 字符构成
-    // @ . 分割处首位和末位只能是 [0-9][a-z][A-Z] 
-    // 不能出现 .. 连续
-    //
-    int c, i, b, d;
-    if (!mail) return false;
-    // check A
-    c = *mail;
-    if (!((c >= '0' && c <= '9') 
-       || (c >= 'A' && c <= 'Z') 
-       || (c >= 'a' && c <= 'z'))) return false;
-    for (i = 1; (c = *++mail) && c != '@' && i < EMAIL_INT; ++i) {
-        // 非法字符直接返回
-        if (!((c >= '0' && c <= '9') 
-        || (c >= 'A' && c <= 'Z') 
-        || (c >= 'a' && c <= 'z'))) {
-            if (c == '-' || c == '_')
-                continue;
-            return false;
-        }
-    }
-
-    // check A end
-    if (c != '@' || i >= EMAIL_INT 
-                 || mail[-1] == '-' || mail[-1] == '_')
-        return false;
-    
-    // check b start
-    for (b = d = false; (c = *++mail) && i < EMAIL_INT; ++i) {
-        // 非法字符直接返回
-        if (!((c >= '0' && c <= '9') 
-        || (c >= 'A' && c <= 'Z') 
-        || (c >= 'a' && c <= 'z'))) {
-            // 首字符不能是 非数字和字母
-            if (b) {
-                if (c == '-' || c == '_') 
-                    continue;
-                else if (c == '.') {
-                    b = false;
-                    d = true;
-                    continue;
-                }
-            }
-            return false;
-        }
-        b = true;
-    }
-    // 必须存在 ., 最后 '\0' 结尾, 255 以内
-    return b && d && !c && i < EMAIL_INT 
-             && (mail[-1] < '0' || mail[-1] > '9');
-}
-
-//
-// url_encode - url 编码, 需要自己 free
-// s        : url串
-// len      : url串长度
-// nen      : 返回编码后串长度
-// return   : 返回编码后串的首地址
-// 
-char * 
-url_encode(const char * s, int len, int * nen) {
-    if (s == NULL || *s == '\0' || len <= 0) {
-        if (nen) *nen = 0;
-        return NULL;
-    }
-
-    const unsigned char * from = (unsigned char *)s;
-    const unsigned char * end = from + len;
-    unsigned char * to = calloc(3 * len + 1, 1);
-    unsigned char * start = to;
-
-    while (from < end) {
-        register unsigned char c = *from++;
-        if (c == ' ') {
-            *to++ = '+';
-            continue;
-        }
-
-        // [a-z] [A-Z] [0-9] [&-./:=?_] 以外字符采用二进制替代
-        if ((c < '0' && c != '&' && c != '-' && c != '.' && c != '/') ||
-            (c < 'A' && c >  '9' && c != ':' && c != '=' && c != '?') ||
-            (c > 'Z' && c  < 'a' && c != '_') ||
-            (c > 'z')) {
-            to[0] = '%';
-            to[1] = "0123456789ABCDEF"[c >> 4];
-            to[2] = "0123456789ABCDEF"[c & 15];
-            to += 3;
-            continue;
-        }
-
-        *to++ = c;
-    }
-    *to = '\0';
-
-    // 返回结果
-    if (nen) *nen = (int)(to - start);
-    return (char *)start;
-}
-
-// htoc - 2 字节变成 16 进制数表示
-inline char htoc(char * s) {
-    int v, c= s[0];
-    // 小写变大写是兼容性写法
-    if (islower(c)) c = toupper(c);
-    v =  (c >= '0' && c <= '9' ? c - '0' : c - 'A' + 10) * 16;
-
-    c = s[1];
-    if (islower(c)) c = toupper(c);
-    v += (c >= '0' && c <= '9' ? c - '0' : c - 'A' + 10);
-
-    return (char)v;
-}
-
-//
-// url_decode - url 解码, 解码后也是放在 s[] 中
-// s        : 待解码的串
-// len      : 解码串长度
-// return   : 返回解码串的长度, < 0 表示失败
-//
-int 
-url_decode(char s[], int len) {
-    if (s == NULL || *s == '\0' || len <= 0)
-        return -1;
-
-    char * dest = s,  * data = s;
-    while (len--) {
-        char c = *data++;
-        // 反向解码
-        if (c == '+')
-            *dest = ' ';
-        else if (c == '%' && len >= 2 
-                          && isxdigit(data[0]) 
-                          && isxdigit(data[1])) {
-            *dest = htoc(data);
-            data += 2;
-            len -= 2;
-        }
-        else {
-            *dest = c;
-        }
-        ++dest;
-    }
-    *dest = '\0';
-
-    return (int)(dest - s);
-}
-
-```
+base.h 相关内容比较很简单, 就是汇总常用头文件. **思想就是让业务使用者不再如数家珍去记忆常用头文件**. 
 
 如果有问题可以在修真岁月中道友间互相探讨补充. **stdext.h** 中 **getch** 函数可以重点关注下. 很久以前一位化神期巨擘说过: 由于 linux 对于 getch 支持不友好, 导致了 linux 错失了很多游戏开发人员. 我是挺喜欢 getch 的, 让立即交互变得轻松. 所以就顺手补上了. 继承 base.h 会让业务轻装上阵. 美好从此刻开始 ~ 
 

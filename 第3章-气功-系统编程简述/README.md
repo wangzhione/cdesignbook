@@ -310,7 +310,7 @@ extern int __cdecl pthread_mutex_lock (pthread_mutex_t * mutex);
 extern int __cdecl pthread_mutex_unlock (pthread_mutex_t * mutex);
 ```
 
-上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 本质也需要调用 pthread_mutex_destroy, 但如果默认跟随系统生命周期, 可以不用调用. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么非特殊情况最好都需要调用 pthread_xxx_destroy. 对于 pthread 我们包装一下.
+上面 PTHREAD_MUTEX_INITIALIZER 初始化的互斥量, 本质也需要调用 pthread_mutex_destroy, 但如果默认跟随系统生命周期, 可以不用调用. 对于 POSIX 线程, 假如调用了 pthread_xxx_init 那么非特殊情况最好都需要调用 pthread_xxx_destroy. 对于 pthread 简单包装一下.
 
 **thread.h**
 
@@ -356,6 +356,12 @@ extern int pthread_run(pthread_t * p, void * frun, void * arg);
 //
 inline void pthread_end(pthread_t id) {
     pthread_join(id, NULL);
+
+    /*
+     * or
+     * void * res = NULL; pthread_join(id, &res); 
+     * get frun() return void *
+     */
 }
 
 ```

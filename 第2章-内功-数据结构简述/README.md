@@ -2291,6 +2291,7 @@ bool q_init(struct q * q) {
         RETURN(false, "malloc panic Q_INT = %d", Q_INT);
     }
 
+    q->head = 0;
     q->tail = -1;
     q->cap = Q_INT;
     q->data = data;
