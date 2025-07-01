@@ -1,43 +1,29 @@
 # 第1章-代码套路-华山剑法
 
-代码风格形成风味 OR 套路后也被称呼为代码规范或者代码范式. 开发界流传至今范式很多, 其中以 Window 操作系统风格'武当流派', GNU Linux 操作系统极客风格'昆仑流派'最具代表性. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发. 本书是在昆仑流派基础上衍生, 也会尝试逐一分析其中范式缘由.
+代码风格形成风味 OR 套路后, 也可以称呼为代码规范或者代码范式. 开发界流传至今范式很多, 本文这里偏向 GNU Linux 操作系统极客风格. 无论那种流派范式, 核心都在于有章可循自成方圆, 协助和提效工程开发.
 
-在如今这个互联网末法年代, 想一招鲜吃遍天, 可能充满荆棘和挑战, 更多需要更加系统训练培养自己专业力和自我兴趣或追求. 而在成长中也会时常遇到不熟悉领域, 一种有点意思方式是, 忘记以前了解的, 立即训练需要现在知道的, 先进去学后深究. 如果此刻你正好 C 第一本语法书, 数据结构书籍刚学完, 这里将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行思索**求简求美** ~  
+如果此刻你正好 C 第一本语法书, 数据结构书籍刚学完, 这本小册子将会是很好拔高素材. 本章会围绕 针对 C 领域的范式, 带大家学习和训练 C 的起手套路. 不管怎么聊, 全文宗旨会一直延续, 写好代码首要条件是**写代码**! 然后从躬行求索**求简求美** ~  
 
 希望这本小册子带大家进入代码**写手**的世界. 尝试在自己动手中感受其中思路和设计! 
 
 ## 1.1 缘起 main
 
-很久很久以前进入一个被无数前辈巨擘称之为 main 函数. 回想其中经历的故事非常有趣. 这里只简单引述 C11 标准中规定的两种标准写法.
+main 是起点, 也是一切美好或梦魇的诞生点. C 学习历程可以从 Brian W. Kernighan / Dennis M. Ritchie 的 The C Programming Language 起步, 随后熟悉操作系统. 此后遇到疑惑问题翻阅资料, 到当下 ChatGPT 横空撕开人类纪元, 大多数问题都会前人艰苦积累中存在解法. 
 
-![img/main.png](img/main.png)
-
-main 是起点, 也是一切美好或梦魇的诞生点. C 学习历程可以从 Brian W. Kernighan / Dennis M. Ritchie 的 The C Programming Language 起步, 再到 C 标准文献, 随后熟悉操作系统. 此后遇到疑惑问题翻阅资料查看标准手册, 攀登在标准起源的山峰中, 大多数问题都会因上帝视角迎刃有解. 
-
-> 不知道这会有没有人想起 void main() {} or main() {} 写法呢?
-> 对于 void main() {} 引述 C++ 之父 Bjarne Stroustrup 在其 FAQ 中说的 
-
-> The definition void main() { /* ... * / } is not and never has been C++,
-> nor has it even been C.
-
-> 编译器'老母亲'纵容了我们的"错误".
-> 而 main() {} 最初出现在 K&R C 年代中, 那时候函数缺省定义(默认返回 int)不报警告. 
-> 当前 warning 甩过来的时候, 编译器老母亲醇厚的提醒应该重视和给予尊重. 
-
-**一切才刚刚开始 -_- Good luckly**
+**一切才刚刚开始 -___- Good luckly**
 
 ```C
 #include <stdio.h>
 
 int main(int argc, char * argv[]) {
-    fprintf(stderr, "嗨! I'm here.\n");
+    fprintf(stderr, "I'm here.\n");
     return 0;
 }
 ```
 
 ## 1.2 括号布局
 
-C 是极其强调细节的语言. 多数写手在用 C 开发的时候都会有点神经质. 难以接收铺张浪费. 恶心的是, 细节之处往往充满了妖魔神鬼, 让人'发狂'! 陆小凤通过一片落叶根蒂, 判断出自己绝不是西门吹雪对手. 同样一个 { } 布局就能见证你的起手式. 这门华山剑法 { } 遵循的如下规则和演示.
+C 是极其强调细节的语言. 多数写手在用 C 开发的时候都会有点神经质. 难以接收铺张浪费. 恶心的是, 细节之处往往充满了妖魔神鬼, 让人'发狂'! 
 
     1' 左 { 右对齐
     2' 右 } 上对齐
@@ -59,26 +45,9 @@ if (true) {
 }
 ```
 
-对于 for ( ; ; ) 和 while (true) 二者编译器最终优化生成的汇编代码是一样的, 但是推荐前者. 因为他更加简单优美. 
+对于 for ( ; ; ) 和 while (true) 二者编译器最终优化生成的汇编代码是一样的, 推荐前者. 因为他更加简单优美. 
 
-对于 if else 为什么这么写, 先看下面对比.
-
-```C
-if (true)          if (true) {          if (true) {
-{                      ...                  ...
-    ...            }                    } else if (false) {
-}                  else if (false) {        ...
-else if (false)        ...              } else {
-{                  }                        ...
-    ...            else {               }
-}                      ...
-else               }
-{
-    ...
-}
-```
-
-第一种写法是 Window 推崇的起手. 第三种是 Linux 上面常见写法. 第二种是两者的一种过渡. 对于上面三种范式, 都写过好久. 思索基于 C 精简特性, 这里推荐第三种. 更加紧凑飘逸! C 本身就是个精简的语言, 强调最小意外原则. 第一种直接 pass, 啰嗦的闸门一旦打开, 就难关上了. 第二种还是有点不极致. 同样对于 switch 语法推荐下面写法
+同样对于 switch 语法推荐下面写法
 
 ```C
 switch (errno) {
@@ -138,14 +107,14 @@ static void heoo(int a[static 64]) {
 局部代码中包含的 static 套路和潜规则剖析如下:
 
 + 第 1 个 static 表示当前函数是私有的, 被包含的文件所有, 作用域是具体文件中这个函数定义行以下范围.
-+ 第 2 个 static 是 C99 出现的语法, 告诉编译器这个"数组"至少有 64 个数据单元, 您可以放心优化.
++ 第 2 个 static 告诉编译器这个 "数组" 至少有 64 个数据单元, 您可以放心优化.
 + 第 3 个 static 表示声明一个私有静态变量 count, 作用域属于 heoo 函数域. 
 + 另一个细节是 count 生命周期同未初始化全局的变量. 默认内存都是以 0 填充的. 即这里 count = 0 是缺省的.
 
 ***
 
 > 科普 C 中 
-> **0, 00, 0x0, .0, '\0', '0', "0", NULL, false, EXIT_SUCCESS** 
+> **0, 00, 0x0, .0, '\0', '0', "0", NULL, nullptr, false, EXIT_SUCCESS** 
 > 是什么鬼!  
 
 > 我们首先看某些实现版本源码中能找见的部分
@@ -170,7 +139,11 @@ static void heoo(int a[static 64]) {
 #define EXIT_SUCCESS 0
 ```
 
-> 可以看出围绕 C 生态部分 NULL, false, EXIT_SUCCESS 都是宏. NULL 是个特殊的空指针 (void *)0, 后两个 false, EXIT_SUCCESS 具体定义是一样的数值零. 有时函数退出使用 exit(EXIT_SUCCESS); 或者 return EXIT_SUCCESS; 本书推荐采用前者 exit 写法(虽年少但沉稳老练).  开始的 0, 00, 0x0, '\0' 这几种都为零, 区别在于 00 是八进制, 0x0 是十六进制, '\0' 是字符常量. 零值都是一样的, 写者想表达出来的语义不同. .0 是 double 双精度的零, 对于 "0" 是个字符串常量, 等同于 char [2] { '0', '\0' } 这里也可以看出来 '0' 和 '\0' 不同字符常量 '0' == (int)48; 同样需要让人意外的是 C (sizeof '0' == 4)! 希望大家以后在 C 中看到这些数字, 能了然于胸, 乘云破雾.
+> 可以看出围绕 C 生态部分 NULL, false, EXIT_SUCCESS 都是宏. NULL 是个特殊的空指针 (void *)0, 后两个 false, EXIT_SUCCESS 具体定义是一样的数值零. 有时函数退出使用 exit(EXIT_SUCCESS); 或者 return EXIT_SUCCESS; 本书推荐采用前者 exit 写法(虽年少但沉稳老练).  开始的 0, 00, 0x0, '\0' 这几种都为零, 区别在于 00 是八进制, 0x0 是十六进制, '\0' 是字符常量. 零值都是一样的, 写者想表达出来的语义不同. .0 是 double 双精度的零, 对于 "0" 是个字符串常量, 等同于 char [2] { '0', '\0' } 这里也可以看出来 '0' 和 '\0' 不同字符常量 '0' == (int)48; 同样需要让人意外的是 C (sizeof '0' == 4)! 
+
+其中新的 nullptr 关键字用于替代宏 NULL, 让语义更加安全标准可控.
+
+希望大家以后在 C 中看到这些数字, 能了然于胸, 乘云破雾.
 
 ***
 
@@ -210,19 +183,12 @@ int test(void) {
 > **2' 编译器没有警告原因, 先看截取部分源码**
 
 ```C
-#if defined(__GNUC__) || defined(__clang__)
-    #define NORETURN(func) func __attribute__((noreturn))
-#elif defined(_MSC_VER)
-    #define NORETURN(func) __declspec(noreturn) func
-#endif
-
-// C11 中为其构造了新的关键字 _Noreturn
-_Noreturn void suicide(void) {
-    abort(); // Actually, abort is _Noreturn as well
+noreturn void suicide(void) {
+    abort(); // Actually, abort is noreturn as well
 }
 ```
 
-> 脉络比较清晰了, 因为 exit 经过 _Noreturn 类似声明(标识), 永不返回, 因此编译器编译时就不再抛出无返回值警告. 分享 Over 哈哈哈. **赠送个打桩小技巧. 在协同开发时, 先快速设计好接口给对接方. 随后来个空实现!**
+> 脉络比较清晰了, 因为 exit 经过 noreturn 类似声明(标识), 永不返回, 因此编译器编译时就不再抛出无返回值警告. 
 
 ***
 
@@ -275,9 +241,9 @@ int ** arrs = NULL;
 typedef void (* signal_f)(int sig);
 ```
 
-关于指针范式基调主要如上, 简单补充关于 C 变量声明. C 目前共有 44 个关键字, 推荐命名要短小**精悍**. 强烈不推荐驼峰规则, 因为在远古时期 C 是不区分大小写所以很多库形成了小写传统. 而且 C 代码本身不容易读懂, 要懂的人会懂. 推荐遵从内核源码古法. 命名语义区分用 _ 分隔. C 也许不能让工资飞高, 但是可以让你在面对复杂问题的时候容易有细节思路 ~
+C 变量声明推荐命名要短小**精悍**. 强烈不推荐驼峰规则, 因为在远古时期 C 是不区分大小写所以很多库形成了小写传统. 而且 C 代码本身不容易读懂, 要懂的人会懂. 
 
-小节最后不妨借花献佛. 引述<<C 语言问题>>书中让人豁然开朗, 关于 C 命名经典问题.
+小节最后 引述 <<C 语言问题>> 中关于 C 命名经典问题.
 
 ```C
 问: 如何判断哪些标识符可以使用, 那些被保留了?
@@ -308,7 +274,7 @@ typedef void (* signal_f)(int sig);
 
 ## 1.5 C 中三大战神 - 宏 - 封神记·天
 
-宏有点爽也有些疯狂. 需切记教条[能用 inline 内联, 就不要用宏!] 如果说指针是自由, 那宏就是噩梦. 我们从 **struct.h** 来认识这个偏执狂.
+宏有点爽也有些疯狂. 需切记教条 **[能用 inline 内联, 就不要用宏!]** 如果说指针是自由, 那宏就是噩梦. 我们从 **struct.h** 来认识这个偏执狂.
 
 ```C
 #pragma once
@@ -326,7 +292,6 @@ typedef void (* signal_f)(int sig);
 #include <stdarg.h>
 #include <stdint.h>
 #include <limits.h>
-#include <stdbool.h>
 #include <inttypes.h>
 
 //
@@ -351,51 +316,6 @@ typedef void (* signal_f)(int sig);
 #define LEN(a)  ((int)(sizeof(a) / sizeof(*(a))))
 #endif
 
-
-#ifndef CMP_F
-#define CMP_F
-
-//
-// cmp_f - left now node 比较 right input node 行为 > 0 or = 0  or < 0
-// : int add_cmp(const void * now, const void * node)
-//
-typedef int (* cmp_f)();
-
-#endif//CMP_F
-
-#ifndef NEW_F
-#define NEW_F
-
-//
-// new_f - 构建行为
-// : void * rtree_new(void * node)
-//
-typedef void * (* new_f)();
-
-#endif//NEW_F
-
-#ifndef NODE_F
-#define NODE_F
-
-//
-// node_f - 销毁行为
-// : void list_die(void * node)
-//
-typedef void (* node_f)();
-
-#endif//NODE_F
-
-#ifndef EACH_F
-#define EACH_F
-
-//
-// each_f - 遍历行为, node 是内部结点, arg 是外部参数; 返回值推荐 0 标识正确, -1 标识错误
-// : int echo(void * node, void * arg) { return 0; }
-//
-typedef int (* each_f)(void * node, void * arg);
-
-#endif//EACH_F
-
 //
 // DCODE - DEBUG 模式下的测试宏
 // DCODE({
@@ -417,14 +337,14 @@ typedef int (* each_f)(void * node, void * arg);
 //
 #define EXTERN_RUN(frun, ...)                                           \
 do {                                                                    \
-    extern void frun();                                                 \
+    extern void frun(...);                                              \
     frun (__VA_ARGS__);                                                 \
 } while(0)
 
 // PRINTF fprintf 包装操作宏. time_t x64 8字节 window %lld, linux %ld
 #define PRINTF(stream, error, fmt, ...)                                 \
 fprintf(stream, "[%"PRId64"]["#stream"][%s:%s:%d][%d:%s]"fmt"\n",       \
-    time(NULL),                                                         \
+    time(nullptr),                                                      \
     __FILE__, __func__, __LINE__, error, strerror(error), ##__VA_ARGS__)
 
 #define POUT(fmt, ...)                                                  \
@@ -469,7 +389,7 @@ do {                                                                    \
 RETURN(NIL , fmt, ##__VA_ARGS__)
 
 #define RETNUL(fmt, ...)                                                \
-RETURN(NULL, fmt, ##__VA_ARGS__)
+RETURN(nullptr, fmt, ##__VA_ARGS__)
 
 // -1 是系统开发中最常见也算默认 error value 标识
 #define RETERR(fmt, ...)                                                \
@@ -510,26 +430,44 @@ RETURN(-1  , fmt, ##__VA_ARGS__)
 #  define ISBIG
 # endif
 
-# ifndef likely
-#   define likely(x)   __builtin_expect(!!(x), 1)
-# endif
-# ifndef unlikely
-#   define unlikely(x) __builtin_expect(!!(x), 0)
-# endif
-
 #endif
 
+// 消除编译器警告
 #ifndef UNUSED
 #define UNUSED(parameter) if (parameter) {}
 #endif//UNUSED
 
-//
-// With the new <stdbit.h>
-// Endian macros (__STDC_ENDIAN_BIG__, __STDC_ENDIAN_LITTLE__, __STDC_ENDIAN_NATIVE__)
+#ifndef STRUCT_F
+#define STRUCT_F
 
+//
+// cmp_f - left now node 比较 right input node 行为 > 0 or = 0  or < 0
+// 可以类似 int add_cmp(const void * now, const void * node)
+//
+typedef int (* cmp_f)(...);
+
+//
+// new_f - 构建行为
+// 可以类似 void * rtree_new(void * node)
+//
+typedef void * (* new_f)(...);
+
+//
+// node_f - 销毁行为
+// 可以类似 void list_die(void * node)
+//
+typedef void (* node_f)(...);
+
+//
+// each_f - 遍历行为, node 是内部结点, arg 是外部参数; 返回值推荐 0 标识正确, -1 标识错误
+// 可以类似 int echo(void * node, void * arg) { return 0; }
+//
+typedef int (* each_f)(void * node, void * arg);
+
+#endif//STRUCT_F
 ```
 
-这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式风味! 基调是**推荐不强求**, 求美求简 ❤ 就好. 上面 **struct.h** 封装一些函数指针类型主要为了后面写演示代码方便, 实战封装跟着具体的库走.
+这里主要讲解华山剑法中宏的命名基本准则. 以下关于宏态度和演示, 多感受其中范式风味! 基调是**推荐不强制**, 求美求简 ❤ 就好. 上面 **struct.h** 封装一些函数指针类型主要为了后面写演示代码方便, 实战封装跟着具体的库走.
 
 **克制使用, 推荐用最清晰版本**
 
@@ -604,7 +542,7 @@ static unsigned SDBMHash(const char * k) {
     return h;
 }
 
-static atomic_int id = ATOMIC_VAR_INIT(1);
+static _Atomic int id = 1;
 
 //
 // EXTERN_TEST  - 单元测试宏, 并打印执行时间
@@ -679,29 +617,9 @@ inline void cstr_free(cstr_t cs) {
 #endif//CSTR_INT
 ```
     
-到这基本把 C 的华山剑法的总纲讲的有小些了. 按照流派范式去写, 你会有更多的时间去学高深心法, 年岁久了再出来构建你自己的独孤草上飞. 同是不年轻的穷"屌丝", 要学会适应, 不流血那就流水. 都不简单, 也不难 ~
+到这基本把 C 的华山剑法的总纲讲的有小些了. 按照范式去写, 你会更节省时间, 年岁久了再出来构建你自己的独孤草上飞. 同是不年轻的穷"屌丝", 要学会适应, 不流血那就流水. 都不轻松 ~
 
-## 1.6 绝世好剑
-
-万般皆自然, 一通都顺, 魔鬼在勤勉踏实的大道上ヾ(๑╹◡╹)ﾉ" 需要时间培养兴趣. 这里的绝世好剑指的是你的编程环境. 硬件方面要是可以的话买最快, 最美, 最便宜的套装. 软件方面, 我们只简单介绍昆仑流派.
-
-**昆仑流派**  
-    
-a) Install Best New Ubuntu Desktop LTS ISO
-b) Install Best New GCC, GDB, VIM
-c) Install Best New Visual Studio Code
-
-Linux 是业界标杆, 简单高效优美. vi gcc make 能够搞定一切. 无数的一手资料, 强大的 man 手册. 题外话, 自己用老式 Linux 机器很快, 所以推荐一定要玩玩 Linux 平台, 其实什么环境都行(Window 系统技术进阶最曲折缓慢但操作上特别综合简单好用, Mac 非常舒服, Linux 很纯粹), 怎么舒服怎么来, 但都要醇厚精通 ~ 
-
-**剑指何方**  
-
-个人感悟, 跨平台对于浮游生物而言是在浪费生命, 有些人单纯的用 Linux, 感觉非常纯粹, 越纯粹越强. Linux 是个回报率很高的平台. 但自从走上了 C 系语言之路. 真是天高地厚不知路长 ~ 岁月过的非常快 ... 书本内容很少更广阔世界留给各自兴趣去探索感悟吧 ~
-
-## 1.7 夜太黑练剑好时光
-
-聊的有些多, 细节部分需要自己亲身建构. 回想起 2013 年看<<自制编程语言>>那本书, 惊为天人. 感觉作者实力好强. 因为看不明白, 强行撸, 狂看猛打最后懂了点, 收益良多(虽然已经忘记了, 但却是另一番体验). 在编程的世界里, 不需要太多前缀, 初期只要 wo are 正在用手挥舞! 中后期需要兴趣和喜欢, 短期是出不了长期的成就 ~
-
-如果一样只是为了, 更有意思的活着. 那么学起来就更随意了, 君子当善假于物! 熟悉工具, 实现想法, 自我积蓄德(包括武德)才 ~ 然后落叶生根, 想想也挺好.
+## 1.6 练手好时光
 
 如果你没有对象, 那就使劲敲代码
 
@@ -711,17 +629,17 @@ Linux 是业界标杆, 简单高效优美. vi gcc make 能够搞定一切. 无�
 
 如果你真不甘心, 那就呵呵萌萌哒
 
-书归正转, 前面 **struct.h** 头文件中其实少了正规项目一个处理内存分配模块, 简单点说是我们对 malloc / free 等内存操作接口怎么处理的包装层. 常见的是下面这样模式
+前面 **struct.h** 头文件中其实少了正规项目一个处理内存分配模块, 简单点说是我们对 malloc / free 等内存操作接口怎么处理的包装层. 常见的是下面这样模式
 
 ```C
 void * ptr = malloc(sizeof (struct type));
-if (ptr == NULL) {
+if (ptr == nullptr) {
     // 业务兜底逻辑
 }
 free(ptr);
 ```
 
-通过和 NULL 比较, 但实战中往往更加复杂, 因为内存不够时候, 程序在复杂系统中运行的情况往往是未定义的. 这个很考研工程师业务和技术理解, 也看系统整体规划. 这里简陋写一种简单粗暴方式方便大家感受下这类情况处理方法之一
+通过和 nullptr 比较, 但实战中往往更加复杂, 因为内存不够时候, 程序在复杂系统中运行的情况往往是未定义的. 这个很考研工程师业务和技术理解, 也看系统整体规划. 这里简陋写一种简单粗暴方式方便大家感受下这类情况处理方法之一
 
 ```C
 #pragma once
@@ -737,7 +655,7 @@ free(ptr);
 
 // ation_check 内存检测并处理
 inline void * ation_check(void * ptr, size_t size) {
-    if (ptr == NULL) {
+    if (ptr == nullptr) {
         fprintf(stderr, "check memory collapse %zu\n", size);
         fflush (stderr);
         abort();
@@ -760,15 +678,15 @@ inline void * ation_malloc(size_t size) {
 // return   : 拷贝后新的 C 字符串
 //
 inline char * ation_strdup(const char * str) {
-    if (str != NULL) {
+    if (str != nullptr) {
         size_t n = strlen(str) + 1;
         return memcpy(ation_malloc(n), str, n);
     }
-    return NULL;
+    return nullptr;
 }
 
 inline char * ation_strndup(const char * str, size_t size) {
-    if (str != NULL) {
+    if (str != nullptr) {
         // @see https://stackoverflow.com/questions/66346502/which-is-most-standard-strnlen-or-strnlen-s/66347259#66347259
         // POSIX 标准真是良心. 好的标准往往容易有好的生态. 而不需要程序员和土匪似得东抢西偷.
         size_t n = strnlen(str, size);
@@ -776,7 +694,7 @@ inline char * ation_strndup(const char * str, size_t size) {
         dup[n] = 0;
         return memcpy(dup, str, n);
     }
-    return NULL;
+    return nullptr;
 }
 
 //
@@ -814,7 +732,7 @@ inline void * ation_realloc(void * ptr, size_t size) {
 对于上面真的内存不足去打印信息 fprintf 也是未定义, 大多数情况没问题吧. 以上简单直接使用操作系统能力, 也可以采用了近代软件编程中免费午餐 jemalloc 来包装自己的 alloc.h 层. jemalloc 科普可以搜查资料, 对于如何编译成静态库并使用, 可在 jemalloc github 主页获取官方方法. 整体 alloc.h 是可插拔的, 这也是程序封装一个好技巧, 好用方便. 
 
 
-:0 初期练习的人体内要感受到兴奋 和 颤抖 ~ 原来变强就是这么简单, 系统临摹和训练. 啊哈. 此刻只想说三个字, 这很 cool ~ 享受 code.
+:0 ~ 享受 code.
 
 ***
 
