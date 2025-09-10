@@ -24,7 +24,7 @@
 //
 // list.h 似魔鬼的步伐, 单链表库
 // $LIST 需要嵌入 struct 的第一行
-// void * list = NULL;      //        create list
+// void * list = nullptr;      //        create list
 // list_delete(list, fide); // [可选] delete list
 //
 struct $list {
@@ -69,7 +69,7 @@ extern void list_add(void * pist, void * fadd, void * left);
 // list     : 链表对象
 // fget     : cmp_f 链表中查找数据行为
 // left     : 待查找的辅助数据 
-// return   : 查找到的结点, NULL 表示没有查到
+// return   : 查找到的结点, nullptr 表示没有查到
 //
 extern void * list_get(void * list, void * fget, const void * left);
 
@@ -78,36 +78,43 @@ extern void * list_get(void * list, void * fget, const void * left);
 // pist     : void ** 指向链表对象指针
 // fget     : cmp_f 链表中查找数据行为
 // left     : 待查找的辅助数据 
-// return   : 查找到的结点, NULL 表示没有查到 
+// return   : 查找到的结点, nullptr 表示没有查到 
 //
 extern void * list_pop(void * pist, void * fget, const void * left);
 
 ```
 
-其中很多 void * 用于消除编译器警告. 也可以用宏操作来消除警告, 推荐宏最好能不用就不要用宏. 毕竟宏调试不是很方便, 对个人功力道行要求很高, 让新人难以为继. 而对于继承的头文件 struct.h 可以参看第1章设计部分, 这里轻微回顾一下.
+其中很多 void * 用于消除编译器警告. 也可以用宏操作来消除警告, 推荐宏最好能不用就不要用宏. 毕竟宏调试很不方便. 而对于继承的头文件 struct.h 可以参看第1章设计部分, 这里轻微回顾一下.
 
 ```C
-#ifndef CMP_F
-#define CMP_F
+#ifndef STRUCT_F
+#define STRUCT_F
 
 //
 // cmp_f - left now node 比较 right input node 行为 > 0 or = 0  or < 0
-// : int add_cmp(const void * now, const void * node)
+// 可以类似 int add_cmp(const void * now, const void * node)
 //
-typedef int (* cmp_f)();
+typedef int (* cmp_f)(...);
 
-#endif//CMP_F
-
-#ifndef NODE_F
-#define NODE_F
+//
+// new_f - 构建行为
+// 可以类似 void * rtree_new(void * node)
+//
+typedef void * (* new_f)(...);
 
 //
 // node_f - 销毁行为
-// : void list_die(void * node)
+// 可以类似 void list_die(void * node)
 //
-typedef void (* node_f)();
+typedef void (* node_f)(...);
 
-#endif//NODE_F
+//
+// each_f - 遍历行为, node 是内部结点, arg 是外部参数; 返回值推荐 0 标识正确, -1 标识错误
+// 可以类似 int echo(void * node, void * arg) { return 0; }
+//
+typedef int (* each_f)(void * node, void * arg);
+
+#endif//STRUCT_F
 ```
 
 对于 **struct $list { struct $list * next; };** 链式结构的设计方式, 可以稍微思考一下, 等同于内存级别的继承. '$' (类似 _, __ 这些, 存在极微小时候可能会和编译器生成的冲突) 符号希望标识当前结构是私有的, 不推荐使用, 或者使用要谨慎, 需要知道其内存的全貌. 下面用以上 list 提供的接口原型, 构建 people list 演示例子
@@ -193,7 +200,7 @@ list_delete(void * pist, void * fdie) {
             ((node_f)fdie)(head);
             head = next;
         }
-        *(void **)pist = NULL;
+        *(void **)pist = nullptr;
     }
 }
 ```
@@ -303,12 +310,12 @@ version = { major = 1, minor = 2, micro = 3 }
 // pist     : void ** 指向链表对象指针
 // fget     : cmp_f 链表中查找数据行为
 // left     : 待查找的辅助数据 
-// return   : 查找到的结点, NULL 表示没有查到 
+// return   : 查找到的结点, nullptr 表示没有查到 
 //
 void * 
 list_pop(void * pist, void * fget, const void * left) {
     if (!pist || !*(void **)pist || !fget) 
-        return NULL;
+        return nullptr;
 
     // 看是否是头结点
     struct $list * head = *(void **)pist;
@@ -325,30 +332,25 @@ list_pop(void * pist, void * fget, const void * left) {
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 ```
 
 同样有 3 部曲, step 1 检查, step 2 头结点处理, step 3 非头结点处理. 需要注意的是 list_pop 只是在 list 中通过 fget(left, x) 弹出结点. 后续 free or delete 操作还得依赖使用方自行控制.
 
 ```C
-#ifndef CMP_F
-#define CMP_F
-
 //
 // cmp_f - left now node 比较 right input node 行为 > 0 or = 0  or < 0
-// : int add_cmp(const void * now, const void * node)
+// 可以类似 int add_cmp(const void * now, const void * node)
 //
-typedef int (* cmp_f)();
-
-#endif//CMP_F
+typedef int (* cmp_f)(...);
 
 //
 // list_get - 查找到链表中指定结点值, fget(left, x) == 0
 // list     : 链表对象
 // fget     : cmp_f 链表中查找数据行为
 // left     : 待查找的辅助数据 
-// return   : 查找到的结点, NULL 表示没有查到
+// return   : 查找到的结点, nullptr 表示没有查到
 //
 void * 
 list_get(void * list, void * fget, const void * left) {
@@ -360,19 +362,14 @@ list_get(void * list, void * fget, const void * left) {
             head = head->next;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
-#ifndef EACH_F
-#define EACH_F
-
 //
-// each_f - 遍历行为, node 是内部结点, arg 是外部参数
-// : int echo(void * node, void * arg) { return 0; }
+// each_f - 遍历行为, node 是内部结点, arg 是外部参数; 返回值推荐 0 标识正确, -1 标识错误
+// 可以类似 int echo(void * node, void * arg) { return 0; }
 //
 typedef int (* each_f)(void * node, void * arg);
-
-#endif//EACH_F
 
 int 
 list_each(void * list, void * feach, void * arg) {
@@ -392,7 +389,7 @@ list_each(void * list, void * feach, void * arg) {
 
 list_get 和 list_each 代码是质朴中的质朴啊. 其中 list_each 注入 each_f 函数指针, 通过返回值来精细化控制 list_each 执行行为. 不好意思到这 list 设计套路解释完了. 喜欢的朋友可以多写几遍代码去反复体会其中思路然后再分享运用 ~
 
-实战时候更多直接用原始链表结构, NULL head list 或者 empty head list 结构, 读者可以查阅资料和反复练习增删改查体会其中蕴含的巧妙.
+实战时候更多直接用原始链表结构, nullptr head list 或者 empty head list 结构, 读者可以查阅资料和反复练习增删改查体会其中蕴含的巧妙.
 
 ```C
 //
@@ -401,7 +398,7 @@ list_get 和 list_each 代码是质朴中的质朴啊. 其中 list_each 注入 e
 typedef void (* file_f)(FILE * c, void * arg);
 
 struct file {
-    file_f func;     // 执行行为, NULL 标识删除
+    file_f func;     // 执行行为, nullptr 标识删除
     void * arg;      // 行为参数
     char * path;     // 文件路径
     unsigned hash;   // path hash
@@ -486,7 +483,7 @@ extern char * str_sprintf(const char * fmt, ...) __attribute__((format(printf, 1
 //
 // str_freads - 读取整个文件内容返回, 需要事后 free
 // path     : 文件路径
-// return   : 文件内容字符串, NULL 表示读取失败
+// return   : 文件内容字符串, nullptr 表示读取失败
 //
 extern char * str_freads(const char * path);
 
@@ -527,69 +524,19 @@ unsigned BKDHash(const char * str) {
 BKDHash 延续了 C 语言之父展示一种极其简便快速 hash 算法实现. 哈希(hash)映射相当于定义数学上一个函数, f (char *) 映射为 unsigned 数值. 意图通过数值一定程度上反向确定这个字符串. 思路特别巧妙. 同样也隐含了一个问题, 如果两个串映射一样的值, 那怎么搞. 常用术语叫碰撞, 解决碰撞也好搞. 套路不少有桶式 hash, 链式 hash, 混合 hash(后面会看见相关例子). 回到问题, 即如果发生碰撞了后续怎么办? 假设把保存 hash 值集合的地方叫海藻池子, 需要面对棘手问题是当池子中海藻挤在一起(碰撞)了, 怎么办? 除了扩大池子, 降低海藻碰撞几率直接办法. 常见的一种思路碰撞了是吧, 挨个找位置放置这些碰撞的. 另一种思路当池子中海藻挤在一块吹泡泡的时候, 那我们单独开小水沟把这些吹泡泡的海藻全引流到小水沟中, 思路是碰撞的单独放一起. 实际场景更多更加有趣推荐阅读更专业数据结构书籍和资料, 把 hash 设计和编码仔细分析明白! 而对于 hash 最重要特性是"两个模型映射的哈希值不一样, 那么二者一定不一样!". 通过这个特性在数据查找时能够快速刷掉一批! 这也是这种数据结构迷人地方.
 
 ```C
-//
-// str_cpyn - tar 复制内容到 src 中
-// src      : 返回保存内容
-// tar      : 目标内容
-// n        : 最大容量
-// return   : 返回字符串长度
-//
 int 
 str_cpyn(char * src, const char * tar, size_t n) {
-    size_t i;
-    if (!src || !tar || !n) return -1;
-    for (i = 1; 
-        (i < n) && (*src++ = *tar++); ++i)
-        ;
-    if (i == n) *src = '\0';
-    return (int)i - 1;
+    if (src == nullptr || tar == nullptr || n == 0) return -1;
+
+    size_t i = 1;
+    while (i < n && (*src++ = *tar++) != 0)
+        i++;
+    if (i == n) *src = 0;
+    return (int) (i - 1);
 }
 ```
 
-函数写的很普通. 完全算不上"高效"(没采用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常参数处理, 这也是要写这些函数原因, 不希望传入 NULL 就崩溃. 类似练习还可以有
-
-```C
-//
-// str_cmpi - 字符串不区分大小写比较函数
-// ls       : 左串
-// rs       : 右串
-// return   : ls > rs 返回 > 0; ... < 0; ... =0
-//
-int 
-str_cmpi(const char * ls, const char * rs) {
-    int l, r;
-    if (!ls || !rs) return (int)(ls - rs);
-    do {
-        if ((l = *ls++) >= 'A' && l <= 'Z')
-            l += 'a' - 'A';
-        if ((r = *rs++) >= 'A' && r <= 'Z')
-            r += 'a' - 'A';
-    } while (l == r && l);
-    return l - r;
-}
-
-//
-// str_cmpin - 字符串不区分小写的限定字符比较函数
-// ls       : 左串
-// rs       : 右串
-// n        : 长度
-// return   : ls > rs 返回 > 0; ... < 0; ... =0
-//
-int 
-str_cmpin(const char * ls, const char * rs, size_t n) {
-    int l, r;
-    if (!ls || !rs || !n) return (int)(ls - rs);
-    do {
-        if ((l = *ls++) >= 'A' && l <= 'Z')
-            l += 'a' - 'A';
-        if ((r = *rs++) >= 'A' && r <= 'Z')
-            r += 'a' - 'A';
-    } while (--n > 0 && l == r && l);
-    return l - r;
-}
-```
-
-实战中我们推荐 strcasecmp 和 stricasecmp POSIX 标准中 api. 再看看 trim 函数.
+函数写的很普通. 完全算不上"高效"(没采用编译器特定函数优化, 例如按照字长比较函数). 胜在有异常参数处理, 这也是要写这些函数原因, 不希望传入 nullptr. 
 
 ```C
 //
@@ -648,15 +595,15 @@ str_sprintf(const char * fmt, ...) {
     // 确定待分配内存 size
     va_list arg;
     va_start(arg, fmt);
-    int n = vsnprintf(NULL, 0, fmt, arg);
+    int n = vsnprintf(nullptr, 0, fmt, arg);
     va_end(arg);
 
     if (n < 0) 
-        return NULL;
+        return nullptr;
 
     // 获取待分配内存, 尝试填充格式化数据
     char * ret = malloc(++n);
-    if (ret == NULL) {
+    if (ret == nullptr) {
         RETNUL("malloc panic n = %d", n);
     }
 
@@ -666,37 +613,37 @@ str_sprintf(const char * fmt, ...) {
 
     if (n < 0) {
         free(ret);
-        return NULL;
+        return nullptr;
     }
 
     return ret;
 }
 ```
 
-核心思路是利用 **vsnprintf(NULL, 0, fmt, arg)** 得到 max len, 多看 man 手册还是有好处的. 后面实现部分直接先贴上一块看.  
+核心思路是利用 **vsnprintf(nullptr, 0, fmt, arg)** 得到 max len, 多看 man 手册还是有好处的. 后面实现部分直接先贴上一块看.  
 
 ```C
 //
 // str_freads - 读取整个文件内容返回, 需要事后 free
 // path     : 文件路径
-// return   : 文件内容字符串, NULL 表示读取失败
+// return   : 文件内容字符串, nullptr 表示读取失败
 //
 char * 
 str_freads(const char * path) {
-    if (path == NULL || *path == 0) return NULL;
+    if (path == nullptr || *path == 0) return nullptr;
     int64_t size = fsize(path);
-    if (size <  0) return NULL;
+    if (size <  0) return nullptr;
     if (size == 0) return calloc(1, sizeof (char));
 
     // 尝试打开文件读取处理
     FILE * txt = fopen(path, "rb");
-    if (txt == NULL) return NULL;
+    if (txt == nullptr) return nullptr;
 
     // 构建最终内存
     char * str = malloc(size + 1);
-    if (str == NULL) {
+    if (str == nullptr) {
         // 隐含内存不足问题
-        RETNUL("malloc panic return nullptr size = %ld", size);
+        RETNUL("malloc panic return nullptrptr size = %ld", size);
     }
 
 
@@ -705,7 +652,7 @@ str_freads(const char * path) {
     if (ferror(txt)) {
         free(str);
         fclose(txt);
-        return NULL;
+        return nullptr;
     }
     fclose(txt);
 
@@ -753,6 +700,7 @@ inline int
 str_fappends(const char * path, const char * str) {
     return str_fwrite(path, str, "ab");
 }
+
 ```
 
 **str_freads** 中 **fsize** 获取文件大小功能来自于 **stdext.h** 中, 这个功能实现我们放在后面讲. str_fwrite 设计仅仅对系统的文件输出函数包装一下. 以上关于 string.h 接口扩展部分不华丽, 但又是不可或缺, 适合传授新手, 带其练手和快速上手 ~
